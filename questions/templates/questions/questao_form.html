@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Revisar questão {{ questao.numero }}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading"><h2>Revisar questão {{ questao.numero }}</h2></div>
+    <div class="form-panel">
+        <form method="post" action="{% url 'questions:questao_editar' questao.pk %}">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-grid">
+                <div>
+                    <label for="{{ form.numero.id_for_label }}">Número</label>
+                    {{ form.numero }}{{ form.numero.errors }}
+                </div>
+                <div>
+                    <label for="{{ form.gabarito.id_for_label }}">Gabarito</label>
+                    {{ form.gabarito }}{{ form.gabarito.errors }}
+                </div>
+                <div class="full">
+                    <label for="{{ form.enunciado_md.id_for_label }}">Enunciado (markdown)</label>
+                    {{ form.enunciado_md }}{{ form.enunciado_md.errors }}
+                </div>
+            </div>
+            {% if questao.imagens.all %}
+                <p class="form-note">Imagens associadas:</p>
+                <div class="cards-grid">
+                    {% for img in questao.imagens.all %}
+                        <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:220px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Salvar e marcar disponível</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

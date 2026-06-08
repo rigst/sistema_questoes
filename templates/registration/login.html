@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+    <div class="section-heading">
+        <h2>Entrar</h2>
+        <p>Estude por questões: importe PDFs de concurso, separe as questões e aplique prompts com IA.</p>
+    </div>
+
+    <div class="form-panel" style="max-width:460px;">
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="form-grid">
+                <div class="full">
+                    <label for="{{ form.username.id_for_label }}">Usuário</label>
+                    {{ form.username }}
+                    {{ form.username.errors }}
+                </div>
+                <div class="full">
+                    <label for="{{ form.password.id_for_label }}">Senha</label>
+                    {{ form.password }}
+                    {{ form.password.errors }}
+                </div>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Entrar</button>
+            </div>
+        </form>
+
+        <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border, #e5e7eb);">
+
+        <form method="post" action="{% url 'accounts:entrar_visitante' %}">
+            {% csrf_token %}
+            <p class="form-note">Sem conta? Experimente como <strong>visitante</strong> — dados temporários, uso de IA limitado.</p>
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-secondary">Entrar como visitante</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

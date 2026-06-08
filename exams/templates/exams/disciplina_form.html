@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }} · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="form-back-action">
+        <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_detalhe' prova.pk %}">Voltar</a>
+    </div>
+    <div class="section-heading"><h2>{{ titulo }}</h2></div>
+
+    <div class="form-panel">
+        <form method="post" data-unsaved-warning="1">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-grid">
+                <div class="full">
+                    <label for="{{ form.nome.id_for_label }}">Nome</label>
+                    {{ form.nome }}{{ form.nome.errors }}
+                </div>
+                <div>
+                    <label for="{{ form.ordem.id_for_label }}">Ordem</label>
+                    {{ form.ordem }}{{ form.ordem.errors }}
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

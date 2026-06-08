@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Prompts · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <h2>Prompts</h2>
+        <div class="inline-actions">
+            <a class="btn btn-primary" href="{% url 'prompts:novo' %}">Novo prompt</a>
+        </div>
+    </div>
+
+    {% if prompts %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nome</th><th>Tipo</th><th class="actions-col">Ações</th></tr></thead>
+                <tbody>
+                    {% for p in prompts %}
+                        <tr>
+                            <td>{{ p.nome }}</td>
+                            <td>{{ p.get_tipo_display }}</td>
+                            <td class="actions-col">
+                                <a class="btn btn-secondary btn-compact" href="{% url 'prompts:editar' p.pk %}">Editar</a>
+                                <a class="btn btn-danger btn-compact" href="{% url 'prompts:excluir' p.pk %}">Excluir</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state"><p>Nenhum prompt cadastrado. Crie um completo e um sucinto para revisão.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

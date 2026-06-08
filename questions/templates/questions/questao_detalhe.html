@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Questão {{ questao.numero }} · Resultados{% endblock %}
+
+{% block content %}
+<section>
+    <div class="form-back-action">
+        <a class="btn btn-secondary btn-compact" href="{% url 'questions:disciplina' questao.disciplina.pk %}">Voltar</a>
+    </div>
+    <div class="section-heading">
+        <h2>Questão {{ questao.numero }}</h2>
+        <span class="badge badge-{{ questao.status }}">{{ questao.get_status_display }}</span>
+    </div>
+
+    <div class="form-panel" style="margin-bottom:1rem;">
+        <p style="white-space:pre-wrap;">{{ questao.enunciado_md }}</p>
+        {% if questao.gabarito %}<p><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
+        {% if questao.imagens.all %}
+            <div class="cards-grid">
+                {% for img in questao.imagens.all %}
+                    <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:260px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+        <form method="post" action="{% url 'ai:aplicar' questao.pk %}" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;width:100%;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
+            <select name="prompt_id" id="prompt_id" required>
+                <option value="">— escolha —</option>
+                {% for p in prompts %}
+                    <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
+        </form>
+    </div>
+
+    <div class="section-heading"><h2>Resultados ({{ resultados.count }})</h2></div>
+    {% for r in resultados %}
+        <div class="form-panel" style="margin-bottom:.75rem;">
+            <div class="section-heading">
+                <h3>{{ r.prompt.nome }} <span class="badge badge-{{ r.status }}">{{ r.get_status_display }}</span></h3>
+                <div class="inline-actions">
+                    <span class="user-role">{{ r.criado_em|date:"d/m/Y H:i" }} · {{ r.total_tokens }} tokens</span>
+                    <form method="post" action="{% url 'ai:resultado_excluir' r.pk %}" data-confirm="Remover este resultado?">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn-danger btn-compact">Remover</button>
+                    </form>
+                </div>
+            </div>
+            {% if r.resultado_md %}<div style="white-space:pre-wrap;">{{ r.resultado_md }}</div>{% endif %}
+            {% if r.erro %}<p style="color:var(--danger)">{{ r.erro }}</p>{% endif %}
+        </div>
+    {% empty %}
+        <div class="empty-state"><p>Nenhum prompt aplicado ainda.</p></div>
+    {% endfor %}
+</section>
+{% endblock %}

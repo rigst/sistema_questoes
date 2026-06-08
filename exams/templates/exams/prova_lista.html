@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Provas · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <h2>Provas</h2>
+        <div class="inline-actions">
+            <a class="btn btn-primary" href="{% url 'exams:prova_nova' %}">Nova prova</a>
+        </div>
+    </div>
+
+    {% if provas %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Prova</th><th>Disciplinas</th><th class="actions-col">Ações</th></tr></thead>
+                <tbody>
+                    {% for prova in provas %}
+                        <tr class="clickable-row" data-row-href="{% url 'exams:prova_detalhe' prova.pk %}">
+                            <td>{{ prova.nome }}</td>
+                            <td>{{ prova.n_disciplinas }}</td>
+                            <td class="actions-col">
+                                <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_editar' prova.pk %}">Editar</a>
+                                <a class="btn btn-danger btn-compact" href="{% url 'exams:prova_excluir' prova.pk %}">Excluir</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state"><p>Nenhuma prova cadastrada.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

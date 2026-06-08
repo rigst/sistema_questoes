@@ -1,0 +1,19 @@
+[Unit]
+Description=Gunicorn daemon — Sistema de Estudos por Questões
+After=network.target
+
+[Service]
+User=rodrigostolben
+Group=www-data
+WorkingDirectory=/home/rodrigostolben/Projetos/sistema_questoes
+EnvironmentFile=/home/rodrigostolben/Projetos/sistema_questoes/.env
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+ExecStart=/home/rodrigostolben/Projetos/sistema_questoes/.venv/bin/gunicorn \
+          --config /home/rodrigostolben/Projetos/sistema_questoes/deploy/gunicorn.conf.py \
+          config.wsgi:application
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

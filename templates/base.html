@@ -1,0 +1,346 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Estudo por Questões{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
+
+    <!-- Google Fonts (design system Stölben: Inter + Manrope) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Design system Stölben (tokens + componentes .ds-*) -->
+    <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}">
+    <!-- Camada específica do app (sobre os tokens do DS) -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="ds-root {% block body_class %}{% endblock %}">
+    <script>
+    (function () {
+      try {
+        var pref = localStorage.getItem("orca-list-view");
+        var cards = window.matchMedia("(max-width: 760px)").matches ? true : pref === "cards";
+        document.documentElement.classList.toggle("cards-mode", cards);
+      } catch (e) {}
+    })();
+    </script>
+    <header class="site-header">
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-top">
+                    <a href="{% url 'dashboard' %}" class="brand">Questões</a>
+
+                    {% if user.is_authenticated %}
+                        <button class="nav-toggle js-nav-toggle" type="button" aria-expanded="false" aria-controls="header-user-meta header-main-links">
+                            <span class="visually-hidden">Abrir menu</span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                        </button>
+                    {% endif %}
+                </div>
+
+                {% if user.is_authenticated %}
+                    <div id="header-main-links" class="nav-bottom">
+                        <ul class="nav-links">
+                            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+                            <li><a href="{% url 'exams:provas' %}" {% if request.resolver_match.namespace == 'exams' %}class="active"{% endif %}>Provas</a></li>
+                            <li><a href="{% url 'prompts:lista' %}" {% if request.resolver_match.namespace == 'prompts' %}class="active"{% endif %}>Prompts</a></li>
+                            <li><a href="{% url 'reports:lista' %}" {% if request.resolver_match.namespace == 'reports' %}class="active"{% endif %}>Relatórios</a></li>
+                        </ul>
+                    </div>
+                    <div id="header-user-meta" class="header-user-meta">
+                        <div class="header-user-info">
+                            <span class="header-user-greeting">Olá, {{ user.get_short_name|default:user.username }}</span>
+                            {% if profile %}
+                                <span class="header-sep" aria-hidden="true">·</span>
+                                <span class="user-role" title="Tokens de IA restantes neste mês">
+                                    {% if profile.is_visitor %}Visitante · {% endif %}{{ quota_restante }} tokens
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="header-user-actions">
+                            <form action="{% url 'logout' %}" method="post">
+                                {% csrf_token %}
+                                <button class="nav-logout" type="submit">Sair</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <div class="ds-shell">
+        <main class="container">
+        {% if messages %}
+            <div class="flash-stack" role="status" aria-live="polite">
+                <ul class="flash-list">
+                    {% for message in messages %}
+                        <li class="flash-message {% if message.tags %}flash-{{ message.tags }}{% endif %}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <div id="panel-modal" class="panel-modal" hidden>
+        <div class="panel-modal-backdrop" data-close-panel-modal="1"></div>
+        <div class="panel-modal-dialog" role="dialog" aria-modal="true" aria-label="Edição">
+            <button type="button" class="panel-modal-close" data-close-panel-modal="1" aria-label="Fechar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+            <div id="panel-modal-content"></div>
+            <div id="panel-modal-loader" class="panel-modal-loader" hidden><span class="panel-modal-spinner" aria-hidden="true"></span></div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="site-footer-inner">
+                <div class="site-footer-brand-block">
+                    <p class="site-footer-brand">Estudo por Questões</p>
+                    <p class="site-footer-copy">Um app <a href="https://stolben.com/" target="_blank" rel="noopener">Stölben</a> · &copy; 2026</p>
+                </div>
+                <ul class="site-footer-points">
+                    <li><span class="site-footer-dot"></span> Importa PDFs de concurso</li>
+                    <li><span class="site-footer-dot"></span> Aplica prompts com IA</li>
+                    <li><span class="site-footer-dot"></span> Gera relatórios em PDF</li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/stolben-ui.js' %}"></script>
+    <script>
+    (() => {
+      const DRAFT_STORAGE_PREFIX = "codex-draft:";
+      const DRAFT_CONTEXT_KEY = "codex-draft-context-v1";
+      const CURRENT_DRAFT_CONTEXT = {
+        authenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
+        userId: "{% if user.is_authenticated %}{{ user.pk }}{% endif %}",
+      };
+
+      const clearDraftStorage = () => {
+        for (let idx = localStorage.length - 1; idx >= 0; idx -= 1) {
+          const key = localStorage.key(idx);
+          if (key && key.startsWith(DRAFT_STORAGE_PREFIX)) {
+            localStorage.removeItem(key);
+          }
+        }
+      };
+
+      const syncDraftContext = () => {
+        try {
+          const serializedCurrent = JSON.stringify(CURRENT_DRAFT_CONTEXT);
+          const serializedPrevious = localStorage.getItem(DRAFT_CONTEXT_KEY);
+          if (serializedPrevious && serializedPrevious !== serializedCurrent) {
+            clearDraftStorage();
+          }
+          localStorage.setItem(DRAFT_CONTEXT_KEY, serializedCurrent);
+        } catch (error) {}
+      };
+
+      const bindUppercaseInput = (input) => {
+        if (!input || input.dataset.upperBound === "1") return;
+        input.dataset.upperBound = "1";
+        const applyUpper = () => { input.value = String(input.value || "").toUpperCase(); };
+        input.addEventListener("input", applyUpper);
+        input.addEventListener("blur", applyUpper);
+        applyUpper();
+      };
+
+      const initInputs = (scope = document) => {
+        scope.querySelectorAll("input[data-force-uppercase='1']").forEach(bindUppercaseInput);
+      };
+
+      const bindAutoSubmitControls = (scope = document) => {
+        scope.querySelectorAll(".js-auto-submit").forEach((field) => {
+          if (field.dataset.autoSubmitBound === "1") return;
+          field.dataset.autoSubmitBound = "1";
+          field.addEventListener("change", () => { if (field.form) field.form.submit(); });
+        });
+      };
+
+      const bindConfirmForms = (scope = document) => {
+        scope.querySelectorAll("form[data-confirm]").forEach((form) => {
+          if (form.dataset.confirmBound === "1") return;
+          form.dataset.confirmBound = "1";
+          form.addEventListener("submit", (event) => {
+            const msg = form.dataset.confirm || "";
+            if (msg && !window.confirm(msg)) event.preventDefault();
+          });
+        });
+      };
+
+      const bindMobileHeaderToggle = () => {
+        const nav = document.querySelector(".nav");
+        const toggle = document.querySelector(".js-nav-toggle");
+        const userMeta = document.getElementById("header-user-meta");
+        const navBottom = document.getElementById("header-main-links");
+        if (!nav || !toggle || !userMeta || !navBottom) return;
+        const media = window.matchMedia("(max-width: 900px)");
+        const sync = () => {
+          if (!media.matches) {
+            nav.classList.remove("nav-open");
+            toggle.setAttribute("aria-expanded", "false");
+            userMeta.hidden = false; navBottom.hidden = false; return;
+          }
+          const expanded = nav.classList.contains("nav-open");
+          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+          userMeta.hidden = !expanded; navBottom.hidden = !expanded;
+        };
+        if (toggle.dataset.toggleBound !== "1") {
+          toggle.dataset.toggleBound = "1";
+          toggle.addEventListener("click", () => { nav.classList.toggle("nav-open"); sync(); });
+        }
+        if (media.addEventListener) media.addEventListener("change", sync);
+        else if (media.addListener) media.addListener(sync);
+        sync();
+      };
+
+      const setupPanelModal = () => {
+        const modal = document.getElementById("panel-modal");
+        const content = document.getElementById("panel-modal-content");
+        const loader = document.getElementById("panel-modal-loader");
+        if (!modal || !content) return;
+        const openModal = () => { modal.hidden = false; document.body.classList.add("modal-open"); };
+        const closeModal = () => { modal.hidden = true; content.innerHTML = ""; document.body.classList.remove("modal-open"); };
+        const setLoading = (on) => { if (loader) loader.hidden = !on; };
+        const extractSection = (html) => {
+          const doc = new DOMParser().parseFromString(html, "text/html");
+          const section = doc.querySelector("main.container section") || doc.querySelector(".form-panel") || doc.querySelector("main.container");
+          return section ? section.outerHTML : null;
+        };
+        const loadInto = async (url) => {
+          openModal(); content.innerHTML = ""; setLoading(true);
+          try {
+            const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            if (!response.ok) throw new Error("load");
+            const html = await response.text();
+            const section = extractSection(html);
+            if (!section) { window.location.href = url; return; }
+            content.innerHTML = section; content.dataset.actionUrl = url;
+          } catch (err) { window.location.href = url; }
+          finally { setLoading(false); }
+        };
+        document.addEventListener("click", (event) => {
+          if (event.target.closest("[data-close-panel-modal='1']")) { closeModal(); return; }
+          const trigger = event.target.closest("[data-open-panel-modal='1']");
+          if (!trigger) return;
+          event.preventDefault();
+          const url = trigger.dataset.panelUrl || trigger.getAttribute("href");
+          if (url) loadInto(url);
+        });
+        document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !modal.hidden) closeModal(); });
+        modal.addEventListener("submit", async (event) => {
+          const form = event.target;
+          if (!(form instanceof HTMLFormElement)) return;
+          event.preventDefault();
+          form.classList.add("is-loading");
+          const submitButton = form.querySelector("button[type='submit']");
+          if (submitButton) submitButton.disabled = true;
+          try {
+            const postUrl = form.getAttribute("action") || content.dataset.actionUrl || window.location.href;
+            const response = await fetch(postUrl, { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: new FormData(form) });
+            if (response.redirected || new URL(response.url).pathname !== new URL(content.dataset.actionUrl, window.location.origin).pathname) {
+              window.location.reload(); return;
+            }
+            const html = await response.text();
+            const section = extractSection(html);
+            if (section) content.innerHTML = section; else window.location.reload();
+          } catch (err) { window.location.reload(); }
+          finally { form.classList.remove("is-loading"); if (submitButton) submitButton.disabled = false; }
+        });
+      };
+
+      const bindHeaderScroll = () => {
+        const header = document.querySelector(".site-header");
+        if (!header || header.dataset.scrollBound === "1") return;
+        header.dataset.scrollBound = "1";
+        const onScroll = () => { header.classList.toggle("is-scrolled", window.scrollY > 12); };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        onScroll();
+      };
+
+      const setTableCardLabels = (scope = document) => {
+        scope.querySelectorAll(".table-wrap > table").forEach((table) => {
+          if (table.dataset.cardReady === "1") return;
+          table.dataset.cardReady = "1";
+          const headers = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent.trim());
+          table.querySelectorAll("tbody tr").forEach((row) => {
+            const cells = Array.from(row.children).filter((el) => el.tagName === "TD");
+            cells.forEach((cell, index) => {
+              if (cell.hasAttribute("data-label")) return;
+              cell.setAttribute("data-label", headers[index] || "");
+            });
+          });
+        });
+      };
+
+      const LIST_VIEW_KEY = "orca-list-view";
+      const listTables = () => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.querySelector("table thead"));
+      const isCardsView = () => {
+        let pref = null;
+        try { pref = localStorage.getItem(LIST_VIEW_KEY); } catch (e) {}
+        if (window.matchMedia("(max-width: 760px)").matches) return true;
+        return pref === "cards";
+      };
+      const markCardCells = (scope = document) => {
+        scope.querySelectorAll(".table-wrap > table tbody tr").forEach((tr) => {
+          const tds = Array.from(tr.children).filter((c) => c.tagName === "TD");
+          tds.forEach((td, i) => {
+            if (i === 0 || td.classList.contains("actions-col") || td.classList.contains("status-col")) { td.classList.remove("card-hide"); return; }
+            const t = td.textContent.trim();
+            if (t === "" || t === "-" || t === "—") td.classList.add("card-hide"); else td.classList.remove("card-hide");
+          });
+        });
+      };
+      const applyListView = () => {
+        const cards = isCardsView();
+        document.documentElement.classList.toggle("cards-mode", cards);
+        document.querySelectorAll(".view-switch").forEach((s) => s.classList.toggle("is-cards", cards));
+        document.querySelectorAll(".view-switch [data-view]").forEach((b) => { b.classList.toggle("is-active", b.dataset.view === (cards ? "cards" : "table")); });
+        if (cards) markCardCells();
+      };
+      const injectListViewToggle = () => {
+        const tables = listTables();
+        if (!tables.length || document.querySelector(".list-view-bar")) return;
+        const bar = document.createElement("div");
+        bar.className = "list-view-bar";
+        bar.innerHTML = '<div class="view-switch" role="group" aria-label="Modo de visualização"><button type="button" data-view="table">Tabela</button><button type="button" data-view="cards">Cards</button><span class="view-switch-thumb" aria-hidden="true"></span></div>';
+        tables[0].parentNode.insertBefore(bar, tables[0]);
+        bar.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-view]");
+          if (!b) return;
+          try { localStorage.setItem(LIST_VIEW_KEY, b.dataset.view); } catch (err) {}
+          applyListView();
+        });
+      };
+      let listViewResizeTimer = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(listViewResizeTimer);
+        listViewResizeTimer = setTimeout(applyListView, 150);
+      }, { passive: true });
+
+      syncDraftContext();
+      initInputs();
+      bindAutoSubmitControls();
+      bindConfirmForms();
+      bindMobileHeaderToggle();
+      bindHeaderScroll();
+      setupPanelModal();
+      setTableCardLabels();
+      injectListViewToggle();
+      applyListView();
+    })();
+    </script>
+</body>
+</html>

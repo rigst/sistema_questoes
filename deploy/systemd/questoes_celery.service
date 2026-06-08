@@ -1,0 +1,17 @@
+[Unit]
+Description=Celery Worker + Beat — Sistema de Estudos por Questões
+After=network.target redis-server.service
+
+[Service]
+User=rodrigostolben
+Group=www-data
+WorkingDirectory=/home/rodrigostolben/Projetos/sistema_questoes
+EnvironmentFile=/home/rodrigostolben/Projetos/sistema_questoes/.env
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+ExecStart=/home/rodrigostolben/Projetos/sistema_questoes/.venv/bin/celery -A config worker --beat -l info
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

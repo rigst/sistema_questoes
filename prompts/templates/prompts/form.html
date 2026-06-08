@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }} · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="form-back-action">
+        <a class="btn btn-secondary btn-compact" href="{% url 'prompts:lista' %}">Voltar</a>
+    </div>
+    <div class="section-heading"><h2>{{ titulo }}</h2></div>
+
+    <div class="form-panel">
+        <form method="post" data-unsaved-warning="1">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="form-grid">
+                <div>
+                    <label for="{{ form.nome.id_for_label }}">Nome</label>
+                    {{ form.nome }}{{ form.nome.errors }}
+                </div>
+                <div>
+                    <label for="{{ form.tipo.id_for_label }}">Tipo</label>
+                    {{ form.tipo }}{{ form.tipo.errors }}
+                </div>
+                <div class="full">
+                    <label for="{{ form.texto.id_for_label }}">Texto do prompt</label>
+                    {{ form.texto }}{{ form.texto.errors }}
+                    <p class="form-note">O enunciado, gabarito e imagens da questão são anexados automaticamente ao enviar.</p>
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

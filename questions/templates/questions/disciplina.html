@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}{{ disciplina.nome }} · Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="form-back-action">
+        <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_detalhe' disciplina.prova.pk %}">Voltar</a>
+    </div>
+    <div class="section-heading">
+        <h2>{{ disciplina.nome }}</h2>
+        <p>{{ disciplina.prova.nome }} · {{ questoes|length }} questão(ões)</p>
+    </div>
+
+    <div class="form-panel" style="margin-bottom:1.25rem;">
+        <h3>Importar PDF de questões</h3>
+        <form method="post" action="{% url 'questions:upload' disciplina.pk %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="full">
+                    {{ importacao_form.arquivo }}
+                    {{ importacao_form.arquivo.errors }}
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Enviar e extrair</button>
+            </div>
+        </form>
+
+        {% if importacoes %}
+            <div id="importacoes-status" data-em-processamento="{{ em_processamento|yesno:'1,0' }}">
+                <p class="form-note" style="margin-top:1rem;">Importações recentes:</p>
+                <ul>
+                    {% for imp in importacoes %}
+                        <li data-importacao="{{ imp.pk }}" data-status-url="{% url 'questions:importacao_status' imp.pk %}">
+                            #{{ imp.pk }} — <span class="js-imp-status">{{ imp.get_status_display }}</span>
+                            {% if imp.status == 'concluido' %}· {{ imp.num_questoes }} questões (conf. {{ imp.confianca_media|floatformat:2 }}{% if imp.usou_ia %}, IA{% endif %}){% endif %}
+                            {% if imp.status == 'erro' %}· <span style="color:var(--danger)">{{ imp.erro }}</span>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if questoes %}
+        <form method="post" action="{% url 'ai:aplicar_lote' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+                <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
+                <select name="prompt_id" id="prompt_id" required>
+                    <option value="">— escolha um prompt —</option>
+                    {% for p in prompts %}
+                        <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
+                    {% endfor %}
+                </select>
+                <label style="margin:0;display:flex;align-items:center;gap:.4rem;">
+                    <input type="checkbox" name="usar_lote" value="1" checked> usar lote (Batches, 50% + barato)
+                </label>
+                <button type="submit" class="btn btn-primary btn-compact">Aplicar aos selecionados</button>
+                {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"><input type="checkbox" id="sel-todos"></th>
+                            <th>#</th>
+                            <th>Enunciado</th>
+                            <th>Gabarito</th>
+                            <th>Conf.</th>
+                            <th class="status-col">Status</th>
+                            <th class="actions-col">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in questoes %}
+                            <tr>
+                                <td><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao"></td>
+                                <td>{{ q.numero }}</td>
+                                <td>{{ q.enunciado_md|truncatechars:90 }}{% if q.tem_imagens %} 🖼️{% endif %}</td>
+                                <td>{{ q.gabarito|default:"—" }}</td>
+                                <td>{{ q.confianca_extracao|floatformat:2 }}</td>
+                                <td class="status-col">
+                                    <span class="badge badge-{{ q.status }}">{{ q.get_status_display }}</span>
+                                </td>
+                                <td class="actions-col">
+                                    <a class="btn btn-secondary btn-compact" data-open-panel-modal="1" data-panel-url="{% url 'questions:questao_editar' q.pk %}" href="{% url 'questions:questao_editar' q.pk %}">Revisar</a>
+                                    <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">Resultados ({{ q.resultados.count }})</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    {% else %}
+        <div class="empty-state"><p>Nenhuma questão ainda. Envie um PDF acima para extrair.</p></div>
+    {% endif %}
+</section>
+
+<script>
+(function () {
+  // Seleção em massa
+  var selTodos = document.getElementById('sel-todos');
+  if (selTodos) {
+    selTodos.addEventListener('change', function () {
+      document.querySelectorAll('.sel-questao').forEach(function (c) { c.checked = selTodos.checked; });
+    });
+  }
+  // Polling de importações em processamento
+  var wrap = document.getElementById('importacoes-status');
+  if (wrap && wrap.dataset.emProcessamento === '1') {
+    var poll = function () {
+      var pendentes = 0;
+      var nos = wrap.querySelectorAll('li[data-importacao]');
+      nos.forEach(function (li) {
+        fetch(li.dataset.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var span = li.querySelector('.js-imp-status');
+            if (span) span.textContent = data.status;
+            if (data.status === 'processando' || data.status === 'enviado') pendentes += 1;
+            if (!pendentes) { setTimeout(function () { window.location.reload(); }, 600); }
+          })
+          .catch(function () {});
+      });
+    };
+    var timer = setInterval(function () {
+      poll();
+    }, 2500);
+    poll();
+  }
+})();
+</script>
+{% endblock %}

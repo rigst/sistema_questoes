@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Excluir prompt · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading"><h2>Excluir prompt</h2></div>
+    <div class="form-panel">
+        <p>Tem certeza que deseja excluir <strong>{{ prompt.nome }}</strong>?</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="inline-actions inline-actions-end">
+                <a class="btn btn-secondary" href="{% url 'prompts:lista' %}">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Excluir</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Excluir disciplina · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading"><h2>Excluir disciplina</h2></div>
+    <div class="form-panel">
+        <p>Tem certeza que deseja excluir <strong>{{ disciplina.nome }}</strong>? As questões e resultados serão removidos.</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="inline-actions inline-actions-end">
+                <a class="btn btn-secondary" href="{% url 'exams:prova_detalhe' disciplina.prova.pk %}">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Excluir</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

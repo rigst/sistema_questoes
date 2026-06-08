@@ -1,0 +1,17 @@
+Django>=6.0,<7.0
+celery>=5.4,<6.0
+redis>=5.0,<9.0
+python-dotenv>=1.0,<2.0
+# Extração de PDF
+pdfplumber>=0.11,<1.0
+pymupdf>=1.24,<2.0
+pillow>=10.0
+# IA
+anthropic>=0.40
+# Relatórios
+weasyprint>=60
+markdown>=3.5
+# Produção
+gunicorn>=22.0,<27.0
+psycopg2-binary>=2.9,<3.0
+django-redis>=5.4,<7.0

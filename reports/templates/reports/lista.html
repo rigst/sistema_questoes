@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading"><h2>Gerar relatório</h2></div>
+    <div class="form-panel" style="margin-bottom:1.5rem;">
+        <form method="post" action="{% url 'reports:gerar' %}">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div>
+                    <label for="prompt_id">Prompt (resultado)</label>
+                    <select name="prompt_id" id="prompt_id" required>
+                        <option value="">— escolha —</option>
+                        {% for p in prompts %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="prova_id">Prova (opcional)</label>
+                    <select name="prova_id" id="prova_id">
+                        <option value="">— todas —</option>
+                        {% for pr in provas %}<option value="{{ pr.pk }}">{{ pr.nome }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="disciplina_id">Disciplina (opcional)</label>
+                    <select name="disciplina_id" id="disciplina_id">
+                        <option value="">— todas —</option>
+                        {% for d in disciplinas %}<option value="{{ d.pk }}">{{ d.nome }} ({{ d.prova.nome }})</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="full">
+                    <label style="display:flex;align-items:center;gap:.5rem;">
+                        <input type="checkbox" name="com_texto" value="1" checked> Incluir o texto da questão
+                    </label>
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end">
+                <button type="submit" class="btn btn-primary">Gerar PDF</button>
+            </div>
+        </form>
+        <p class="form-note">O relatório inclui as questões que possuem resultado salvo do prompt escolhido. Disciplina tem prioridade sobre prova.</p>
+    </div>
+
+    <div class="section-heading"><h2>Relatórios gerados</h2></div>
+    {% if relatorios %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Título</th><th>Questões</th><th>Texto</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
+                <tbody>
+                    {% for r in relatorios %}
+                        <tr>
+                            <td>{{ r.titulo }}</td>
+                            <td>{{ r.num_questoes }}</td>
+                            <td>{{ r.com_texto|yesno:"com,sem" }}</td>
+                            <td>{{ r.criado_em|date:"d/m/Y H:i" }}</td>
+                            <td class="actions-col">
+                                {% if r.arquivo_pdf %}<a class="btn btn-primary btn-compact" href="{{ r.arquivo_pdf.url }}" target="_blank">Abrir PDF</a>{% endif %}
+                                <form method="post" action="{% url 'reports:excluir' r.pk %}" data-confirm="Remover este relatório?" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger btn-compact">Excluir</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state"><p>Nenhum relatório gerado ainda.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

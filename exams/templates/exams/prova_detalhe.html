@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ prova.nome }} · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="form-back-action">
+        <a class="btn btn-secondary btn-compact" href="{% url 'exams:provas' %}">Voltar</a>
+    </div>
+    <div class="section-heading">
+        <h2>{{ prova.nome }}</h2>
+        <div class="inline-actions">
+            <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_editar' prova.pk %}">Editar</a>
+            <a class="btn btn-primary" href="{% url 'exams:disciplina_nova' prova.pk %}">Nova disciplina</a>
+        </div>
+    </div>
+    {% if prova.descricao %}<p>{{ prova.descricao }}</p>{% endif %}
+
+    {% if disciplinas %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Disciplina</th><th>Questões</th><th class="actions-col">Ações</th></tr></thead>
+                <tbody>
+                    {% for d in disciplinas %}
+                        <tr class="clickable-row" data-row-href="{% url 'questions:disciplina' d.pk %}">
+                            <td>{{ d.nome }}</td>
+                            <td>{{ d.n_questoes }}</td>
+                            <td class="actions-col">
+                                <a class="btn btn-primary btn-compact" href="{% url 'questions:disciplina' d.pk %}">Questões</a>
+                                <a class="btn btn-secondary btn-compact" href="{% url 'exams:disciplina_editar' d.pk %}">Editar</a>
+                                <a class="btn btn-danger btn-compact" href="{% url 'exams:disciplina_excluir' d.pk %}">Excluir</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state"><p>Nenhuma disciplina ainda. Crie uma para enviar PDFs de questões.</p></div>
+    {% endif %}
+</section>
+{% endblock %}
