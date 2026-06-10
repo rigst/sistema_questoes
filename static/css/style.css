@@ -3834,3 +3834,187 @@ th.money { white-space: nowrap; }
 }
 
 .header-user-actions form { display: inline-flex; }
+
+/* ---- MOBILE RESPONSIVIDADE ---- */
+@media (max-width: 900px) {
+  .nav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .nav-bottom {
+    gap: 0.75rem;
+    order: 3;
+    width: 100%;
+  }
+
+  .nav-links {
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .header-user-meta {
+    font-size: 0.8rem;
+    order: 4;
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    padding: 0.5rem 0;
+  }
+
+  .nav {
+    gap: 0.35rem;
+    min-height: 52px;
+  }
+
+  .brand {
+    font-size: 0.95rem;
+  }
+
+  .nav-toggle {
+    display: flex;
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-bottom {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nav-links {
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  .nav-links li {
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(71, 101, 138, 0.08);
+  }
+
+  .nav-links li:last-child {
+    border-bottom: 0;
+  }
+
+  .header-user-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  /* ---- FORM RESPONSIVIDADE ---- */
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="file"],
+  select,
+  textarea {
+    width: 100%;
+    font-size: 16px !important;
+  }
+
+  .inline-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .inline-actions button,
+  .inline-actions a {
+    width: 100%;
+  }
+
+  /* ---- SELECT PROMPT ---- */
+  select[name="prompt_id"] {
+    min-width: unset !important;
+    flex: 1 !important;
+  }
+
+  div[style*="display:flex"][style*="gap:.75rem"] {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+
+  div[style*="display:flex"][style*="gap:.75rem"] select,
+  div[style*="display:flex"][style*="gap:.75rem"] button {
+    width: 100% !important;
+  }
+
+  /* ---- TABELA CARDS MODE ---- */
+  table {
+    border-radius: 0;
+    border: 0;
+    border-top: 1px solid rgba(71, 101, 138, 0.12);
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: block;
+  }
+
+  tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(71, 101, 138, 0.15);
+    border-radius: 10px;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  tbody tr:hover {
+    background: rgba(47, 120, 219, 0.06);
+  }
+
+  tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(71, 101, 138, 0.08);
+    min-height: 32px;
+  }
+
+  tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text);
+    min-width: 80px;
+  }
+
+  tbody td[data-label=""]::before {
+    content: "";
+    min-width: 0;
+  }
+
+  .actions-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem !important;
+  }
+
+  .actions-col a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.28rem 0.52rem;
+  }
+}

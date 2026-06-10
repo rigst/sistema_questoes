@@ -80,17 +80,15 @@
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="usar_lote" value="1">
             <div class="form-panel" style="margin-bottom:1rem;">
-                <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
-                    <label for="prompt_id" style="margin:0;flex-shrink:0;">Aplicar prompt:</label>
-                    <select name="prompt_id" id="prompt_id" required style="flex:1;min-width:180px;">
-                        <option value="" data-chars="0">— escolha um prompt —</option>
-                        {% for p in prompts %}
-                            <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-primary btn-compact" id="lote-btn">Aplicar aos selecionados</button>
-                    {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
-                </div>
+                <label for="prompt_id" style="margin:0;display:block;margin-bottom:0.5rem;font-weight:500;">Aplicar prompt:</label>
+                <select name="prompt_id" id="prompt_id" required style="width:100%;margin-bottom:0.75rem;">
+                    <option value="" data-chars="0">— escolha um prompt —</option>
+                    {% for p in prompts %}
+                        <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
+                    {% endfor %}
+                </select>
+                {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+                <button type="submit" class="btn btn-primary" id="lote-btn" style="width:100%;margin-top:0.5rem;">Aplicar aos selecionados</button>
 
                 {# ---- PREVISÃO DE CUSTO ---- #}
                 <div id="cost-preview" class="cost-preview" hidden>
