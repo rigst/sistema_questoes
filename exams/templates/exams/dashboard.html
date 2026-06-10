@@ -11,12 +11,35 @@
         </div>
     </div>
 
-    <div class="cards-grid" style="margin-bottom:1.5rem;">
-        <article class="stat-card"><span class="stat-card-label">Provas</span><strong class="stat-card-value">{{ total_provas }}</strong></article>
-        <article class="stat-card"><span class="stat-card-label">Disciplinas</span><strong class="stat-card-value">{{ total_disciplinas }}</strong></article>
-        <article class="stat-card"><span class="stat-card-label">Questões</span><strong class="stat-card-value">{{ total_questoes }}</strong></article>
-        <article class="stat-card"><span class="stat-card-label">Concluídas</span><strong class="stat-card-value">{{ total_concluidas }}</strong></article>
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+        <article class="stat-card">
+            <span class="label">Provas</span>
+            <strong class="value">{{ total_provas }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="label">Questões</span>
+            <strong class="value">{{ total_questoes }}</strong>
+        </article>
+        <article class="stat-card {% if em_revisao > 0 %}stat-card--alert{% endif %}">
+            <span class="label">Para revisar</span>
+            <strong class="value">{{ em_revisao }}</strong>
+        </article>
+        <article class="stat-card {% if na_fila > 0 %}stat-card--processing{% endif %}">
+            <span class="label">Na fila de IA</span>
+            <strong class="value">{{ na_fila }}</strong>
+        </article>
     </div>
+
+    {% if em_revisao > 0 %}
+    <div class="flash-message flash-warning" style="margin-bottom:1.25rem;">
+        {{ em_revisao }} questão(ões) aguardam revisão manual antes de receber prompts de IA.
+    </div>
+    {% endif %}
+    {% if na_fila > 0 %}
+    <div class="flash-message" style="margin-bottom:1.25rem;">
+        {{ na_fila }} questão(ões) em processamento de IA — os resultados aparecerão nas disciplinas quando concluídas.
+    </div>
+    {% endif %}
 
     <div class="section-heading"><h2>Suas provas</h2></div>
     {% if provas %}

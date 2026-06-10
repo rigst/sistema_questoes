@@ -5,7 +5,7 @@
 {% block content %}
 <section>
     <div class="section-heading"><h2>Gerar relatório</h2></div>
-    <div class="form-panel" style="margin-bottom:1.5rem;">
+    <div class="form-panel form-panel-compact" style="margin-bottom:1.5rem;">
         <form method="post" action="{% url 'reports:gerar' %}">
             {% csrf_token %}
             <div class="form-grid">

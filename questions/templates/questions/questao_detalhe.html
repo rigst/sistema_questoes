@@ -4,24 +4,19 @@
 
 {% block content %}
 <section>
-    <div class="form-back-action">
-        <a class="btn btn-secondary btn-compact" href="{% url 'questions:disciplina' questao.disciplina.pk %}">Voltar</a>
-    </div>
+    <nav class="breadcrumb" aria-label="Navegação">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'exams:prova_detalhe' questao.disciplina.prova.pk %}">{{ questao.disciplina.prova.nome }}</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'questions:disciplina' questao.disciplina.pk %}">{{ questao.disciplina.nome }}</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <span class="breadcrumb-current">Questão {{ questao.numero }}</span>
+    </nav>
+
     <div class="section-heading">
         <h2>Questão {{ questao.numero }}</h2>
         <span class="badge badge-{{ questao.status }}">{{ questao.get_status_display }}</span>
-    </div>
-
-    <div class="form-panel" style="margin-bottom:1rem;">
-        <p style="white-space:pre-wrap;">{{ questao.enunciado_md }}</p>
-        {% if questao.gabarito %}<p><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
-        {% if questao.imagens.all %}
-            <div class="cards-grid">
-                {% for img in questao.imagens.all %}
-                    <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:260px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
-                {% endfor %}
-            </div>
-        {% endif %}
     </div>
 
     <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
@@ -39,6 +34,18 @@
         </form>
     </div>
 
+    <div class="form-panel" style="margin-bottom:1rem;">
+        <div class="md-content" id="enunciado-md">{{ questao.enunciado_md }}</div>
+        {% if questao.gabarito %}<p style="margin-top:.75rem;"><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
+        {% if questao.imagens.all %}
+            <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;">
+                {% for img in questao.imagens.all %}
+                    <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:260px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
     <div class="section-heading"><h2>Resultados ({{ resultados.count }})</h2></div>
     {% for r in resultados %}
         <div class="form-panel" style="margin-bottom:.75rem;">
@@ -53,11 +60,28 @@
                     </form>
                 </div>
             </div>
-            {% if r.resultado_md %}<div style="white-space:pre-wrap;">{{ r.resultado_md }}</div>{% endif %}
+            {% if r.resultado_md %}
+                <div class="md-content js-md-result">{{ r.resultado_md }}</div>
+            {% endif %}
             {% if r.erro %}<p style="color:var(--danger)">{{ r.erro }}</p>{% endif %}
         </div>
     {% empty %}
         <div class="empty-state"><p>Nenhum prompt aplicado ainda.</p></div>
     {% endfor %}
 </section>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+  if (typeof marked === 'undefined') return;
+  marked.setOptions({ breaks: true, gfm: true });
+
+  var enunciado = document.getElementById('enunciado-md');
+  if (enunciado) enunciado.innerHTML = marked.parse(enunciado.textContent || '');
+
+  document.querySelectorAll('.js-md-result').forEach(function (el) {
+    el.innerHTML = marked.parse(el.textContent || '');
+  });
+})();
+</script>
 {% endblock %}

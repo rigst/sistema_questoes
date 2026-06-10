@@ -28,6 +28,13 @@ def dashboard(request):
         'total_disciplinas': Disciplina.objects.filter(prova__user=request.user).count(),
         'total_questoes': total_questoes,
         'total_concluidas': total_concluidas,
+        'em_revisao': Questao.objects.filter(
+            disciplina__prova__user=request.user, status=Questao.Status.EM_REVISAO
+        ).count(),
+        'na_fila': Questao.objects.filter(
+            disciplina__prova__user=request.user,
+            status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]
+        ).count(),
     }
     return render(request, 'exams/dashboard.html', contexto)
 

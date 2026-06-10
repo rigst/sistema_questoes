@@ -21,8 +21,8 @@
                             <td>{{ prova.nome }}</td>
                             <td>{{ prova.n_disciplinas }}</td>
                             <td class="actions-col">
+                                <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_detalhe' prova.pk %}">Abrir</a>
                                 <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_editar' prova.pk %}">Editar</a>
-                                <a class="btn btn-danger btn-compact" href="{% url 'exams:prova_excluir' prova.pk %}">Excluir</a>
                             </td>
                         </tr>
                     {% endfor %}
