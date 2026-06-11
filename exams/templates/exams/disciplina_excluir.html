@@ -10,7 +10,7 @@
         <form method="post">
             {% csrf_token %}
             <div class="inline-actions inline-actions-end">
-                <a class="btn btn-secondary" href="{% url 'exams:prova_detalhe' disciplina.prova.pk %}">Cancelar</a>
+                <a class="btn btn-secondary" href="{% url 'dashboard' %}">Cancelar</a>
                 <button type="submit" class="btn btn-danger">Excluir</button>
             </div>
         </form>

@@ -42,11 +42,7 @@ def dashboard(request):
 
 @login_required
 def provas(request):
-    lista = (
-        Prova.objects.filter(user=request.user)
-        .annotate(n_disciplinas=Count('disciplinas'))
-    )
-    return render(request, 'exams/prova_lista.html', {'provas': lista})
+    return redirect('dashboard')
 
 
 @login_required
@@ -68,13 +64,7 @@ def prova_form(request, pk=None):
 
 @login_required
 def prova_detalhe(request, pk):
-    prova = get_object_or_404(Prova, pk=pk, user=request.user)
-    disciplinas = prova.disciplinas.annotate(n_questoes=Count('questoes'))
-    return render(
-        request,
-        'exams/prova_detalhe.html',
-        {'prova': prova, 'disciplinas': disciplinas},
-    )
+    return redirect('dashboard')
 
 
 @login_required
@@ -83,7 +73,7 @@ def prova_excluir(request, pk):
     if request.method == 'POST':
         prova.delete()
         messages.success(request, 'Prova excluída.')
-        return redirect('exams:provas')
+        return redirect('dashboard')
     return render(request, 'exams/prova_excluir.html', {'prova': prova})
 
 
