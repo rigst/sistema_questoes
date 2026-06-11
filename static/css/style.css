@@ -3642,3 +3642,60 @@ th.money { white-space: nowrap; }
   border-top: 1px solid var(--ds-line);
 }
 .value-unit { font-weight: 400; color: var(--text-soft); font-size: 0.86rem; }
+
+/* Ajustes do app questões */
+.btn-danger-icon {
+  color: var(--ds-danger);
+}
+
+.btn-danger-icon:hover {
+  background: var(--ds-danger-soft);
+  border-color: var(--ds-danger-border);
+}
+
+.clickable-row-disciplina {
+  cursor: pointer;
+}
+
+.clickable-row-disciplina:hover td {
+  background: rgba(47, 120, 219, 0.04);
+}
+
+.clickable-row-prompt {
+  cursor: pointer;
+}
+
+.clickable-row-prompt:hover td {
+  background: rgba(47, 120, 219, 0.04);
+}
+
+.prompt-preview {
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.questoes-table {
+  margin-bottom: 0;
+}
+
+.questoes-table td {
+  padding: 0.75rem 0.9rem;
+}
+
+.questoes-table th {
+  padding: 0.75rem 0.9rem;
+}
+
+.questao-enunciado {
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.4;
+}
+
+.clickable-row-prova {
+  cursor: pointer;
+}
+
+.clickable-row-prova:hover td {
+  background: rgba(47, 120, 219, 0.04);
+}

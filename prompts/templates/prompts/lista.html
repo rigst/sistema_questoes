@@ -14,15 +14,16 @@
     {% if prompts %}
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Nome</th><th>Tipo</th><th class="actions-col">Ações</th></tr></thead>
+                <thead><tr><th>Nome</th><th>Texto do Prompt</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for p in prompts %}
-                        <tr>
+                        <tr class="clickable-row-prompt" data-edit-url="{% url 'prompts:editar' p.pk %}" onclick="window.location.href='{% url 'prompts:editar' p.pk %}';" style="cursor: pointer;">
                             <td>{{ p.nome }}</td>
-                            <td>{{ p.get_tipo_display }}</td>
-                            <td class="actions-col">
-                                <a class="btn btn-secondary btn-compact" href="{% url 'prompts:editar' p.pk %}">Editar</a>
-                                <a class="btn btn-danger btn-compact" href="{% url 'prompts:excluir' p.pk %}">Excluir</a>
+                            <td class="prompt-preview">{{ p.texto|truncatechars:70 }}</td>
+                            <td class="actions-col" onclick="event.stopPropagation();">
+                                <a class="btn btn-icon-action btn-danger-icon" href="{% url 'prompts:excluir' p.pk %}" title="Excluir">
+                                    <svg class="action-icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                </a>
                             </td>
                         </tr>
                     {% endfor %}

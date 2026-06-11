@@ -47,48 +47,50 @@
         <form method="post" action="{% url 'ai:aplicar_lote' %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+            <div id="aplicar-prompt-panel" class="form-panel" style="margin-bottom:1rem;display:none;gap:.75rem;flex-wrap:wrap;align-items:center;">
                 <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
-                <select name="prompt_id" id="prompt_id" required>
-                    <option value="">— escolha um prompt —</option>
-                    {% for p in prompts %}
-                        <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
-                    {% endfor %}
-                </select>
-                <label style="margin:0;display:flex;align-items:center;gap:.4rem;">
-                    <input type="checkbox" name="usar_lote" value="1" checked> usar lote (Batches, 50% + barato)
-                </label>
-                <button type="submit" class="btn btn-primary btn-compact">Aplicar aos selecionados</button>
-                {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+                <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;flex:1;">
+                    <select name="prompt_id" id="prompt_id" required style="flex:1;max-width:280px;">
+                        <option value="">— escolha um prompt —</option>
+                        {% for p in prompts %}
+                            <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
+                        {% endfor %}
+                    </select>
+                    <label style="margin:0;display:flex;align-items:center;gap:.4rem;">
+                        <input type="checkbox" name="usar_lote" value="1" checked> usar lote (Batches)
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
+                    {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+                </div>
             </div>
 
             <div class="table-wrap">
-                <table>
+                <table class="questoes-table">
                     <thead>
                         <tr>
-                            <th style="width:36px;"><input type="checkbox" id="sel-todos"></th>
-                            <th>#</th>
+                            <th style="width:48px;padding-left:1rem;padding-right:.5rem;"><input type="checkbox" id="sel-todos"></th>
+                            <th style="width:60px;">#</th>
                             <th>Enunciado</th>
-                            <th>Gabarito</th>
-                            <th>Conf.</th>
-                            <th class="status-col">Status</th>
+                            <th style="width:90px;">Gabarito</th>
+                            <th style="width:70px;">Conf.</th>
+                            <th style="width:110px;">Status</th>
                             <th class="actions-col">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for q in questoes %}
                             <tr>
-                                <td><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao"></td>
+                                <td style="padding-left:1rem;padding-right:.5rem;"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" onchange="toggleAplicarPrompt();"></td>
                                 <td>{{ q.numero }}</td>
-                                <td>{{ q.enunciado_md|truncatechars:90 }}{% if q.tem_imagens %} 🖼️{% endif %}</td>
+                                <td class="questao-enunciado">{{ q.enunciado_md|truncatechars:80 }}</td>
                                 <td>{{ q.gabarito|default:"—" }}</td>
                                 <td>{{ q.confianca_extracao|floatformat:2 }}</td>
-                                <td class="status-col">
+                                <td style="text-align:center;">
                                     <span class="badge badge-{{ q.status }}">{{ q.get_status_display }}</span>
                                 </td>
                                 <td class="actions-col">
                                     <a class="btn btn-secondary btn-compact" data-open-panel-modal="1" data-panel-url="{% url 'questions:questao_editar' q.pk %}" href="{% url 'questions:questao_editar' q.pk %}">Revisar</a>
-                                    <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">Resultados ({{ q.resultados.count }})</a>
+                                    <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">{{ q.resultados.count }}</a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -102,12 +104,21 @@
 </section>
 
 <script>
+function toggleAplicarPrompt() {
+  var selecionadas = document.querySelectorAll('.sel-questao:checked');
+  var painel = document.getElementById('aplicar-prompt-panel');
+  if (painel) {
+    painel.style.display = selecionadas.length > 0 ? 'flex' : 'none';
+  }
+}
+
 (function () {
   // Seleção em massa
   var selTodos = document.getElementById('sel-todos');
   if (selTodos) {
     selTodos.addEventListener('change', function () {
       document.querySelectorAll('.sel-questao').forEach(function (c) { c.checked = selTodos.checked; });
+      toggleAplicarPrompt();
     });
   }
   // Polling de importações em processamento
