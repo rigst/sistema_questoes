@@ -47,8 +47,7 @@
                 {% if user.is_authenticated %}
                     <div id="header-main-links" class="nav-bottom">
                         <ul class="nav-links">
-                            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-                            <li><a href="{% url 'exams:provas' %}" {% if request.resolver_match.namespace == 'exams' %}class="active"{% endif %}>Provas</a></li>
+                            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Estudos</a></li>
                             <li><a href="{% url 'prompts:lista' %}" {% if request.resolver_match.namespace == 'prompts' %}class="active"{% endif %}>Prompts</a></li>
                             <li><a href="{% url 'reports:lista' %}" {% if request.resolver_match.namespace == 'reports' %}class="active"{% endif %}>Relatórios</a></li>
                         </ul>
@@ -56,12 +55,6 @@
                     <div id="header-user-meta" class="header-user-meta">
                         <div class="header-user-info">
                             <span class="header-user-greeting">Olá, {{ user.get_short_name|default:user.username }}</span>
-                            {% if profile %}
-                                <span class="header-sep" aria-hidden="true">·</span>
-                                <span class="user-role" title="Tokens de IA restantes neste mês">
-                                    {% if profile.is_visitor %}Visitante · {% endif %}{{ quota_restante }} tokens
-                                </span>
-                            {% endif %}
                         </div>
                         <div class="header-user-actions">
                             <form action="{% url 'logout' %}" method="post">
@@ -286,7 +279,7 @@
       };
 
       const LIST_VIEW_KEY = "orca-list-view";
-      const listTables = () => Array.from(document.querySelectorAll(".table-wrap")).filter((w) => w.querySelector("table thead"));
+      const listTables = () => Array.from(document.querySelectorAll(".table-wrap:not([data-no-toggle])")).filter((w) => w.querySelector("table thead"));
       const isCardsView = () => {
         let pref = null;
         try { pref = localStorage.getItem(LIST_VIEW_KEY); } catch (e) {}
@@ -330,6 +323,19 @@
         listViewResizeTimer = setTimeout(applyListView, 150);
       }, { passive: true });
 
+      const bindClickableRows = (scope = document) => {
+        scope.querySelectorAll('tr[data-row-href]').forEach((row) => {
+          if (row.dataset.clickBound === '1') return;
+          row.dataset.clickBound = '1';
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('a, button, input, select, form')) return;
+            const href = row.dataset.rowHref;
+            if (href) window.location.href = href;
+          });
+        });
+      };
+
       syncDraftContext();
       initInputs();
       bindAutoSubmitControls();
@@ -340,6 +346,7 @@
       setTableCardLabels();
       injectListViewToggle();
       applyListView();
+      bindClickableRows();
     })();
     </script>
 </body>

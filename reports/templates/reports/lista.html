@@ -5,57 +5,58 @@
 {% block content %}
 <section>
     <div class="section-heading"><h2>Gerar relatório</h2></div>
-    <div class="form-panel form-panel-compact" style="margin-bottom:1.5rem;">
+    <div class="form-panel form-panel-compact" style="margin-bottom:1.5rem;max-width:600px;margin-left:auto;margin-right:auto;">
         <form method="post" action="{% url 'reports:gerar' %}">
             {% csrf_token %}
             <div class="form-grid">
                 <div>
-                    <label for="prompt_id">Prompt (resultado)</label>
+                    <label for="prova_id">Prova</label>
+                    <select name="prova_id" id="prova_id">
+                        <option value="">— todas as provas —</option>
+                        {% for pr in provas %}<option value="{{ pr.pk }}">{{ pr.nome }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="disciplina_id">Disciplina</label>
+                    <select name="disciplina_id" id="disciplina_id">
+                        <option value="">— todas as disciplinas —</option>
+                        {% for d in disciplinas %}<option value="{{ d.pk }}" data-prova="{{ d.prova.pk }}">{{ d.nome }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="full">
+                    <label for="prompt_id">Prompt de análise</label>
                     <select name="prompt_id" id="prompt_id" required>
                         <option value="">— escolha —</option>
                         {% for p in prompts %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label for="prova_id">Prova (opcional)</label>
-                    <select name="prova_id" id="prova_id">
-                        <option value="">— todas —</option>
-                        {% for pr in provas %}<option value="{{ pr.pk }}">{{ pr.nome }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label for="disciplina_id">Disciplina (opcional)</label>
-                    <select name="disciplina_id" id="disciplina_id">
-                        <option value="">— todas —</option>
-                        {% for d in disciplinas %}<option value="{{ d.pk }}">{{ d.nome }} ({{ d.prova.nome }})</option>{% endfor %}
-                    </select>
-                </div>
                 <div class="full">
                     <label style="display:flex;align-items:center;gap:.5rem;">
-                        <input type="checkbox" name="com_texto" value="1" checked> Incluir o texto da questão
+                        <input type="checkbox" name="com_texto" value="1" checked> Incluir texto e gabarito da questão
                     </label>
                 </div>
             </div>
-            <div class="inline-actions inline-actions-end">
-                <button type="submit" class="btn btn-primary">Gerar PDF</button>
+            <div class="inline-actions inline-actions-end" style="margin-top:1rem;">
+                <button type="submit" name="formato" value="md" class="btn btn-secondary">Gerar Markdown (.md)</button>
+                <button type="submit" name="formato" value="pdf" class="btn btn-primary">Gerar PDF</button>
             </div>
         </form>
-        <p class="form-note">O relatório inclui as questões que possuem resultado salvo do prompt escolhido. Disciplina tem prioridade sobre prova.</p>
+        <p class="form-note" style="margin-top:.75rem;">Questões que possuem resultado salvo do prompt escolhido. Se selecionar disciplina, ela tem prioridade sobre a prova.</p>
     </div>
 
     <div class="section-heading"><h2>Relatórios gerados</h2></div>
     {% if relatorios %}
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Título</th><th>Questões</th><th>Texto</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
+                <thead><tr><th>Título</th><th>Questões</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for r in relatorios %}
                         <tr>
                             <td>{{ r.titulo }}</td>
                             <td>{{ r.num_questoes }}</td>
-                            <td>{{ r.com_texto|yesno:"com,sem" }}</td>
                             <td>{{ r.criado_em|date:"d/m/Y H:i" }}</td>
                             <td class="actions-col">
+                                {% if r.arquivo_md %}<a class="btn btn-secondary btn-compact" href="{{ r.arquivo_md.url }}" download>Baixar .md</a>{% endif %}
                                 {% if r.arquivo_pdf %}<a class="btn btn-primary btn-compact" href="{{ r.arquivo_pdf.url }}" target="_blank">Abrir PDF</a>{% endif %}
                                 <form method="post" action="{% url 'reports:excluir' r.pk %}" data-confirm="Remover este relatório?" style="display:inline;">
                                     {% csrf_token %}
@@ -71,4 +72,24 @@
         <div class="empty-state"><p>Nenhum relatório gerado ainda.</p></div>
     {% endif %}
 </section>
+
+<script>
+(function () {
+    var provaSelect = document.getElementById('prova_id');
+    var discSelect  = document.getElementById('disciplina_id');
+    if (!provaSelect || !discSelect) return;
+    var allOpts = Array.from(discSelect.querySelectorAll('option[data-prova]'));
+
+    provaSelect.addEventListener('change', function () {
+        var provaPk = provaSelect.value;
+        allOpts.forEach(function (opt) {
+            opt.hidden = provaPk ? (opt.dataset.prova !== provaPk) : false;
+        });
+        if (discSelect.value) {
+            var sel = discSelect.options[discSelect.selectedIndex];
+            if (sel && sel.hidden) discSelect.value = '';
+        }
+    });
+})();
+</script>
 {% endblock %}

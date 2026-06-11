@@ -1,6 +1,30 @@
+import re
+
 from django import forms
 
 from .models import ImportacaoPDF, Questao
+
+
+def _normalizar_enunciado(texto: str) -> str:
+    """Formata enunciado_md: parágrafo do enunciado + um parágrafo por alternativa."""
+    if not texto:
+        return texto
+    ALT_RE = re.compile(r'^([A-E])\s*[).]\s*', re.IGNORECASE)
+    linhas = texto.splitlines()
+    secoes: list[list[str]] = []
+    secao_atual: list[str] = []
+    for linha in linhas:
+        linha = linha.rstrip()
+        if ALT_RE.match(linha):
+            if secao_atual:
+                secoes.append(secao_atual)
+            secao_atual = [linha]
+        else:
+            if linha:
+                secao_atual.append(linha)
+    if secao_atual:
+        secoes.append(secao_atual)
+    return '\n\n'.join(' '.join(s) for s in secoes if s)
 
 
 class ImportacaoForm(forms.ModelForm):
@@ -23,3 +47,6 @@ class QuestaoForm(forms.ModelForm):
         widgets = {
             'enunciado_md': forms.Textarea(attrs={'rows': 10}),
         }
+
+    def clean_enunciado_md(self):
+        return _normalizar_enunciado(self.cleaned_data.get('enunciado_md', ''))

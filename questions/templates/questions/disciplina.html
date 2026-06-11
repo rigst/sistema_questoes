@@ -7,58 +7,47 @@
     <nav class="breadcrumb" aria-label="Navegação">
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <span class="breadcrumb-sep" aria-hidden="true">›</span>
-        <a href="{% url 'exams:prova_detalhe' disciplina.prova.pk %}">{{ disciplina.prova.nome }}</a>
+        <a href="{% url 'dashboard' %}">{{ disciplina.prova.nome }}</a>
         <span class="breadcrumb-sep" aria-hidden="true">›</span>
         <span class="breadcrumb-current">{{ disciplina.nome }}</span>
     </nav>
 
     <div class="section-heading">
         <h2>{{ disciplina.nome }}</h2>
-        <p class="muted">{{ disciplina.prova.nome }} · {{ questoes|length }} questão(ões)</p>
+        <div class="inline-actions">
+            <button type="button" class="btn btn-secondary btn-compact btn-icon" id="toggle-import-btn" title="Importar PDF de questões">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+        </div>
     </div>
+    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ questoes|length }} questões</p>
 
-    {# ---- UPLOAD PDF ---- #}
-    <div class="form-panel" style="margin-bottom:1.25rem;">
-        <h3>Importar PDF de questões</h3>
+    {# ---- UPLOAD PDF (colapsável) ---- #}
+    <div id="upload-panel" class="form-panel" style="margin-bottom:1.25rem;" hidden>
         <form id="upload-form" method="post" action="{% url 'questions:upload' disciplina.pk %}" enctype="multipart/form-data">
             {% csrf_token %}
-            <div class="form-grid">
-                <div class="full">
-                    {{ importacao_form.arquivo }}
-                    {{ importacao_form.arquivo.errors }}
-                </div>
-            </div>
-            <div class="upload-progress-wrap" id="upload-progress-wrap" hidden>
+            {{ importacao_form.arquivo }}
+            {{ importacao_form.arquivo.errors }}
+            <div class="upload-progress-wrap" id="upload-progress-wrap" hidden style="margin-top:.75rem;">
                 <div class="progress-bar-track">
                     <div class="progress-bar-fill" id="upload-bar" style="width:0%"></div>
                 </div>
                 <span class="progress-label" id="upload-label">Enviando…</span>
             </div>
-            <div class="inline-actions inline-actions-end" id="upload-actions">
-                <button type="submit" class="btn btn-primary" id="upload-btn">Enviar e extrair</button>
+            <div class="inline-actions inline-actions-end" id="upload-actions" style="margin-top:.75rem;">
+                <button type="button" class="btn btn-secondary btn-compact" id="cancel-import-btn">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-compact" id="upload-btn">Enviar e extrair</button>
             </div>
         </form>
-
-        {% if importacoes %}
-            <div id="importacoes-status" data-em-processamento="{{ em_processamento|yesno:'1,0' }}">
-                <p class="form-note" style="margin-top:1rem;">Importações recentes:</p>
-                <ul>
-                    {% for imp in importacoes %}
-                        <li data-importacao="{{ imp.pk }}" data-status-url="{% url 'questions:importacao_status' imp.pk %}">
-                            #{{ imp.pk }} — <span class="js-imp-status">{{ imp.get_status_display }}</span>
-                            {% if imp.status == 'concluido' %}
-                                · {{ imp.num_questoes }} questões{% if imp.confianca_media %} (conf. {{ imp.confianca_media|floatformat:2 }}{% if imp.usou_ia %}, IA{% endif %}){% endif %}
-                            {% endif %}
-                            {% if imp.status == 'erro' %}· <span style="color:var(--danger)">{{ imp.erro }}</span>{% endif %}
-                            <div class="progress-bar-track imp-progress-bar" id="imp-bar-{{ imp.pk }}" {% if imp.status != 'processando' and imp.status != 'enviado' %}hidden{% endif %}>
-                                <div class="progress-bar-fill progress-bar-indeterminate"></div>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endif %}
     </div>
+
+    {% if em_processamento %}
+    <div id="importacoes-status" data-em-processamento="1" style="display:none;">
+        {% for imp in importacoes %}{% if imp.status == 'processando' or imp.status == 'enviado' %}
+            <li data-importacao="{{ imp.pk }}" data-status-url="{% url 'questions:importacao_status' imp.pk %}"></li>
+        {% endif %}{% endfor %}
+    </div>
+    {% endif %}
 
     {% if questoes %}
         {# ---- IA EM PROCESSAMENTO ---- #}
@@ -84,29 +73,30 @@
                 <select name="prompt_id" id="prompt_id" required style="width:100%;margin-bottom:0.75rem;">
                     <option value="" data-chars="0">— escolha um prompt —</option>
                     {% for p in prompts %}
-                        <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
+                        <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }}</option>
                     {% endfor %}
                 </select>
                 {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
-                <button type="submit" class="btn btn-primary" id="lote-btn" style="width:100%;margin-top:0.5rem;">Aplicar aos selecionados</button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                    <button type="submit" class="btn btn-primary" id="lote-btn" style="flex:1;">Aplicar aos selecionados</button>
+                    <button type="button" class="btn btn-secondary" id="revisar-lote-btn" style="flex:1;" hidden>Revisar selecionadas</button>
+                </div>
 
                 {# ---- PREVISÃO DE CUSTO ---- #}
                 <div id="cost-preview" class="cost-preview" hidden>
                     <span id="cost-summary"></span>
-                    <span class="cost-note">estimado (Batch API, 50% desc.)</span>
+                    <span class="cost-note">estimativa de custo</span>
                 </div>
             </div>
 
-            <div class="table-wrap">
+            <div class="table-wrap" data-no-toggle>
                 <table>
                     <thead>
                         <tr>
-                            <th style="width:36px;"><input type="checkbox" id="sel-todos"></th>
+                            <th style="width:44px;padding-left:0.75rem;"><input type="checkbox" id="sel-todos"></th>
                             <th>#</th>
                             <th>Enunciado</th>
                             <th>Gabarito</th>
-                            <th>Conf.</th>
-                            <th class="status-col">Status</th>
                             <th class="actions-col">Ações</th>
                         </tr>
                     </thead>
@@ -115,21 +105,14 @@
                             <tr>
                                 <td><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}"></td>
                                 <td>{{ q.numero }}</td>
-                                <td>{{ q.enunciado_md|truncatechars:90 }}{% if q.tem_imagens %} 🖼️{% endif %}</td>
+                                <td>{{ q.enunciado_md|truncatechars:90 }}</td>
                                 <td>{{ q.gabarito|default:"—" }}</td>
-                                <td>
-                                    {% if q.confianca_extracao %}
-                                        <span class="badge {% if q.confianca_extracao >= 0.8 %}badge-concluida{% elif q.confianca_extracao >= 0.6 %}badge-em_revisao{% else %}badge-erro{% endif %}">
-                                            {{ q.confianca_extracao|floatformat:2 }}
-                                        </span>
-                                    {% else %}—{% endif %}
-                                </td>
-                                <td class="status-col">
-                                    <span class="badge badge-{{ q.status }}">{{ q.get_status_display }}</span>
-                                </td>
                                 <td class="actions-col">
-                                    <a class="btn btn-secondary btn-compact" data-open-panel-modal="1" data-panel-url="{% url 'questions:questao_editar' q.pk %}" href="{% url 'questions:questao_editar' q.pk %}">Revisar</a>
-                                    <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">Resultados ({{ q.resultados.count }})</a>
+                                    {% if q.status == 'em_revisao' %}
+                                        <a class="btn btn-secondary btn-compact" data-open-panel-modal="1" data-panel-url="{% url 'questions:questao_editar' q.pk %}" href="{% url 'questions:questao_editar' q.pk %}">Revisar</a>
+                                    {% else %}
+                                        <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">Ver análises{% if q.resultados.count %} ({{ q.resultados.count }}){% endif %}</a>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
@@ -141,6 +124,10 @@
         <div class="empty-state"><p>Nenhuma questão ainda. Envie um PDF acima para extrair.</p></div>
     {% endif %}
 </section>
+
+<style>
+.btn-icon { padding: 0.4rem 0.55rem; display: inline-flex; align-items: center; justify-content: center; }
+</style>
 
 <script>
 (function () {
@@ -155,12 +142,51 @@
   var CHARS_PER_TOKEN = 3.8; // PT-BR usa tokens ligeiramente maiores que EN
   var SYSTEM_OVERHEAD = 55;  // system prompt + delimitadores fixos (~55 tokens)
 
-  // ---- Seleção em massa ----
-  var selTodos = document.getElementById('sel-todos');
-  if (selTodos) {
-    selTodos.addEventListener('change', function () {
-      document.querySelectorAll('.sel-questao').forEach(function (c) { c.checked = selTodos.checked; });
-      atualizarCusto();
+  // ---- Toggle importar ----
+  var toggleImportBtn = document.getElementById('toggle-import-btn');
+  var cancelImportBtn = document.getElementById('cancel-import-btn');
+  var uploadPanel = document.getElementById('upload-panel');
+  var realFileInput = uploadPanel ? uploadPanel.querySelector('input[type=file]') : null;
+
+  if (toggleImportBtn && realFileInput) {
+    toggleImportBtn.addEventListener('click', function () {
+      uploadPanel.hidden = false;
+      toggleImportBtn.hidden = true;
+      setTimeout(function () { realFileInput.click(); }, 50);
+    });
+  }
+  if (cancelImportBtn) {
+    cancelImportBtn.addEventListener('click', function () {
+      uploadPanel.hidden = true;
+      toggleImportBtn.hidden = false;
+      if (realFileInput) realFileInput.value = '';
+    });
+  }
+
+
+  // ---- Revisar marcadas ----
+  var revisarBtn = document.getElementById('revisar-lote-btn');
+  if (revisarBtn) {
+    revisarBtn.addEventListener('click', function () {
+      var selecionadas = document.querySelectorAll('.sel-questao:checked');
+      if (!selecionadas.length) { alert('Selecione ao menos uma questão.'); return; }
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "questions:revisar_lote" %}';
+      var csrf = document.createElement('input');
+      csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
+      csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      form.appendChild(csrf);
+      var next = document.createElement('input');
+      next.type = 'hidden'; next.name = 'next'; next.value = window.location.pathname;
+      form.appendChild(next);
+      selecionadas.forEach(function (cb) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'questao_ids'; inp.value = cb.value;
+        form.appendChild(inp);
+      });
+      document.body.appendChild(form);
+      form.submit();
     });
   }
 
@@ -208,9 +234,6 @@
   }
 
   if (promptSel) promptSel.addEventListener('change', atualizarCusto);
-  document.querySelectorAll('.sel-questao').forEach(function (cb) {
-    cb.addEventListener('change', atualizarCusto);
-  });
 
   // ---- Upload com barra de progresso ----
   var uploadForm = document.getElementById('upload-form');
@@ -315,5 +338,48 @@
     }, 3000);
   }
 })();
+</script>
+
+<script>
+/* checkboxes — fora do IIFE pra garantir execução limpa */
+(function checkboxes() {
+  var selTodos = document.getElementById('sel-todos');
+  var questoes = document.querySelectorAll('.sel-questao');
+
+  function corLinha(cb) {
+    var td = cb.parentElement;
+    var tr = td && td.parentElement;
+    if (tr && tr.nodeName === 'TR') {
+      tr.style.backgroundColor = cb.checked ? 'rgba(47,120,219,0.12)' : '';
+    }
+  }
+
+  function atualizarRevisar() {
+    var n = document.querySelectorAll('.sel-questao:checked').length;
+    var revisarBtn = document.getElementById('revisar-lote-btn');
+    if (revisarBtn) revisarBtn.hidden = n === 0;
+  }
+
+  if (selTodos) {
+    selTodos.addEventListener('change', function () {
+      questoes.forEach(function (cb) {
+        cb.checked = selTodos.checked;
+        corLinha(cb);
+      });
+      atualizarRevisar();
+    });
+  }
+
+  questoes.forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      corLinha(cb);
+      if (selTodos) {
+        selTodos.checked = questoes.length > 0 &&
+          document.querySelectorAll('.sel-questao:checked').length === questoes.length;
+      }
+      atualizarRevisar();
+    });
+  });
+}());
 </script>
 {% endblock %}

@@ -118,6 +118,23 @@ def questao_confirmar(request, pk):
 
 
 @login_required
+def revisar_lote(request):
+    """Marca questões selecionadas como disponível (revisão concluída)."""
+    if request.method != 'POST':
+        return redirect('dashboard')
+    ids = request.POST.getlist('questao_ids')
+    if ids:
+        Questao.objects.filter(
+            pk__in=ids,
+            disciplina__prova__user=request.user,
+            status=Questao.Status.EM_REVISAO,
+        ).update(status=Questao.Status.DISPONIVEL)
+        messages.success(request, f'{len(ids)} questão(ões) marcadas como revisadas.')
+    next_url = request.POST.get('next', 'dashboard')
+    return redirect(next_url)
+
+
+@login_required
 def questao_excluir(request, pk):
     questao = _questao_do_user(request, pk)
     disc_pk = questao.disciplina.pk

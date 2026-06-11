@@ -7,7 +7,7 @@
     <nav class="breadcrumb" aria-label="Navegação">
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <span class="breadcrumb-sep" aria-hidden="true">›</span>
-        <a href="{% url 'exams:prova_detalhe' questao.disciplina.prova.pk %}">{{ questao.disciplina.prova.nome }}</a>
+        <a href="{% url 'dashboard' %}">{{ questao.disciplina.prova.nome }}</a>
         <span class="breadcrumb-sep" aria-hidden="true">›</span>
         <a href="{% url 'questions:disciplina' questao.disciplina.pk %}">{{ questao.disciplina.nome }}</a>
         <span class="breadcrumb-sep" aria-hidden="true">›</span>
@@ -19,18 +19,25 @@
         <span class="badge badge-{{ questao.status }}">{{ questao.get_status_display }}</span>
     </div>
 
-    <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
-        <form method="post" action="{% url 'ai:aplicar' questao.pk %}" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;width:100%;">
+    <div class="form-panel" style="margin-bottom:1rem;">
+        <form method="post" action="{% url 'ai:aplicar' questao.pk %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
-            <select name="prompt_id" id="prompt_id" required>
-                <option value="">— escolha —</option>
-                {% for p in prompts %}
-                    <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
+            <div class="form-grid">
+                <div class="full">
+                    <label for="prompt_id">Aplicar prompt</label>
+                    <select name="prompt_id" id="prompt_id" required>
+                        <option value="">— escolha um prompt —</option>
+                        {% for p in prompts %}
+                            <option value="{{ p.pk }}">{{ p.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end" style="margin-top:.75rem;">
+                <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
+            </div>
         </form>
     </div>
 
@@ -46,13 +53,16 @@
         {% endif %}
     </div>
 
-    <div class="section-heading"><h2>Resultados ({{ resultados.count }})</h2></div>
+    <div class="section-heading">
+        <h2>Análises por prompt{% if resultados.count %} <span class="badge" style="font-size:0.8rem;font-weight:500;background:var(--ds-panel,#f3f4f6);color:var(--muted);">{{ resultados.count }}</span>{% endif %}</h2>
+        <p class="muted" style="font-size:0.85rem;">Cada resultado abaixo é a resposta de um prompt aplicado a esta questão pela IA.</p>
+    </div>
     {% for r in resultados %}
         <div class="form-panel" style="margin-bottom:.75rem;">
             <div class="section-heading">
                 <h3>{{ r.prompt.nome }} <span class="badge badge-{{ r.status }}">{{ r.get_status_display }}</span></h3>
                 <div class="inline-actions">
-                    <span class="user-role">{{ r.criado_em|date:"d/m/Y H:i" }} · {{ r.total_tokens }} tokens</span>
+                    <span class="user-role">{{ r.criado_em|date:"d/m/Y H:i" }}</span>
                     <form method="post" action="{% url 'ai:resultado_excluir' r.pk %}" data-confirm="Remover este resultado?">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">

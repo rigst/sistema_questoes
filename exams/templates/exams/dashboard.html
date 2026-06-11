@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard · Estudo por Questões{% endblock %}
+{% block title %}Estudos · Estudo por Questões{% endblock %}
 
 {% block content %}
 <section>
     <div class="section-heading">
-        <h2>Dashboard</h2>
-        <div class="inline-actions">
-            <a class="btn btn-primary" href="{% url 'exams:prova_nova' %}">Nova prova</a>
+        <div>
+            <h2>Bons Estudos{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %} ✨</h2>
+            <p class="muted" style="margin-top:.2rem;font-size:.9rem;">cada questão revisada é um passo a mais</p>
         </div>
     </div>
 
@@ -37,30 +37,267 @@
     {% endif %}
     {% if na_fila > 0 %}
     <div class="flash-message" style="margin-bottom:1.25rem;">
-        {{ na_fila }} questão(ões) em processamento de IA — os resultados aparecerão nas disciplinas quando concluídas.
+        {{ na_fila }} questão(ões) em processamento de IA.
     </div>
     {% endif %}
 
-    <div class="section-heading"><h2>Suas provas</h2></div>
-    {% if provas %}
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Prova</th><th>Disciplinas</th><th class="actions-col">Ações</th></tr></thead>
-                <tbody>
-                    {% for prova in provas %}
-                        <tr class="clickable-row" data-row-href="{% url 'exams:prova_detalhe' prova.pk %}">
-                            <td>{{ prova.nome }}</td>
-                            <td>{{ prova.n_disciplinas }}</td>
-                            <td class="actions-col">
-                                <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_detalhe' prova.pk %}">Abrir</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="provas-tree" id="provas-tree">
+        <div class="provas-tree-left" id="provas-list">
+            {% for prova in provas %}
+            <div class="prova-item {% if forloop.first %}is-active{% endif %}"
+                 data-prova="{{ prova.pk }}">
+                <div class="prova-item-row">
+                    <span class="prova-item-name">{{ prova.nome }}</span>
+                    <a class="prova-item-edit" title="Editar prova"
+                       data-open-panel-modal="1"
+                       data-panel-url="{% url 'exams:prova_editar' prova.pk %}"
+                       href="{% url 'exams:prova_editar' prova.pk %}">✎</a>
+                </div>
+                <div class="prova-item-meta">{{ prova.n_disciplinas }} disciplina{{ prova.n_disciplinas|pluralize }}</div>
+            </div>
+            {% endfor %}
+            <div class="prova-add-row" id="prova-add-row">
+                <button type="button" class="btn-inline-add" id="prova-add-btn">+ nova prova</button>
+                <div id="prova-add-form" class="inline-create-form" hidden>
+                    {% csrf_token %}
+                    <input type="text" id="prova-add-input" placeholder="Nome da prova" maxlength="200" autocomplete="off">
+                    <span class="inline-create-hint">Enter · Esc para cancelar</span>
+                </div>
+            </div>
         </div>
-    {% else %}
-        <div class="empty-state"><p>Nenhuma prova ainda. Crie a primeira para começar.</p></div>
-    {% endif %}
+
+        <div class="provas-tree-right" id="provas-detail">
+            {% for prova in provas %}
+            <div class="prova-detail {% if forloop.first %}is-active{% endif %}" data-prova-detail="{{ prova.pk }}">
+                <div class="prova-detail-header">
+                    <h3>{{ prova.nome }}</h3>
+                </div>
+                {% with disciplinas=prova.disciplinas.all %}
+                <ul class="disciplinas-list" id="disciplinas-list-{{ prova.pk }}">
+                    {% for d in disciplinas %}
+                    <li class="disciplina-item">
+                        <div class="disciplina-row">
+                            <a href="{% url 'questions:disciplina' d.pk %}" class="disciplina-nome-link">
+                                {{ d.nome }}
+                            </a>
+                            <span class="disciplina-count">{{ d.questoes.count }} quest{{ d.questoes.count|pluralize:"ão,ões" }}</span>
+                            <a class="disciplina-edit-icon" title="Editar disciplina"
+                               data-open-panel-modal="1"
+                               data-panel-url="{% url 'exams:disciplina_editar' d.pk %}"
+                               href="{% url 'exams:disciplina_editar' d.pk %}">✎</a>
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li style="padding:.75rem 0.9rem;">
+                        <p class="muted" style="font-size:.85rem;margin:0;">nenhuma disciplina ainda. adicione abaixo ↓</p>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="disciplina-add-row">
+                    <button type="button" class="btn-inline-add" data-disc-add="{{ prova.pk }}">+ nova disciplina</button>
+                    <div class="inline-create-form disc-add-form" data-prova-pk="{{ prova.pk }}" hidden>
+                        <input type="text" class="disc-add-input" placeholder="Nome da disciplina" maxlength="200" autocomplete="off">
+                        <span class="inline-create-hint">Enter · Esc para cancelar</span>
+                    </div>
+                </div>
+                {% endwith %}
+            </div>
+            {% empty %}
+            <div class="prova-detail is-active" data-prova-detail="__empty__">
+                <div class="empty-state"><p>nenhuma prova ainda. crie a primeira no painel ao lado ←</p></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 </section>
+
+<style>
+.provas-tree {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 0;
+    border: 1px solid var(--border-strong, #dfe3ea);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #fff;
+    min-height: 260px;
+}
+.provas-tree-left {
+    background: var(--ds-panel, #f7f9fc);
+    border-right: 1px solid var(--border-strong, #dfe3ea);
+    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+}
+.prova-item {
+    padding: 0.6rem 1rem 0.6rem 1.1rem;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+.prova-item:hover { background: rgba(47,120,219,0.07); }
+.prova-item.is-active {
+    background: rgba(47,120,219,0.1);
+    border-left-color: var(--accent, #2f78db);
+}
+.prova-item-row { display: flex; align-items: center; gap: 0.4rem; }
+.prova-item-name { font-weight: 600; font-size: 0.9rem; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prova-item-edit { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; }
+.prova-item:hover .prova-item-edit { opacity: 1; }
+.prova-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+.prova-add-row { padding: 0.5rem 0.75rem; margin-top: auto; border-top: 1px solid var(--border, #e8edf4); }
+.btn-inline-add {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.82rem; color: var(--accent, #2f78db);
+    padding: 0.3rem 0; font-weight: 500;
+    width: 100%; text-align: left;
+}
+.btn-inline-add:hover { text-decoration: underline; }
+.inline-create-form { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.4rem; }
+.inline-create-form[hidden] { display: none !important; }
+.inline-create-form input[type=text] {
+    width: 100%; border: 1px solid var(--accent, #2f78db);
+    border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 0.87rem;
+    outline: none; background: #fff;
+}
+.inline-create-hint { font-size: 0.72rem; color: var(--muted); }
+
+.provas-tree-right { padding: 1.25rem 1.5rem; }
+.prova-detail { display: none; }
+.prova-detail.is-active { display: block; }
+.prova-detail-header { margin-bottom: 1rem; }
+.prova-detail-header h3 { margin: 0; font-size: 1.05rem; }
+
+.disciplinas-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
+.disciplina-item { border: 1px solid var(--border, #e8edf4); border-radius: 10px; overflow: hidden; }
+.disciplina-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    transition: background 0.15s;
+}
+.disciplina-row:hover { background: rgba(47,120,219,0.06); }
+.disciplina-nome-link { flex: 1; text-decoration: none; color: var(--text); font-weight: 500; font-size: 0.92rem; }
+.disciplina-nome-link:hover { color: var(--accent, #2f78db); }
+.disciplina-count { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.disciplina-edit-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; }
+.disciplina-row:hover .disciplina-edit-icon { opacity: 1; }
+.disciplina-add-row { padding: 0.6rem 0.4rem 0.2rem; }
+
+@media (max-width: 600px) {
+    .provas-tree { grid-template-columns: 1fr; }
+    .provas-tree-left { border-right: 0; border-bottom: 1px solid var(--border-strong, #dfe3ea); }
+}
+</style>
+
+<script>
+(function () {
+    var CSRF = document.querySelector('[name=csrfmiddlewaretoken]');
+    function csrfToken() { return CSRF ? CSRF.value : ''; }
+
+    // ---- troca de prova ativa ----
+    var provaItems = document.querySelectorAll('.prova-item');
+    var provaDetails = document.querySelectorAll('.prova-detail');
+    provaItems.forEach(function (item) {
+        item.addEventListener('click', function (e) {
+            if (e.target.closest('.prova-item-edit')) return;
+            var pk = item.dataset.prova;
+            provaItems.forEach(function (i) { i.classList.remove('is-active'); });
+            provaDetails.forEach(function (d) { d.classList.remove('is-active'); });
+            item.classList.add('is-active');
+            var detail = document.querySelector('[data-prova-detail="' + pk + '"]');
+            if (detail) detail.classList.add('is-active');
+        });
+    });
+
+    // ---- criar prova inline ----
+    var addBtn = document.getElementById('prova-add-btn');
+    var addForm = document.getElementById('prova-add-form');
+    var addInput = document.getElementById('prova-add-input');
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            addBtn.hidden = true;
+            addForm.hidden = false;
+            addInput.focus();
+        });
+        addInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                addForm.hidden = true;
+                addBtn.hidden = false;
+                addInput.value = '';
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var nome = addInput.value.trim();
+                if (!nome) return;
+                var fd = new FormData();
+                fd.append('csrfmiddlewaretoken', csrfToken());
+                fd.append('nome', nome);
+                fetch('{% url "exams:prova_criar_inline" %}', { method: 'POST', body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.error) { alert(data.error); return; }
+                        window.location.reload();
+                    })
+                    .catch(function () { window.location.reload(); });
+            }
+        });
+    }
+
+    // ---- criar disciplina inline ----
+    document.querySelectorAll('[data-disc-add]').forEach(function (btn) {
+        var provaPk = btn.dataset.discAdd;
+        var row = btn.closest('.disciplina-add-row');
+        var form = row.querySelector('.disc-add-form');
+        var input = row.querySelector('.disc-add-input');
+
+        btn.addEventListener('click', function () {
+            btn.hidden = true;
+            form.hidden = false;
+            input.focus();
+        });
+
+        input.addEventListener('blur', function () {
+            if (!input.value.trim()) {
+                form.hidden = true;
+                btn.hidden = false;
+            }
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                form.hidden = true;
+                btn.hidden = false;
+                input.value = '';
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var nome = input.value.trim();
+                if (!nome) return;
+                var fd = new FormData();
+                fd.append('csrfmiddlewaretoken', csrfToken());
+                fd.append('nome', nome);
+                fd.append('prova_pk', provaPk);
+                fetch('{% url "exams:disciplina_criar_inline" %}', { method: 'POST', body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.error) { alert(data.error); return; }
+                        // adiciona na lista sem reload
+                        var lista = document.getElementById('disciplinas-list-' + provaPk);
+                        if (lista) {
+                            var li = document.createElement('li');
+                            li.className = 'disciplina-item';
+                            li.innerHTML = '<div class="disciplina-row"><a href="' + data.url + '" class="disciplina-nome-link">' + data.nome + '</a><span class="disciplina-count">0 questões</span></div>';
+                            lista.appendChild(li);
+                        }
+                        input.value = '';
+                        form.hidden = true;
+                        btn.hidden = false;
+                    })
+                    .catch(function () { window.location.reload(); });
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

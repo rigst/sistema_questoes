@@ -38,8 +38,9 @@ def gerar(request):
     elif prova_id:
         prova = get_object_or_404(Prova, pk=prova_id, user=request.user)
 
+    formato = request.POST.get('formato', 'md')
     relatorio = gerar_relatorio(
-        request.user, prompt, prova=prova, disciplina=disciplina, com_texto=com_texto
+        request.user, prompt, prova=prova, disciplina=disciplina, com_texto=com_texto, formato=formato
     )
     if relatorio.num_questoes == 0:
         messages.warning(request, 'Nenhuma questão com resultado salvo desse prompt no escopo escolhido.')

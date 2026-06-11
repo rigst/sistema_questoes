@@ -7,19 +7,21 @@
     <div class="section-heading">
         <h2>Prompts</h2>
         <div class="inline-actions">
-            <a class="btn btn-primary" href="{% url 'prompts:novo' %}">Novo prompt</a>
+            <a class="btn btn-primary"
+               data-open-panel-modal="1"
+               data-panel-url="{% url 'prompts:novo' %}"
+               href="{% url 'prompts:novo' %}">Novo prompt</a>
         </div>
     </div>
 
     {% if prompts %}
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Nome</th><th>Tipo</th><th class="actions-col">Ações</th></tr></thead>
+                <thead><tr><th>Nome</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for p in prompts %}
-                        <tr>
+                        <tr class="clickable-row" data-row-href="{% url 'prompts:editar' p.pk %}">
                             <td>{{ p.nome }}</td>
-                            <td>{{ p.get_tipo_display }}</td>
                             <td class="actions-col">
                                 <a class="btn btn-secondary btn-compact" href="{% url 'prompts:editar' p.pk %}">Editar</a>
                                 <a class="btn btn-danger btn-compact" href="{% url 'prompts:excluir' p.pk %}">Excluir</a>

@@ -16,7 +16,8 @@ class Relatorio(models.Model):
     disciplina = models.ForeignKey(Disciplina, on_delete=models.SET_NULL, null=True, blank=True)
     prompt = models.ForeignKey(Prompt, on_delete=models.SET_NULL, null=True, blank=True)
     com_texto = models.BooleanField('inclui texto da questão', default=True)
-    arquivo_pdf = models.FileField('PDF', upload_to='relatorios/%Y/%m/')
+    arquivo_pdf = models.FileField('PDF', upload_to='relatorios/%Y/%m/', blank=True, null=True)
+    arquivo_md = models.FileField('Markdown', upload_to='relatorios/%Y/%m/', blank=True, null=True)
     num_questoes = models.PositiveIntegerField(default=0)
     criado_em = models.DateTimeField(auto_now_add=True)
 
