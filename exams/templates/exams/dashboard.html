@@ -47,11 +47,8 @@
             <div class="prova-item {% if forloop.first %}is-active{% endif %}"
                  data-prova="{{ prova.pk }}">
                 <div class="prova-item-row">
-                    <span class="prova-item-name">{{ prova.nome }}</span>
-                    <a class="prova-item-edit" title="Editar prova"
-                       data-open-panel-modal="1"
-                       data-panel-url="{% url 'exams:prova_editar' prova.pk %}"
-                       href="{% url 'exams:prova_editar' prova.pk %}">
+                    <span class="prova-item-name" data-rename-url="{% url 'exams:prova_renomear_inline' prova.pk %}">{{ prova.nome }}</span>
+                    <a class="prova-item-edit" title="Renomear prova">
                         <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </a>
                     <a class="prova-item-delete" title="Excluir prova"
@@ -83,14 +80,11 @@
                     {% for d in disciplinas %}
                     <li class="disciplina-item">
                         <div class="disciplina-row">
-                            <a href="{% url 'questions:disciplina' d.pk %}" class="disciplina-nome-link">
+                            <a href="{% url 'questions:disciplina' d.pk %}" class="disciplina-nome-link" data-rename-url="{% url 'exams:disciplina_renomear_inline' d.pk %}">
                                 {{ d.nome }}
                             </a>
                             <span class="disciplina-count">{{ d.questoes.count }} quest{{ d.questoes.count|pluralize:"ão,ões" }}</span>
-                            <a class="disciplina-edit-icon" title="Editar disciplina"
-                               data-open-panel-modal="1"
-                               data-panel-url="{% url 'exams:disciplina_editar' d.pk %}"
-                               href="{% url 'exams:disciplina_editar' d.pk %}">
+                            <a class="disciplina-edit-icon" title="Renomear disciplina">
                                 <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </a>
                             <a class="disciplina-delete-icon" title="Excluir disciplina"
@@ -197,6 +191,19 @@
 .disciplina-row:hover .disciplina-edit-icon, .disciplina-row:hover .disciplina-delete-icon { opacity: 1; }
 .disciplina-add-row { padding: 0.6rem 0.4rem 0.2rem; }
 
+.inline-rename-input {
+    width: 100% !important;
+    min-height: 28px !important;
+    padding: 0.15rem 0.4rem !important;
+    border: 1px solid var(--accent, #2f78db) !important;
+    border-radius: 6px !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    background: #fff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(47, 120, 219, 0.15) !important;
+}
+
 @media (max-width: 600px) {
     .provas-tree { grid-template-columns: 1fr; }
     .provas-tree-left { border-right: 0; border-bottom: 1px solid var(--border-strong, #dfe3ea); }
@@ -257,6 +264,69 @@
             }
         });
     }
+
+    // ---- renomear inline (provas e disciplinas) ----
+    function startInlineRename(el) {
+        var url = el.dataset.renameUrl;
+        if (!url) return;
+        var oldName = el.textContent.trim();
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldName;
+        input.maxLength = 200;
+        input.className = 'inline-rename-input';
+        el.textContent = '';
+        el.appendChild(input);
+        input.focus();
+        input.select();
+
+        function finish(save) {
+            var newName = input.value.trim();
+            if (!save || !newName || newName === oldName) {
+                el.textContent = oldName;
+                return;
+            }
+            var fd = new FormData();
+            fd.append('csrfmiddlewaretoken', csrfToken());
+            fd.append('nome', newName);
+            fetch(url, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.error) { el.textContent = oldName; alert(data.error); return; }
+                    el.textContent = data.nome;
+                    var item = el.closest('.prova-item');
+                    if (item) {
+                        var detail = document.querySelector('[data-prova-detail="' + item.dataset.prova + '"] h3');
+                        if (detail) detail.textContent = data.nome;
+                    }
+                })
+                .catch(function () { el.textContent = oldName; });
+        }
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            if (e.key === 'Escape') { finish(false); }
+        });
+        input.addEventListener('blur', function () { finish(true); });
+    }
+
+    document.querySelectorAll('.prova-item-edit').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var nameEl = btn.closest('.prova-item-row').querySelector('.prova-item-name');
+            if (nameEl) startInlineRename(nameEl);
+        });
+    });
+
+    document.querySelectorAll('.disciplina-edit-icon').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var nameEl = btn.closest('.disciplina-row').querySelector('.disciplina-nome-link');
+            if (nameEl) startInlineRename(nameEl);
+        });
+    });
 
     // ---- criar disciplina inline ----
     document.querySelectorAll('[data-disc-add]').forEach(function (btn) {

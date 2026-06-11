@@ -11,7 +11,6 @@ class Prova(models.Model):
         related_name='provas',
     )
     nome = models.CharField('nome', max_length=200)
-    descricao = models.TextField('descrição', blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

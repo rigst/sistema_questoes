@@ -6,7 +6,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from questions.models import Questao
 
-from .forms import DisciplinaForm, ProvaForm
 from .models import Disciplina, Prova
 
 
@@ -47,19 +46,7 @@ def provas(request):
 
 @login_required
 def prova_form(request, pk=None):
-    instancia = get_object_or_404(Prova, pk=pk, user=request.user) if pk else None
-    if request.method == 'POST':
-        form = ProvaForm(request.POST, instance=instancia)
-        if form.is_valid():
-            prova = form.save(commit=False)
-            prova.user = request.user
-            prova.save()
-            messages.success(request, 'Prova salva.')
-            return redirect('dashboard')
-    else:
-        form = ProvaForm(instance=instancia)
-    titulo = 'Editar prova' if instancia else 'Nova prova'
-    return render(request, 'exams/prova_form.html', {'form': form, 'titulo': titulo})
+    return redirect('dashboard')
 
 
 @login_required
@@ -79,24 +66,7 @@ def prova_excluir(request, pk):
 
 @login_required
 def disciplina_form(request, prova_pk=None, pk=None):
-    instancia = get_object_or_404(Disciplina, pk=pk, prova__user=request.user) if pk else None
-    prova = instancia.prova if instancia else get_object_or_404(Prova, pk=prova_pk, user=request.user)
-    if request.method == 'POST':
-        form = DisciplinaForm(request.POST, instance=instancia)
-        if form.is_valid():
-            disciplina = form.save(commit=False)
-            disciplina.prova = prova
-            disciplina.save()
-            messages.success(request, 'Disciplina salva.')
-            return redirect('dashboard')
-    else:
-        form = DisciplinaForm(instance=instancia)
-    titulo = 'Editar disciplina' if instancia else 'Nova disciplina'
-    return render(
-        request,
-        'exams/disciplina_form.html',
-        {'form': form, 'titulo': titulo, 'prova': prova},
-    )
+    return redirect('dashboard')
 
 
 @login_required
@@ -107,6 +77,32 @@ def disciplina_excluir(request, pk):
         messages.success(request, 'Disciplina excluída.')
         return redirect('dashboard')
     return render(request, 'exams/disciplina_excluir.html', {'disciplina': disciplina})
+
+
+@login_required
+def prova_renomear_inline(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    prova = get_object_or_404(Prova, pk=pk, user=request.user)
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        return JsonResponse({'error': 'Nome obrigatório.'}, status=400)
+    prova.nome = nome
+    prova.save(update_fields=['nome'])
+    return JsonResponse({'pk': prova.pk, 'nome': prova.nome})
+
+
+@login_required
+def disciplina_renomear_inline(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    disciplina = get_object_or_404(Disciplina, pk=pk, prova__user=request.user)
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        return JsonResponse({'error': 'Nome obrigatório.'}, status=400)
+    disciplina.nome = nome
+    disciplina.save(update_fields=['nome'])
+    return JsonResponse({'pk': disciplina.pk, 'nome': disciplina.nome})
 
 
 @login_required
