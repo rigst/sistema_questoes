@@ -51,7 +51,13 @@
                     <a class="prova-item-edit" title="Editar prova"
                        data-open-panel-modal="1"
                        data-panel-url="{% url 'exams:prova_editar' prova.pk %}"
-                       href="{% url 'exams:prova_editar' prova.pk %}">✎</a>
+                       href="{% url 'exams:prova_editar' prova.pk %}">
+                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </a>
+                    <a class="prova-item-delete" title="Excluir prova"
+                       href="{% url 'exams:prova_excluir' prova.pk %}">
+                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </a>
                 </div>
                 <div class="prova-item-meta">{{ prova.n_disciplinas }} disciplina{{ prova.n_disciplinas|pluralize }}</div>
             </div>
@@ -84,7 +90,13 @@
                             <a class="disciplina-edit-icon" title="Editar disciplina"
                                data-open-panel-modal="1"
                                data-panel-url="{% url 'exams:disciplina_editar' d.pk %}"
-                               href="{% url 'exams:disciplina_editar' d.pk %}">✎</a>
+                               href="{% url 'exams:disciplina_editar' d.pk %}">
+                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </a>
+                            <a class="disciplina-delete-icon" title="Excluir disciplina"
+                               href="{% url 'exams:disciplina_excluir' d.pk %}">
+                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </a>
                         </div>
                     </li>
                     {% empty %}
@@ -142,8 +154,9 @@
 }
 .prova-item-row { display: flex; align-items: center; gap: 0.4rem; }
 .prova-item-name { font-weight: 600; font-size: 0.9rem; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prova-item-edit { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; }
-.prova-item:hover .prova-item-edit { opacity: 1; }
+.prova-item-edit, .prova-item-delete { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; }
+.prova-item-delete { color: var(--ds-danger, #d14545); }
+.prova-item:hover .prova-item-edit, .prova-item:hover .prova-item-delete { opacity: 1; }
 .prova-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
 .prova-add-row { padding: 0.5rem 0.75rem; margin-top: auto; border-top: 1px solid var(--border, #e8edf4); }
 .btn-inline-add {
@@ -179,8 +192,9 @@
 .disciplina-nome-link { flex: 1; text-decoration: none; color: var(--text); font-weight: 500; font-size: 0.92rem; }
 .disciplina-nome-link:hover { color: var(--accent, #2f78db); }
 .disciplina-count { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
-.disciplina-edit-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; }
-.disciplina-row:hover .disciplina-edit-icon { opacity: 1; }
+.disciplina-edit-icon, .disciplina-delete-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; display: inline-flex; align-items: center; }
+.disciplina-delete-icon { color: var(--ds-danger, #d14545); }
+.disciplina-row:hover .disciplina-edit-icon, .disciplina-row:hover .disciplina-delete-icon { opacity: 1; }
 .disciplina-add-row { padding: 0.6rem 0.4rem 0.2rem; }
 
 @media (max-width: 600px) {
@@ -199,7 +213,7 @@
     var provaDetails = document.querySelectorAll('.prova-detail');
     provaItems.forEach(function (item) {
         item.addEventListener('click', function (e) {
-            if (e.target.closest('.prova-item-edit')) return;
+            if (e.target.closest('.prova-item-edit') || e.target.closest('.prova-item-delete')) return;
             var pk = item.dataset.prova;
             provaItems.forEach(function (i) { i.classList.remove('is-active'); });
             provaDetails.forEach(function (d) { d.classList.remove('is-active'); });
