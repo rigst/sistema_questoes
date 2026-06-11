@@ -56,12 +56,7 @@ def prova_detalhe(request, pk):
 
 @login_required
 def prova_excluir(request, pk):
-    prova = get_object_or_404(Prova, pk=pk, user=request.user)
-    if request.method == 'POST':
-        prova.delete()
-        messages.success(request, 'Prova excluída.')
-        return redirect('dashboard')
-    return render(request, 'exams/prova_excluir.html', {'prova': prova})
+    return redirect('dashboard')
 
 
 @login_required
@@ -71,12 +66,25 @@ def disciplina_form(request, prova_pk=None, pk=None):
 
 @login_required
 def disciplina_excluir(request, pk):
+    return redirect('dashboard')
+
+
+@login_required
+def prova_excluir_inline(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    prova = get_object_or_404(Prova, pk=pk, user=request.user)
+    prova.delete()
+    return JsonResponse({'ok': True})
+
+
+@login_required
+def disciplina_excluir_inline(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
     disciplina = get_object_or_404(Disciplina, pk=pk, prova__user=request.user)
-    if request.method == 'POST':
-        disciplina.delete()
-        messages.success(request, 'Disciplina excluída.')
-        return redirect('dashboard')
-    return render(request, 'exams/disciplina_excluir.html', {'disciplina': disciplina})
+    disciplina.delete()
+    return JsonResponse({'ok': True})
 
 
 @login_required
