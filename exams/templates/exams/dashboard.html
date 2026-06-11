@@ -41,6 +41,7 @@
     </div>
     {% endif %}
 
+    {% csrf_token %}
     <div class="provas-tree" id="provas-tree">
         <div class="provas-tree-left" id="provas-list">
             {% for prova in provas %}
@@ -64,7 +65,6 @@
             <div class="prova-add-row" id="prova-add-row">
                 <button type="button" class="btn-inline-add" id="prova-add-btn">+ nova prova</button>
                 <div id="prova-add-form" class="inline-create-form" hidden>
-                    {% csrf_token %}
                     <input type="text" id="prova-add-input" placeholder="Nome da prova" maxlength="200" autocomplete="off">
                     <span class="inline-create-hint">Enter · Esc para cancelar</span>
                 </div>
