@@ -7,7 +7,10 @@
     <div class="section-heading">
         <h2>Prompts</h2>
         <div class="inline-actions">
-            <a class="btn btn-primary" href="{% url 'prompts:novo' %}">Novo prompt</a>
+            <a class="btn btn-primary"
+               data-open-panel-modal="1"
+               data-panel-url="{% url 'prompts:novo' %}"
+               href="{% url 'prompts:novo' %}">Novo prompt</a>
         </div>
     </div>
 

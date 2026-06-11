@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from questions.models import Questao
@@ -28,6 +29,13 @@ def dashboard(request):
         'total_disciplinas': Disciplina.objects.filter(prova__user=request.user).count(),
         'total_questoes': total_questoes,
         'total_concluidas': total_concluidas,
+        'em_revisao': Questao.objects.filter(
+            disciplina__prova__user=request.user, status=Questao.Status.EM_REVISAO
+        ).count(),
+        'na_fila': Questao.objects.filter(
+            disciplina__prova__user=request.user,
+            status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]
+        ).count(),
     }
     return render(request, 'exams/dashboard.html', contexto)
 
@@ -51,7 +59,7 @@ def prova_form(request, pk=None):
             prova.user = request.user
             prova.save()
             messages.success(request, 'Prova salva.')
-            return redirect('exams:prova_detalhe', pk=prova.pk)
+            return redirect('dashboard')
     else:
         form = ProvaForm(instance=instancia)
     titulo = 'Editar prova' if instancia else 'Nova prova'
@@ -90,7 +98,7 @@ def disciplina_form(request, prova_pk=None, pk=None):
             disciplina.prova = prova
             disciplina.save()
             messages.success(request, 'Disciplina salva.')
-            return redirect('exams:prova_detalhe', pk=prova.pk)
+            return redirect('dashboard')
     else:
         form = DisciplinaForm(instance=instancia)
     titulo = 'Editar disciplina' if instancia else 'Nova disciplina'
@@ -104,9 +112,39 @@ def disciplina_form(request, prova_pk=None, pk=None):
 @login_required
 def disciplina_excluir(request, pk):
     disciplina = get_object_or_404(Disciplina, pk=pk, prova__user=request.user)
-    prova_pk = disciplina.prova.pk
     if request.method == 'POST':
         disciplina.delete()
         messages.success(request, 'Disciplina excluída.')
-        return redirect('exams:prova_detalhe', pk=prova_pk)
+        return redirect('dashboard')
     return render(request, 'exams/disciplina_excluir.html', {'disciplina': disciplina})
+
+
+@login_required
+def prova_criar_inline(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        return JsonResponse({'error': 'Nome obrigatório.'}, status=400)
+    prova = Prova(user=request.user, nome=nome)
+    prova.save()
+    return JsonResponse({'pk': prova.pk, 'nome': prova.nome})
+
+
+@login_required
+def disciplina_criar_inline(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    nome = request.POST.get('nome', '').strip()
+    prova_pk = request.POST.get('prova_pk')
+    if not nome:
+        return JsonResponse({'error': 'Nome obrigatório.'}, status=400)
+    prova = get_object_or_404(Prova, pk=prova_pk, user=request.user)
+    disc = Disciplina(prova=prova, nome=nome)
+    disc.save()
+    from questions.models import Questao as Q
+    return JsonResponse({
+        'pk': disc.pk,
+        'nome': disc.nome,
+        'url': f'/questions/disciplina/{disc.pk}/',
+    })

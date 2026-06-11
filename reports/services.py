@@ -1,8 +1,7 @@
-"""Geração de relatórios em PDF (Markdown → HTML → PDF via WeasyPrint)."""
+"""Geração de relatórios em PDF ou Markdown."""
 
 from __future__ import annotations
 
-import markdown as md
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
@@ -22,8 +21,8 @@ h2 { font-size: 15px; margin-top: 1.4em; border-bottom: 1px solid #e5e7eb; paddi
 """
 
 
-def gerar_relatorio(user, prompt, prova=None, disciplina=None, com_texto=True):
-    """Gera e persiste um Relatorio com os resultados concluídos do prompt."""
+def gerar_relatorio(user, prompt, prova=None, disciplina=None, com_texto=True, formato='md'):
+    """Gera e persiste um Relatorio em Markdown ou PDF."""
     qs = ResultadoPrompt.objects.filter(
         status=ResultadoPrompt.Status.CONCLUIDO,
         prompt=prompt,
@@ -39,33 +38,52 @@ def gerar_relatorio(user, prompt, prova=None, disciplina=None, com_texto=True):
     escopo = disciplina.nome if disciplina else (prova.nome if prova else 'Geral')
     titulo = f'{prompt.nome} — {escopo}'
 
-    html = _montar_html(titulo, prompt, qs, com_texto)
-    pdf_bytes = _render_pdf(html)
-
     relatorio = Relatorio(
         user=user, titulo=titulo, prova=prova, disciplina=disciplina,
         prompt=prompt, com_texto=com_texto, num_questoes=qs.count(),
     )
-    nome = f'relatorio_{timezone.now():%Y%m%d_%H%M%S}.pdf'
-    relatorio.arquivo_pdf.save(nome, ContentFile(pdf_bytes), save=False)
+
+    ts = timezone.now().strftime('%Y%m%d_%H%M%S')
+    if formato == 'pdf':
+        import markdown as md
+        html = _montar_html(titulo, prompt, qs, com_texto, md)
+        pdf_bytes = _render_pdf(html)
+        relatorio.arquivo_pdf.save(f'relatorio_{ts}.pdf', ContentFile(pdf_bytes), save=False)
+    else:
+        conteudo_md = _montar_markdown(titulo, prompt, qs, com_texto)
+        relatorio.arquivo_md.save(f'relatorio_{ts}.md', ContentFile(conteudo_md.encode('utf-8')), save=False)
+
     relatorio.save()
     return relatorio
 
 
-def _montar_html(titulo, prompt, resultados, com_texto):
+def _montar_markdown(titulo, prompt, resultados, com_texto):
+    partes = [f'# {titulo}', '', f'> Prompt: {prompt.nome} · {resultados.count()} questão(ões)', '']
+    for r in resultados:
+        q = r.questao
+        partes += [f'## Questão {q.numero} — {q.disciplina.nome}', '']
+        if com_texto and q.enunciado_md:
+            partes += [q.enunciado_md, '']
+            if q.gabarito:
+                partes += [f'**Gabarito:** {q.gabarito}', '']
+        partes += [r.resultado_md or '', '', '---', '']
+    return '\n'.join(partes)
+
+
+def _montar_html(titulo, prompt, resultados, com_texto, md):
     partes = [
         '<html><head><meta charset="utf-8"></head><body>',
-        f'<h1>{_escape(titulo)}</h1>',
-        f'<p class="meta">Prompt: {_escape(prompt.nome)} · {resultados.count()} questão(ões)</p>',
+        f'<h1>{_esc(titulo)}</h1>',
+        f'<p class="meta">Prompt: {_esc(prompt.nome)} · {resultados.count()} questão(ões)</p>',
     ]
     for r in resultados:
         q = r.questao
         partes.append('<div class="questao">')
-        partes.append(f'<h2>Questão {q.numero} — {_escape(q.disciplina.nome)}</h2>')
+        partes.append(f'<h2>Questão {q.numero} — {_esc(q.disciplina.nome)}</h2>')
         if com_texto and q.enunciado_md:
-            partes.append(f'<div class="enunciado">{_escape(q.enunciado_md)}</div>')
+            partes.append(f'<div class="enunciado">{_esc(q.enunciado_md)}</div>')
             if q.gabarito:
-                partes.append(f'<p class="gabarito">Gabarito: {_escape(q.gabarito)}</p>')
+                partes.append(f'<p class="gabarito">Gabarito: {_esc(q.gabarito)}</p>')
         partes.append(md.markdown(r.resultado_md or '', extensions=['extra']))
         partes.append('</div>')
     partes.append('</body></html>')
@@ -77,10 +95,5 @@ def _render_pdf(html):
     return HTML(string=html).write_pdf(stylesheets=[CSS(string=CSS_RELATORIO)])
 
 
-def _escape(texto):
-    return (
-        str(texto)
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-    )
+def _esc(texto):
+    return str(texto).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')

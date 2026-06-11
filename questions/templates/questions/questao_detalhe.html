@@ -4,19 +4,48 @@
 
 {% block content %}
 <section>
-    <div class="form-back-action">
-        <a class="btn btn-secondary btn-compact" href="{% url 'questions:disciplina' questao.disciplina.pk %}">Voltar</a>
-    </div>
+    <nav class="breadcrumb" aria-label="Navegação">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'dashboard' %}">{{ questao.disciplina.prova.nome }}</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'questions:disciplina' questao.disciplina.pk %}">{{ questao.disciplina.nome }}</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <span class="breadcrumb-current">Questão {{ questao.numero }}</span>
+    </nav>
+
     <div class="section-heading">
         <h2>Questão {{ questao.numero }}</h2>
         <span class="badge badge-{{ questao.status }}">{{ questao.get_status_display }}</span>
     </div>
 
     <div class="form-panel" style="margin-bottom:1rem;">
-        <p style="white-space:pre-wrap;">{{ questao.enunciado_md }}</p>
-        {% if questao.gabarito %}<p><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
+        <form method="post" action="{% url 'ai:aplicar' questao.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="form-grid">
+                <div class="full">
+                    <label for="prompt_id">Aplicar prompt</label>
+                    <select name="prompt_id" id="prompt_id" required>
+                        <option value="">— escolha um prompt —</option>
+                        {% for p in prompts %}
+                            <option value="{{ p.pk }}">{{ p.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+                </div>
+            </div>
+            <div class="inline-actions inline-actions-end" style="margin-top:.75rem;">
+                <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="form-panel" style="margin-bottom:1rem;">
+        <div class="md-content" id="enunciado-md">{{ questao.enunciado_md }}</div>
+        {% if questao.gabarito %}<p style="margin-top:.75rem;"><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
         {% if questao.imagens.all %}
-            <div class="cards-grid">
+            <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;">
                 {% for img in questao.imagens.all %}
                     <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:260px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
                 {% endfor %}
@@ -24,28 +53,16 @@
         {% endif %}
     </div>
 
-    <div class="form-panel" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
-        <form method="post" action="{% url 'ai:aplicar' questao.pk %}" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;width:100%;">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
-            <select name="prompt_id" id="prompt_id" required>
-                <option value="">— escolha —</option>
-                {% for p in prompts %}
-                    <option value="{{ p.pk }}">{{ p.nome }} ({{ p.get_tipo_display }})</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
-        </form>
+    <div class="section-heading">
+        <h2>Análises por prompt{% if resultados.count %} <span class="badge" style="font-size:0.8rem;font-weight:500;background:var(--ds-panel,#f3f4f6);color:var(--muted);">{{ resultados.count }}</span>{% endif %}</h2>
+        <p class="muted" style="font-size:0.85rem;">Cada resultado abaixo é a resposta de um prompt aplicado a esta questão pela IA.</p>
     </div>
-
-    <div class="section-heading"><h2>Resultados ({{ resultados.count }})</h2></div>
     {% for r in resultados %}
         <div class="form-panel" style="margin-bottom:.75rem;">
             <div class="section-heading">
                 <h3>{{ r.prompt.nome }} <span class="badge badge-{{ r.status }}">{{ r.get_status_display }}</span></h3>
                 <div class="inline-actions">
-                    <span class="user-role">{{ r.criado_em|date:"d/m/Y H:i" }} · {{ r.total_tokens }} tokens</span>
+                    <span class="user-role">{{ r.criado_em|date:"d/m/Y H:i" }}</span>
                     <form method="post" action="{% url 'ai:resultado_excluir' r.pk %}" data-confirm="Remover este resultado?">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -53,11 +70,28 @@
                     </form>
                 </div>
             </div>
-            {% if r.resultado_md %}<div style="white-space:pre-wrap;">{{ r.resultado_md }}</div>{% endif %}
+            {% if r.resultado_md %}
+                <div class="md-content js-md-result">{{ r.resultado_md }}</div>
+            {% endif %}
             {% if r.erro %}<p style="color:var(--danger)">{{ r.erro }}</p>{% endif %}
         </div>
     {% empty %}
         <div class="empty-state"><p>Nenhum prompt aplicado ainda.</p></div>
     {% endfor %}
 </section>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+  if (typeof marked === 'undefined') return;
+  marked.setOptions({ breaks: true, gfm: true });
+
+  var enunciado = document.getElementById('enunciado-md');
+  if (enunciado) enunciado.innerHTML = marked.parse(enunciado.textContent || '');
+
+  document.querySelectorAll('.js-md-result').forEach(function (el) {
+    el.innerHTML = marked.parse(el.textContent || '');
+  });
+})();
+</script>
 {% endblock %}

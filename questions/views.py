@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -33,9 +34,29 @@ def disciplina(request, pk):
         'em_processamento': disc.importacoes.filter(
             status__in=[ImportacaoPDF.Status.ENVIADO, ImportacaoPDF.Status.PROCESSANDO]
         ).exists(),
+        'ia_em_processamento': disc.questoes.filter(
+            status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]
+        ).exists(),
         'StatusQuestao': Questao.Status,
+        'ai_price_input': float(getattr(settings, 'AI_PRICE_INPUT_PER_MTOK', 3.0)),
+        'ai_price_output': float(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)),
     }
     return render(request, 'questions/disciplina.html', contexto)
+
+
+@login_required
+def ia_status(request, pk):
+    disc = _disciplina_do_user(request, pk)
+    qs = disc.questoes
+    total = qs.count()
+    na_fila = qs.filter(status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]).count()
+    concluidas = qs.filter(status=Questao.Status.CONCLUIDA).count()
+    return JsonResponse({
+        'em_processamento': na_fila > 0,
+        'total': total,
+        'na_fila': na_fila,
+        'concluidas': concluidas,
+    })
 
 
 @login_required
@@ -94,6 +115,23 @@ def questao_confirmar(request, pk):
             questao.status = Questao.Status.DISPONIVEL
             questao.save(update_fields=['status', 'atualizado_em'])
     return redirect('questions:disciplina', pk=questao.disciplina.pk)
+
+
+@login_required
+def revisar_lote(request):
+    """Marca questões selecionadas como disponível (revisão concluída)."""
+    if request.method != 'POST':
+        return redirect('dashboard')
+    ids = request.POST.getlist('questao_ids')
+    if ids:
+        Questao.objects.filter(
+            pk__in=ids,
+            disciplina__prova__user=request.user,
+            status=Questao.Status.EM_REVISAO,
+        ).update(status=Questao.Status.DISPONIVEL)
+        messages.success(request, f'{len(ids)} questão(ões) marcadas como revisadas.')
+    next_url = request.POST.get('next', 'dashboard')
+    return redirect(next_url)
 
 
 @login_required

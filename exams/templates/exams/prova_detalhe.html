@@ -4,17 +4,23 @@
 
 {% block content %}
 <section>
-    <div class="form-back-action">
-        <a class="btn btn-secondary btn-compact" href="{% url 'exams:provas' %}">Voltar</a>
-    </div>
+    <nav class="breadcrumb" aria-label="Navegação">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'exams:provas' %}">Provas</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <span class="breadcrumb-current">{{ prova.nome }}</span>
+    </nav>
+
     <div class="section-heading">
         <h2>{{ prova.nome }}</h2>
         <div class="inline-actions">
             <a class="btn btn-secondary btn-compact" href="{% url 'exams:prova_editar' prova.pk %}">Editar</a>
+            <a class="btn btn-danger btn-compact" href="{% url 'exams:prova_excluir' prova.pk %}">Excluir prova</a>
             <a class="btn btn-primary" href="{% url 'exams:disciplina_nova' prova.pk %}">Nova disciplina</a>
         </div>
     </div>
-    {% if prova.descricao %}<p>{{ prova.descricao }}</p>{% endif %}
+    {% if prova.descricao %}<p class="muted" style="margin-bottom:1.25rem;">{{ prova.descricao }}</p>{% endif %}
 
     {% if disciplinas %}
         <div class="table-wrap">

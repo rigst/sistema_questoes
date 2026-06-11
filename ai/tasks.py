@@ -21,7 +21,7 @@ def aplicar_resultado(resultado_id):
 
 @shared_task
 def processar_lote(resultado_ids, usar_lote=True):
-    """Processa vários resultados — via Batches API ou em sequência."""
+    """Processa vários resultados — via Batches API em chunks de 25, ou em sequência."""
     resultados = list(
         ResultadoPrompt.objects.select_related(
             'questao', 'prompt', 'questao__disciplina__prova__user'
@@ -31,9 +31,17 @@ def processar_lote(resultado_ids, usar_lote=True):
         return 'nenhum resultado'
 
     if usar_lote and len(resultados) > 1:
-        batch_id = services.submeter_batch(resultados)
-        coletar_batch.apply_async(args=[batch_id], countdown=30)
-        return f'batch {batch_id} submetido com {len(resultados)} itens'
+        # Divide em batches de 25 questões (otimizado para 30-45 min)
+        batch_size = 25
+        total_batches = 0
+
+        for i in range(0, len(resultados), batch_size):
+            chunk = resultados[i:i + batch_size]
+            batch_id = services.submeter_batch(chunk)
+            coletar_batch.apply_async(args=[batch_id], countdown=30)
+            total_batches += 1
+
+        return f'{total_batches} batch(es) submetido(s) com total de {len(resultados)} itens'
 
     for r in resultados:
         profile = getattr(r.questao.disciplina.prova.user, 'profile', None)
