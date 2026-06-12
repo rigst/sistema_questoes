@@ -16,7 +16,6 @@
 
     <div class="section-heading">
         <h2>Questão {{ questao.numero }}</h2>
-        <span class="badge badge-{{ questao.status }}">{{ questao.get_status_display }}</span>
     </div>
 
     <div class="form-panel" style="margin-bottom:1rem;">
@@ -41,15 +40,12 @@
         </form>
     </div>
 
-    <div class="form-panel" style="margin-bottom:1rem;">
-        <div class="md-content" id="enunciado-md">{{ questao.enunciado_md }}</div>
-        {% if questao.gabarito %}<p style="margin-top:.75rem;"><strong>Gabarito:</strong> {{ questao.gabarito }}</p>{% endif %}
-        {% if questao.imagens.all %}
-            <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;">
-                {% for img in questao.imagens.all %}
-                    <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:260px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
-                {% endfor %}
-            </div>
+    <div class="form-panel questao-content" style="margin-bottom:1rem;">
+        <div id="enunciado-raw" hidden>{{ questao.enunciado_md }}</div>
+        <div id="questao-enunciado"></div>
+        <div id="questao-alternativas"></div>
+        {% if questao.gabarito %}
+        <div class="questao-gabarito"><strong>Gabarito:</strong> <span class="gab-letter">{{ questao.gabarito }}</span></div>
         {% endif %}
     </div>
 
@@ -80,17 +76,84 @@
     {% endfor %}
 </section>
 
+<style>
+.questao-content { font-size: .92rem; line-height: 1.7; }
+#questao-enunciado { margin-bottom: 1rem; }
+#questao-alternativas { margin-bottom: 1rem; }
+.alt-item { padding: .4rem 0; display: flex; gap: .5rem; }
+.alt-letter { font-weight: 700; color: var(--accent, #2f78db); min-width: 1.2rem; }
+.questao-gabarito {
+    padding: .6rem .9rem; border-radius: 8px;
+    background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.12);
+    font-size: .88rem;
+}
+.gab-letter { font-weight: 700; color: var(--accent, #2f78db); }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 (function () {
-  if (typeof marked === 'undefined') return;
-  marked.setOptions({ breaks: true, gfm: true });
+  var raw = document.getElementById('enunciado-raw');
+  if (!raw) return;
+  var texto = raw.textContent || '';
 
-  var enunciado = document.getElementById('enunciado-md');
-  if (enunciado) enunciado.innerHTML = marked.parse(enunciado.textContent || '');
+  var altRegex = /^([A-E])\s*[).:\s]/im;
+  var lines = texto.split('\n');
+  var enunciadoLines = [];
+  var alternativas = [];
+  var currentAlt = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var match = line.match(/^([A-E])\s*[).:\s]\s*(.*)/i);
+    if (match) {
+      if (currentAlt) alternativas.push(currentAlt);
+      currentAlt = { letter: match[1].toUpperCase(), text: match[2].trim() };
+    } else if (currentAlt) {
+      if (line.trim()) currentAlt.text += ' ' + line.trim();
+    } else {
+      enunciadoLines.push(line);
+    }
+  }
+  if (currentAlt) alternativas.push(currentAlt);
+
+  if (alternativas.length === 0) {
+    var inlineMatch = texto.match(/^([\s\S]*?)\s*(A\s*[).:\s])/i);
+    if (inlineMatch) {
+      var enuncPart = inlineMatch[1];
+      var altPart = texto.slice(enuncPart.length);
+      enunciadoLines = [enuncPart.trim()];
+      var altMatches = altPart.match(/([A-E])\s*[).:\s]\s*[^A-E]*/gi);
+      if (altMatches) {
+        alternativas = [];
+        altMatches.forEach(function (a) {
+          var m = a.match(/^([A-E])\s*[).:\s]\s*(.*)/i);
+          if (m) alternativas.push({ letter: m[1].toUpperCase(), text: m[2].trim() });
+        });
+      }
+    }
+  }
+
+  var enuncEl = document.getElementById('questao-enunciado');
+  var altEl = document.getElementById('questao-alternativas');
+
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+    enuncEl.innerHTML = marked.parse(enunciadoLines.join('\n').trim());
+  } else {
+    enuncEl.textContent = enunciadoLines.join('\n').trim();
+  }
+
+  if (alternativas.length > 0) {
+    var html = '';
+    alternativas.forEach(function (alt) {
+      html += '<div class="alt-item"><span class="alt-letter">' + alt.letter + ')</span><span>' + alt.text + '</span></div>';
+    });
+    altEl.innerHTML = html;
+  }
 
   document.querySelectorAll('.js-md-result').forEach(function (el) {
-    el.innerHTML = marked.parse(el.textContent || '');
+    if (typeof marked !== 'undefined') el.innerHTML = marked.parse(el.textContent || '');
   });
 })();
 </script>

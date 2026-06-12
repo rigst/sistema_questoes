@@ -323,15 +323,33 @@ def _recortar_imagens(pdf_bytes, questoes):
 # Entrada principal
 # ---------------------------------------------------------------------------
 
-def extrair(pdf_bytes, usar_ia=True, profile=None):
-    """Extrai questões de um PDF (bytes). Retorna ResultadoExtracao."""
+def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
+    """Extrai questões de um PDF (bytes). Retorna ResultadoExtracao.
+
+    ``progresso`` é um callback opcional ``fn(pct, etapa, total_paginas=None)``
+    chamado ao longo do pipeline para reportar o andamento (0–100).
+    """
+    def _reportar(pct, etapa, **extra):
+        if progresso:
+            try:
+                progresso(pct, etapa, **extra)
+            except Exception:  # noqa: BLE001 — progresso nunca pode quebrar a extração
+                pass
+
+    # Fase 1: leitura do PDF (5% → 60%), proporcional ao nº de páginas.
     texto_paginas = []
     paginas_palavras = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        for page in pdf.pages:
+        total_paginas = len(pdf.pages)
+        _reportar(5, 'Lendo o PDF…', total_paginas=total_paginas)
+        for i, page in enumerate(pdf.pages, start=1):
             texto_paginas.append(_limpar_texto(page.extract_text() or ''))
             paginas_palavras.append(page.extract_words() or [])
+            pct = 5 + int(55 * i / total_paginas) if total_paginas else 60
+            _reportar(pct, f'Lendo página {i} de {total_paginas}…')
 
+    # Fase 2: segmentação das questões (60% → 70%).
+    _reportar(65, 'Identificando as questões…')
     linhas_por_pagina = [_agrupar_linhas(p) for p in paginas_palavras]
     ruido = _linhas_ruido(texto_paginas)
     gabarito_map = _detectar_gabarito(texto_paginas)
@@ -341,8 +359,10 @@ def extrair(pdf_bytes, usar_ia=True, profile=None):
         sum(q.confianca for q in questoes) / len(questoes) if questoes else 0.0
     )
 
+    # Fase 3: refino opcional via IA (70% → 90%).
     usou_ia = False
     if usar_ia and (confianca_media < CONFIANCA_MINIMA_IA or not questoes):
+        _reportar(75, 'Refinando as questões com IA…')
         refinadas = _refinar_com_ia(texto_paginas, profile)
         if refinadas:
             questoes = _mesclar_refino(questoes, refinadas)
@@ -351,7 +371,10 @@ def extrair(pdf_bytes, usar_ia=True, profile=None):
             )
             usou_ia = True
 
+    # Fase 4: recorte das imagens/figuras (90% → 100%).
+    _reportar(92, 'Extraindo imagens e figuras…')
     _recortar_imagens(pdf_bytes, questoes)
+    _reportar(100, 'Finalizando…')
 
     return ResultadoExtracao(
         questoes=questoes,

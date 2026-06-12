@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from questions.models import Questao
 
@@ -136,9 +137,8 @@ def disciplina_criar_inline(request):
     prova = get_object_or_404(Prova, pk=prova_pk, user=request.user)
     disc = Disciplina(prova=prova, nome=nome)
     disc.save()
-    from questions.models import Questao as Q
     return JsonResponse({
         'pk': disc.pk,
         'nome': disc.nome,
-        'url': f'/questions/disciplina/{disc.pk}/',
+        'url': reverse('questions:disciplina', args=[disc.pk]),
     })

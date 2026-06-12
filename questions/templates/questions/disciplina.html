@@ -15,384 +15,307 @@
     <div class="section-heading">
         <h2>{{ disciplina.nome }}</h2>
         <div class="inline-actions">
-            <button type="button" class="btn btn-secondary btn-compact btn-icon" id="toggle-import-btn" title="Importar PDF de questões">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            </button>
+            <form method="post" action="{% url 'questions:upload' disciplina.pk %}" enctype="multipart/form-data" id="pdf-upload-form" style="margin:0;">
+                {% csrf_token %}
+                <input type="file" id="pdf-file-input" name="arquivo" accept=".pdf"
+                       style="display:none;" onchange="iniciarUploadPdf(this);">
+                <label for="pdf-file-input" id="pdf-upload-label" class="btn btn-secondary btn-compact" style="cursor:pointer;display:inline-flex;align-items:center;" title="Importar PDF de questões">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Importar PDF
+                </label>
+            </form>
         </div>
     </div>
-    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ questoes|length }} questões</p>
+    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }}</p>
 
-    {# ---- UPLOAD PDF (colapsável) ---- #}
-    <div id="upload-panel" class="form-panel" style="margin-bottom:1.25rem;" hidden>
-        <form id="upload-form" method="post" action="{% url 'questions:upload' disciplina.pk %}" enctype="multipart/form-data">
-            {% csrf_token %}
-            {{ importacao_form.arquivo }}
-            {{ importacao_form.arquivo.errors }}
-            <div class="upload-progress-wrap" id="upload-progress-wrap" hidden style="margin-top:.75rem;">
-                <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="upload-bar" style="width:0%"></div>
-                </div>
-                <span class="progress-label" id="upload-label">Enviando…</span>
-            </div>
-            <div class="inline-actions inline-actions-end" id="upload-actions" style="margin-top:.75rem;">
-                <button type="button" class="btn btn-secondary btn-compact" id="cancel-import-btn">Cancelar</button>
-                <button type="submit" class="btn btn-primary btn-compact" id="upload-btn">Enviar e extrair</button>
-            </div>
-        </form>
+    {# ---- PROGRESSO DE UPLOAD / PROCESSAMENTO DO PDF ---- #}
+    <div id="pdf-progress-panel" class="disc-banner disc-banner-processing"
+         {% if em_processamento %}
+            {% for imp in importacoes %}{% if imp.status == 'processando' or imp.status == 'enviado' %}data-status-url="{% url 'questions:importacao_status' imp.pk %}" {% endif %}{% endfor %}
+         {% else %}hidden{% endif %}>
+        <div class="disc-progress-track" style="flex:1;">
+            <div class="disc-progress-fill" id="pdf-progress-fill"></div>
+        </div>
+        <span id="pdf-progress-label" style="white-space:nowrap;min-width:7rem;text-align:right;">Preparando…</span>
     </div>
-
-    {% if em_processamento %}
-    <div id="importacoes-status" data-em-processamento="1" style="display:none;">
-        {% for imp in importacoes %}{% if imp.status == 'processando' or imp.status == 'enviado' %}
-            <li data-importacao="{{ imp.pk }}" data-status-url="{% url 'questions:importacao_status' imp.pk %}"></li>
-        {% endif %}{% endfor %}
-    </div>
-    {% endif %}
 
     {% if questoes %}
-        {# ---- IA EM PROCESSAMENTO ---- #}
-        <div id="ia-processando-banner" {% if not ia_em_processamento %}hidden{% endif %} style="margin-bottom:1rem;">
-            <div class="progress-bar-wrap">
-                <div class="progress-bar-header">
-                    <span class="progress-bar-title">IA processando questões</span>
-                    <span class="progress-bar-counts" id="ia-progress-counts"></span>
-                </div>
-                <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="ia-bar" style="width:0%"></div>
-                </div>
-            </div>
-        </div>
-
-        {# ---- FORM APLICAR EM LOTE ---- #}
+        {# ---- BARRA PROMPT ---- #}
         <form method="post" action="{% url 'ai:aplicar_lote' %}" id="lote-form">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="usar_lote" value="1">
-            <div id="aplicar-prompt-panel" class="form-panel" style="margin-bottom:1rem;display:none;">
-                <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
-                    <label for="prompt_id" style="margin:0;">Aplicar prompt:</label>
-                    <select name="prompt_id" id="prompt_id" required style="flex:1;max-width:280px;">
-                        <option value="" data-chars="0">— escolha um prompt —</option>
-                        {% for p in prompts %}
-                            <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-primary btn-compact" id="lote-btn">Aplicar</button>
-                    {# ---- PREVISÃO DE CUSTO ---- #}
-                    <div id="cost-preview" class="cost-preview" style="margin-left:auto;" hidden>
-                        <span id="cost-summary"></span>
-                        <span class="cost-note">estimativa de custo</span>
-                    </div>
-                </div>
-                {% if not prompts %}<span class="form-note" style="margin-top:0.75rem;">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
+            <div class="disc-prompt-bar">
+                <label for="prompt_id">Prompt</label>
+                <select name="prompt_id" id="prompt_id" required>
+                    <option value="" data-chars="0">— escolha —</option>
+                    {% for p in prompts %}
+                        <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary btn-compact" id="lote-btn" disabled>Aplicar</button>
+                <span id="cost-preview" class="disc-cost" hidden>
+                    <span id="cost-summary"></span>
+                </span>
+                {% if not prompts %}<span class="disc-prompt-hint">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
             </div>
 
+            {# ---- IA EM PROCESSAMENTO ---- #}
+            <div id="ia-processando-banner" class="disc-banner disc-banner-processing" {% if not ia_em_processamento %}hidden{% endif %}>
+                <div class="disc-progress-track" style="flex:1;">
+                    <div class="disc-progress-fill" id="ia-bar"></div>
+                </div>
+                <span id="ia-progress-counts"></span>
+            </div>
+
+            {# ---- TABELA DE QUESTÕES ---- #}
             <div class="table-wrap" data-no-toggle>
                 <table class="questoes-table">
                     <thead>
                         <tr>
-                            <th style="width:48px;padding-left:1rem;padding-right:.5rem;"><input type="checkbox" id="sel-todos"></th>
-                            <th style="width:60px;">#</th>
+                            <th class="col-check"><input type="checkbox" id="sel-todos"></th>
+                            <th style="width:55px;">#</th>
                             <th>Enunciado</th>
-                            <th style="width:90px;">Gabarito</th>
-                            <th style="width:70px;">Conf.</th>
-                            <th style="width:110px;">Status</th>
-                            <th class="actions-col">Ações</th>
+                            <th style="width:80px;">Gabarito</th>
+                            <th style="width:60px;"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for q in questoes %}
-                            <tr>
-                                <td style="padding-left:1rem;padding-right:.5rem;"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}" onchange="toggleAplicarPrompt();"></td>
-                                <td>{{ q.numero }}</td>
-                                <td class="questao-enunciado">{{ q.enunciado_md|truncatechars:80 }}</td>
-                                <td>{{ q.gabarito|default:"—" }}</td>
-                                <td>{{ q.confianca_extracao|floatformat:2 }}</td>
-                                <td style="text-align:center;">
-                                    <span class="badge badge-{{ q.status }}">{{ q.get_status_display }}</span>
-                                </td>
-                                <td class="actions-col">
-                                    {% if q.status == 'em_revisao' %}
-                                        <a class="btn btn-secondary btn-compact" data-open-panel-modal="1" data-panel-url="{% url 'questions:questao_editar' q.pk %}" href="{% url 'questions:questao_editar' q.pk %}">Revisar</a>
-                                    {% else %}
-                                        <a class="btn btn-primary btn-compact" href="{% url 'questions:questao_detalhe' q.pk %}">{{ q.resultados.count }}</a>
-                                    {% endif %}
-                                </td>
-                            </tr>
+                        <tr>
+                            <td class="col-check"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}"></td>
+                            <td>{{ q.numero }}</td>
+                            <td class="questao-enunciado">{{ q.enunciado_md|truncatechars:90 }}</td>
+                            <td>{{ q.gabarito|default:"—" }}</td>
+                            <td><a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link" title="Ver questão"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </form>
     {% else %}
-        <div class="empty-state"><p>Nenhuma questão ainda. Envie um PDF acima para extrair.</p></div>
+        <div class="empty-state"><p>Nenhuma questão ainda. Importe um PDF para extrair.</p></div>
     {% endif %}
 </section>
 
 <style>
-.btn-icon { padding: 0.4rem 0.55rem; display: inline-flex; align-items: center; justify-content: center; }
+.disc-upload-panel {
+    padding: .85rem 1.1rem; margin-bottom: 1rem;
+    border-radius: 14px; border: 1px solid var(--border-strong, #dfe3ea);
+    background: var(--ds-panel, #f7f9fc);
+}
+.disc-upload-actions { display: flex; align-items: center; gap: .6rem; font-size: .88rem; flex-wrap: wrap; }
+.disc-upload-filename { flex: 1; min-width: 0; font-size: .85rem; color: var(--text-soft, #667); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.disc-progress-track {
+    height: 6px; border-radius: 3px; background: var(--border, #e8edf4); overflow: hidden;
+}
+.disc-progress-fill {
+    height: 100%; border-radius: 3px; background: var(--accent, #2f78db);
+    width: 0%; transition: width .3s ease;
+}
+.disc-progress-indeterminate {
+    width: 100% !important;
+    animation: indeterminate 1.4s ease-in-out infinite;
+    background: linear-gradient(90deg, transparent, var(--accent, #2f78db), transparent);
+    background-size: 200% 100%;
+}
+@keyframes indeterminate { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.disc-progress-label { font-size: .82rem; color: var(--muted); margin-top: .3rem; display: block; }
+
+.disc-banner { display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem; margin-bottom: .75rem; border-radius: 10px; font-size: .85rem; }
+.disc-banner-processing { background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.15); color: var(--accent, #2f78db); }
+.disc-banner-error { background: rgba(220,53,69,.07); border: 1px solid rgba(220,53,69,.2); color: #c0392b; }
+.disc-banner-error .disc-progress-fill { background: #c0392b; }
+
+.disc-prompt-bar {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .55rem 1rem; margin-bottom: .75rem;
+    border-radius: 10px; border: 1px solid var(--border-strong, #dfe3ea);
+    background: var(--ds-panel, #f7f9fc);
+    font-size: .88rem;
+}
+.disc-prompt-bar label { margin: 0; font-weight: 600; white-space: nowrap; }
+.disc-prompt-bar select { max-width: 240px; font-size: inherit; }
+.disc-prompt-bar .btn { font-size: inherit; }
+.disc-cost { margin-left: auto; color: var(--muted); font-size: .82rem; }
+.disc-prompt-hint { color: var(--muted); font-size: .82rem; }
+
+.col-check { width: 48px; padding-left: 1.2rem !important; padding-right: .5rem !important; }
+.disc-questao-link { font-size: .82rem; color: var(--accent, #2f78db); text-decoration: none; }
+.disc-questao-link:hover { text-decoration: underline; }
 </style>
 
 <script>
 function toggleAplicarPrompt() {
   var selecionadas = document.querySelectorAll('.sel-questao:checked');
-  var painel = document.getElementById('aplicar-prompt-panel');
-  if (painel) {
-    painel.style.display = selecionadas.length > 0 ? 'flex' : 'none';
-  }
+  var loteBtn = document.getElementById('lote-btn');
+  if (loteBtn) loteBtn.disabled = selecionadas.length === 0;
+  if (typeof atualizarCusto === 'function') atualizarCusto();
 }
 
 (function () {
-  // ---- Configuração de preço (vindos do servidor) ----
-  var PRICE_IN  = {{ ai_price_input }};   // $/MTok input (Haiku 4.5: $0.80)
-  var PRICE_OUT = {{ ai_price_output }};  // $/MTok output (Haiku 4.5: $4.00)
+  var PRICE_IN  = {{ ai_price_input }};
+  var PRICE_OUT = {{ ai_price_output }};
   var BATCH_DISCOUNT = 0.5;
-  // Output estimado por tipo de prompt (tokens):
-  // "sucinto" = revisão rápida (~400 tok); "completo" = análise ~4000 chars (~1050 tok)
   var OUTPUT_POR_TIPO = { 'sucinto': 400, 'completo': 1050 };
   var OUTPUT_FALLBACK = 1050;
-  var CHARS_PER_TOKEN = 3.8; // PT-BR usa tokens ligeiramente maiores que EN
-  var SYSTEM_OVERHEAD = 55;  // system prompt + delimitadores fixos (~55 tokens)
+  var CHARS_PER_TOKEN = 3.8;
+  var SYSTEM_OVERHEAD = 55;
 
-  // ---- Toggle importar ----
-  var toggleImportBtn = document.getElementById('toggle-import-btn');
-  var cancelImportBtn = document.getElementById('cancel-import-btn');
-  var uploadPanel = document.getElementById('upload-panel');
-  var realFileInput = uploadPanel ? uploadPanel.querySelector('input[type=file]') : null;
-
-  if (toggleImportBtn && realFileInput) {
-    toggleImportBtn.addEventListener('click', function () {
-      uploadPanel.hidden = false;
-      toggleImportBtn.hidden = true;
-      setTimeout(function () { realFileInput.click(); }, 50);
-    });
-  }
-  if (cancelImportBtn) {
-    cancelImportBtn.addEventListener('click', function () {
-      uploadPanel.hidden = true;
-      toggleImportBtn.hidden = false;
-      if (realFileInput) realFileInput.value = '';
-    });
-  }
-
-
-  // ---- Revisar marcadas ----
-  var revisarBtn = document.getElementById('revisar-lote-btn');
-  if (revisarBtn) {
-    revisarBtn.addEventListener('click', function () {
-      var selecionadas = document.querySelectorAll('.sel-questao:checked');
-      if (!selecionadas.length) { alert('Selecione ao menos uma questão.'); return; }
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '{% url "questions:revisar_lote" %}';
-      var csrf = document.createElement('input');
-      csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
-      csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-      form.appendChild(csrf);
-      var next = document.createElement('input');
-      next.type = 'hidden'; next.name = 'next'; next.value = window.location.pathname;
-      form.appendChild(next);
-      selecionadas.forEach(function (cb) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'questao_ids'; inp.value = cb.value;
-        form.appendChild(inp);
-      });
-      document.body.appendChild(form);
-      form.submit();
-    });
-  }
-
-  // ---- Previsão de custo ----
+  // ---- Custo ----
   var costPreview = document.getElementById('cost-preview');
   var costSummary = document.getElementById('cost-summary');
   var promptSel   = document.getElementById('prompt_id');
 
-  function atualizarCusto() {
+  window.atualizarCusto = function () {
     if (!costPreview || !promptSel) return;
     var opt = promptSel.options[promptSel.selectedIndex];
     if (!opt) { costPreview.hidden = true; return; }
-
     var promptChars = parseInt(opt.dataset.chars || '0', 10);
     var promptTipo  = opt.dataset.tipo || '';
     var outTokens   = OUTPUT_POR_TIPO[promptTipo] || OUTPUT_FALLBACK;
-
     var selecionadas = document.querySelectorAll('.sel-questao:checked');
     var n = selecionadas.length;
-
     if (n === 0 || !promptSel.value) { costPreview.hidden = true; return; }
-
     var totalInputTokens = 0;
     selecionadas.forEach(function (cb) {
       var qChars = parseInt(cb.dataset.chars || '0', 10);
-      // input = system overhead + prompt text + "--- QUESTÃO ---" header (~10 tok) + enunciado
       totalInputTokens += SYSTEM_OVERHEAD + Math.ceil(promptChars / CHARS_PER_TOKEN) + 10 + Math.ceil(qChars / CHARS_PER_TOKEN);
     });
     var totalOutputTokens = n * outTokens;
-
     var custo = (totalInputTokens / 1e6 * PRICE_IN + totalOutputTokens / 1e6 * PRICE_OUT) * BATCH_DISCOUNT;
-    var custoStr = custo < 0.0005
-      ? '< $0.001'
-      : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
-
-    var tipoLabel = promptTipo === 'sucinto' ? 'resposta ~300 tok' : promptTipo === 'completo' ? 'resposta ~900 tok' : '';
-    costSummary.textContent = n + ' questão' + (n > 1 ? 'ões' : '') + ' · ~' + custoStr + ' ';
-    costPreview.dataset.tipo = tipoLabel;
-
-    // atualiza nota com tipo
-    var nota = costPreview.querySelector('.cost-note');
-    if (nota) nota.textContent = (tipoLabel ? tipoLabel + ' · ' : '') + 'Batch API, 50% desc.';
-
+    var custoStr = custo < 0.0005 ? '< $0.001' : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
+    costSummary.textContent = n + ' questão' + (n > 1 ? 'ões' : '') + ' · ~' + custoStr;
     costPreview.hidden = false;
-  }
-
+  };
   if (promptSel) promptSel.addEventListener('change', atualizarCusto);
 
-  // ---- Upload com barra de progresso ----
-  var uploadForm = document.getElementById('upload-form');
-  var uploadWrap = document.getElementById('upload-progress-wrap');
-  var uploadBar  = document.getElementById('upload-bar');
-  var uploadLabel = document.getElementById('upload-label');
-  var uploadActions = document.getElementById('upload-actions');
-  var uploadBtn = document.getElementById('upload-btn');
 
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', function (e) {
-      var fileInput = uploadForm.querySelector('input[type=file]');
-      if (!fileInput || !fileInput.files.length) return;
-      e.preventDefault();
+  // ---- Painel de progresso (upload + processamento do PDF) ----
+  var panel = document.getElementById('pdf-progress-panel');
+  var fill  = document.getElementById('pdf-progress-fill');
+  var label = document.getElementById('pdf-progress-label');
 
-      uploadActions.hidden = true;
-      uploadWrap.hidden = false;
-      uploadBar.style.width = '0%';
-      uploadLabel.textContent = 'Enviando…';
-
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', uploadForm.action);
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-      xhr.upload.addEventListener('progress', function (ev) {
-        if (ev.lengthComputable) {
-          var pct = Math.round(ev.loaded / ev.total * 100);
-          uploadBar.style.width = pct + '%';
-          uploadLabel.textContent = 'Enviando… ' + pct + '%';
-        }
-      });
-
-      xhr.addEventListener('load', function () {
-        uploadBar.style.width = '100%';
-        uploadLabel.textContent = 'Processando extração…';
-        uploadBar.classList.add('progress-bar-indeterminate');
-        // aguarda redirect implícito (Django redirect após POST)
-        setTimeout(function () { window.location.reload(); }, 1500);
-      });
-
-      xhr.addEventListener('error', function () {
-        uploadWrap.hidden = true;
-        uploadActions.hidden = false;
-        uploadLabel.textContent = 'Erro no envio.';
-        alert('Erro ao enviar o arquivo. Tenta novamente.');
-      });
-
-      var fd = new FormData(uploadForm);
-      xhr.send(fd);
-    });
+  function setProgresso(pct, texto, erro) {
+    if (!panel) return;
+    panel.hidden = false;
+    panel.classList.toggle('disc-banner-error', !!erro);
+    panel.classList.toggle('disc-banner-processing', !erro);
+    if (fill) {
+      fill.classList.remove('disc-progress-indeterminate');
+      fill.style.width = (pct == null ? 100 : Math.max(0, Math.min(100, pct))) + '%';
+      if (pct == null) fill.classList.add('disc-progress-indeterminate');
+    }
+    if (label) label.textContent = texto;
   }
 
-  // ---- Polling de importações em processamento ----
-  var wrap = document.getElementById('importacoes-status');
-  if (wrap && wrap.dataset.emProcessamento === '1') {
-    var pollImport = function () {
-      var pendentes = 0;
-      wrap.querySelectorAll('li[data-importacao]').forEach(function (li) {
-        fetch(li.dataset.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            var span = li.querySelector('.js-imp-status');
-            if (span) span.textContent = data.status;
-            if (data.status === 'processando' || data.status === 'enviado') pendentes += 1;
-            else {
-              var bar = li.querySelector('.imp-progress-bar');
-              if (bar) bar.hidden = true;
-            }
-            if (!pendentes) { setTimeout(function () { window.location.reload(); }, 600); }
-          })
-          .catch(function () {});
-      });
+  // Acompanha o processamento (extração) a partir do status-url da importação.
+  function monitorarProcessamento(statusUrl) {
+    var poll = setInterval(function () {
+      fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.status === 'erro') {
+            clearInterval(poll);
+            setProgresso(100, data.erro || 'Falha ao processar o PDF', true);
+            return;
+          }
+          if (data.status === 'concluido') {
+            clearInterval(poll);
+            setProgresso(100, data.num_questoes + ' questões extraídas');
+            setTimeout(function () { window.location.reload(); }, 700);
+            return;
+          }
+          var etapa = data.etapa || 'Processando questões…';
+          var pct = data.progresso || 0;
+          setProgresso(pct, etapa + ' ' + pct + '%');
+        }).catch(function () {});
+    }, 1500);
+  }
+
+  // Inicia o upload do PDF via XHR, com barra de progresso de bytes enviados.
+  window.iniciarUploadPdf = function (input) {
+    if (!input.files || !input.files.length) return;
+    var form = document.getElementById('pdf-upload-form');
+    var fd = new FormData(form);
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    setProgresso(0, 'Enviando PDF… 0%');
+
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) {
+        var pct = Math.round(e.loaded / e.total * 100);
+        // Reserva 0–100% da barra ao envio; o processamento reinicia em 0.
+        setProgresso(pct, 'Enviando PDF… ' + pct + '%');
+        if (pct >= 100) setProgresso(null, 'Enviado. Preparando processamento…');
+      }
     };
-    setInterval(pollImport, 2500);
-    pollImport();
+    xhr.onload = function () {
+      var data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (err) {}
+      if (xhr.status >= 200 && xhr.status < 300 && data.ok && data.status_url) {
+        setProgresso(null, 'Processando questões…');
+        monitorarProcessamento(data.status_url);
+      } else {
+        setProgresso(100, (data && data.erro) || 'Falha no envio do PDF', true);
+      }
+      input.value = '';
+    };
+    xhr.onerror = function () {
+      setProgresso(100, 'Erro de conexão ao enviar o PDF', true);
+      input.value = '';
+    };
+    xhr.send(fd);
+  };
+
+  // Se a página carregou com uma importação ainda em andamento, acompanha-a.
+  if (panel && panel.dataset.statusUrl) {
+    setProgresso(null, 'Processando questões…');
+    monitorarProcessamento(panel.dataset.statusUrl);
   }
 
-  // ---- Polling de IA com barra de progresso ----
+  // ---- Polling IA ----
   var iaBanner = document.getElementById('ia-processando-banner');
   if (iaBanner && !iaBanner.hidden) {
     var iaBar    = document.getElementById('ia-bar');
     var iaCounts = document.getElementById('ia-progress-counts');
     var iaStatusUrl = '{% url "questions:ia_status" disciplina.pk %}';
-
     var pollIA = setInterval(function () {
       fetch(iaStatusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (data.total > 0 && iaBar) {
-            var done = data.concluidas;
-            var total = data.total;
-            var pct = Math.round(done / total * 100);
+            var pct = Math.round(data.concluidas / data.total * 100);
             iaBar.style.width = pct + '%';
-            if (iaCounts) iaCounts.textContent = done + '/' + total + ' concluídas';
+            if (iaCounts) iaCounts.textContent = data.concluidas + '/' + data.total;
           }
           if (!data.em_processamento) {
             clearInterval(pollIA);
             setTimeout(function () { window.location.reload(); }, 800);
           }
-        })
-        .catch(function () {});
+        }).catch(function () {});
     }, 3000);
   }
-})();
-</script>
 
-<script>
-/* checkboxes — fora do IIFE pra garantir execução limpa */
-(function checkboxes() {
+  // ---- Checkboxes ----
   var selTodos = document.getElementById('sel-todos');
-  var questoes = document.querySelectorAll('.sel-questao');
-
-  function corLinha(cb) {
-    var td = cb.parentElement;
-    var tr = td && td.parentElement;
-    if (tr && tr.nodeName === 'TR') {
-      tr.style.backgroundColor = cb.checked ? 'rgba(47,120,219,0.12)' : '';
-    }
-  }
-
-  function atualizarRevisar() {
-    var n = document.querySelectorAll('.sel-questao:checked').length;
-    var revisarBtn = document.getElementById('revisar-lote-btn');
-    if (revisarBtn) revisarBtn.hidden = n === 0;
-    toggleAplicarPrompt();
-  }
-
+  var selAll = document.querySelectorAll('.sel-questao');
   if (selTodos) {
     selTodos.addEventListener('change', function () {
-      questoes.forEach(function (cb) {
-        cb.checked = selTodos.checked;
-        corLinha(cb);
-      });
-      atualizarRevisar();
+      selAll.forEach(function (cb) { cb.checked = selTodos.checked; });
+      toggleAplicarPrompt();
     });
   }
-
-  questoes.forEach(function (cb) {
+  selAll.forEach(function (cb) {
     cb.addEventListener('change', function () {
-      corLinha(cb);
-      if (selTodos) {
-        selTodos.checked = questoes.length > 0 &&
-          document.querySelectorAll('.sel-questao:checked').length === questoes.length;
-      }
-      atualizarRevisar();
+      if (selTodos) selTodos.checked = selAll.length > 0 && document.querySelectorAll('.sel-questao:checked').length === selAll.length;
+      toggleAplicarPrompt();
     });
   });
-}());
+})();
 </script>
 {% endblock %}

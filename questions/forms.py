@@ -6,22 +6,30 @@ from .models import ImportacaoPDF, Questao
 
 
 def _normalizar_enunciado(texto: str) -> str:
-    """Formata enunciado_md: parágrafo do enunciado + um parágrafo por alternativa."""
+    """Formata enunciado_md: parágrafos do enunciado + um parágrafo por alternativa (A–E)."""
     if not texto:
         return texto
-    ALT_RE = re.compile(r'^([A-E])\s*[).]\s*', re.IGNORECASE)
+    # Reconhece: A) A. A- A: (A) ou A com 2+ espaços — maiúsculo ou minúsculo
+    ALT_RE = re.compile(r'^\s*(?:\([A-E]\)\s*|[A-E]\s*[).\-:]\s+|[A-E]\s{2,})', re.IGNORECASE)
     linhas = texto.splitlines()
     secoes: list[list[str]] = []
     secao_atual: list[str] = []
+    encontrou_alternativa = False
+
     for linha in linhas:
         linha = linha.rstrip()
         if ALT_RE.match(linha):
             if secao_atual:
                 secoes.append(secao_atual)
             secao_atual = [linha]
-        else:
-            if linha:
-                secao_atual.append(linha)
+            encontrou_alternativa = True
+        elif linha:
+            secao_atual.append(linha)
+        elif not encontrou_alternativa and secao_atual:
+            # Linha em branco antes das alternativas → quebra de parágrafo no enunciado
+            secoes.append(secao_atual)
+            secao_atual = []
+
     if secao_atual:
         secoes.append(secao_atual)
     return '\n\n'.join(' '.join(s) for s in secoes if s)

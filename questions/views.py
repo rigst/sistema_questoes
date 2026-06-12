@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from exams.models import Disciplina
 from prompts.models import Prompt
@@ -62,6 +63,7 @@ def ia_status(request, pk):
 @login_required
 def upload(request, pk):
     disc = _disciplina_do_user(request, pk)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if request.method == 'POST':
         form = ImportacaoForm(request.POST, request.FILES)
         if form.is_valid():
@@ -69,9 +71,19 @@ def upload(request, pk):
             imp.disciplina = disc
             imp.save()
             processar_importacao.delay(imp.pk)
+            if is_ajax:
+                return JsonResponse({
+                    'ok': True,
+                    'importacao_id': imp.pk,
+                    'status': imp.status,
+                    'status_url': reverse('questions:importacao_status', args=[imp.pk]),
+                })
             messages.success(request, 'PDF enviado. As questões estão sendo extraídas.')
         else:
-            messages.error(request, 'Arquivo inválido. Envie um PDF.')
+            erro = 'Arquivo inválido. Envie um PDF.'
+            if is_ajax:
+                return JsonResponse({'ok': False, 'erro': erro}, status=400)
+            messages.error(request, erro)
     return redirect('questions:disciplina', pk=disc.pk)
 
 
@@ -80,6 +92,9 @@ def importacao_status(request, pk):
     imp = get_object_or_404(ImportacaoPDF, pk=pk, disciplina__prova__user=request.user)
     return JsonResponse({
         'status': imp.status,
+        'progresso': imp.progresso,
+        'etapa': imp.etapa,
+        'total_paginas': imp.total_paginas,
         'num_questoes': imp.num_questoes,
         'confianca_media': round(imp.confianca_media, 2),
         'usou_ia': imp.usou_ia,

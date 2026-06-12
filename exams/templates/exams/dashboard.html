@@ -128,10 +128,11 @@
     gap: 0;
     border: 1px solid var(--border-strong, #dfe3ea);
     border-radius: 18px;
-    overflow: hidden;
     background: #fff;
     min-height: 260px;
 }
+.provas-tree-left { border-radius: 18px 0 0 18px; }
+.provas-tree-right { border-radius: 0 18px 18px 0; }
 .provas-tree-left {
     background: var(--ds-panel, #f7f9fc);
     border-right: 1px solid var(--border-strong, #dfe3ea);
@@ -152,7 +153,7 @@
 }
 .prova-item-row { display: flex; align-items: center; gap: 0.4rem; }
 .prova-item-name { font-weight: 600; font-size: 0.9rem; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prova-item-edit, .prova-item-delete { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; }
+.prova-item-edit, .prova-item-delete { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; }
 .prova-item-delete { color: var(--ds-danger, #d14545); }
 .prova-item:hover .prova-item-edit, .prova-item:hover .prova-item-delete { opacity: 1; }
 .prova-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
@@ -180,7 +181,7 @@
 .prova-detail-header h3 { margin: 0; font-size: 1.05rem; }
 
 .disciplinas-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
-.disciplina-item { border: 1px solid var(--border, #e8edf4); border-radius: 10px; overflow: hidden; }
+.disciplina-item { border: 1px solid var(--border, #e8edf4); border-radius: 10px; }
 .disciplina-row {
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.65rem 0.9rem;
@@ -190,7 +191,7 @@
 .disciplina-nome-link { flex: 1; text-decoration: none; color: var(--text); font-weight: 500; font-size: 0.92rem; }
 .disciplina-nome-link:hover { color: var(--accent, #2f78db); }
 .disciplina-count { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
-.disciplina-edit-icon, .disciplina-delete-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; display: inline-flex; align-items: center; }
+.disciplina-edit-icon, .disciplina-delete-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; position: relative; z-index: 2; }
 .disciplina-delete-icon { color: var(--ds-danger, #d14545); }
 .disciplina-row:hover .disciplina-edit-icon, .disciplina-row:hover .disciplina-delete-icon { opacity: 1; }
 .disciplina-add-row { padding: 0.6rem 0.4rem 0.2rem; }
@@ -201,20 +202,26 @@
     right: 0;
     top: 100%;
     margin-top: 4px;
-    padding: 0.55rem 0.7rem;
+    padding: 0.65rem 0.85rem;
     border-radius: 10px;
     border: 1px solid var(--ds-danger-border, rgba(209, 69, 69, 0.25));
     background: #fff;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     white-space: nowrap;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.5rem;
     font-size: 0.82rem;
 }
 
 .inline-delete-popover span {
     color: var(--text-soft);
+}
+
+.inline-delete-popover .popover-actions {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
 }
 
 .inline-delete-popover .popover-confirm {
@@ -262,6 +269,17 @@
     box-shadow: 0 0 0 2px rgba(47, 120, 219, 0.15) !important;
 }
 
+.flash-error {
+    background: var(--ds-danger-soft, rgba(209, 69, 69, 0.08));
+    border: 1px solid var(--ds-danger-border, rgba(209, 69, 69, 0.25));
+    color: var(--ds-danger, #d14545);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    font-size: 0.88rem;
+    animation: flashIn 0.25s ease-out;
+}
+@keyframes flashIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
 @media (max-width: 600px) {
     .provas-tree { grid-template-columns: 1fr; }
     .provas-tree-left { border-right: 0; border-bottom: 1px solid var(--border-strong, #dfe3ea); }
@@ -272,6 +290,18 @@
 (function () {
     var CSRF = document.querySelector('[name=csrfmiddlewaretoken]');
     function csrfToken() { return CSRF ? CSRF.value : ''; }
+
+    function showFlash(msg, type) {
+        var existing = document.querySelector('.flash-inline');
+        if (existing) existing.remove();
+        var el = document.createElement('div');
+        el.className = 'flash-message flash-inline' + (type === 'error' ? ' flash-error' : '');
+        el.style.marginBottom = '1rem';
+        el.textContent = msg;
+        var tree = document.getElementById('provas-tree');
+        tree.parentNode.insertBefore(el, tree);
+        setTimeout(function () { el.remove(); }, 6000);
+    }
 
     // ---- troca de prova ativa ----
     var provaItems = document.querySelectorAll('.prova-item');
@@ -313,12 +343,15 @@
                 fd.append('csrfmiddlewaretoken', csrfToken());
                 fd.append('nome', nome);
                 fetch('{% url "exams:prova_criar_inline" %}', { method: 'POST', body: fd })
-                    .then(function (r) { return r.json(); })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('Erro ao criar prova (código ' + r.status + ')');
+                        return r.json();
+                    })
                     .then(function (data) {
-                        if (data.error) { alert(data.error); return; }
+                        if (data.error) { showFlash(data.error, 'error'); return; }
                         window.location.reload();
                     })
-                    .catch(function () { window.location.reload(); });
+                    .catch(function (err) { showFlash(err.message || 'Erro ao criar prova. Tente novamente.', 'error'); });
             }
         });
     }
@@ -348,9 +381,12 @@
             fd.append('csrfmiddlewaretoken', csrfToken());
             fd.append('nome', newName);
             fetch(url, { method: 'POST', body: fd })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Erro ao renomear (código ' + r.status + ')');
+                    return r.json();
+                })
                 .then(function (data) {
-                    if (data.error) { el.textContent = oldName; alert(data.error); return; }
+                    if (data.error) { el.textContent = oldName; showFlash(data.error, 'error'); return; }
                     el.textContent = data.nome;
                     var item = el.closest('.prova-item');
                     if (item) {
@@ -358,7 +394,7 @@
                         if (detail) detail.textContent = data.nome;
                     }
                 })
-                .catch(function () { el.textContent = oldName; });
+                .catch(function (err) { el.textContent = oldName; showFlash(err.message || 'Erro ao renomear. Tente novamente.', 'error'); });
         }
 
         input.addEventListener('keydown', function (e) {
@@ -377,16 +413,18 @@
         });
     });
 
-    document.querySelectorAll('.disciplina-edit-icon').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+    document.addEventListener('click', function (e) {
+        var editBtn = e.target.closest('.disciplina-edit-icon');
+        if (editBtn) {
             e.preventDefault();
             e.stopPropagation();
-            var nameEl = btn.closest('.disciplina-row').querySelector('.disciplina-nome-link');
+            var nameEl = editBtn.closest('.disciplina-row').querySelector('.disciplina-nome-link');
             if (nameEl) startInlineRename(nameEl);
-        });
+            return;
+        }
     });
 
-    // ---- excluir inline (popover) ----
+    // ---- excluir inline (popover) — delegation ----
     var activePopover = null;
 
     function closePopover() {
@@ -400,47 +438,46 @@
         if (activePopover && !activePopover.contains(e.target) && !e.target.closest('.inline-delete-trigger')) {
             closePopover();
         }
-    });
 
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closePopover();
-    });
+        var delBtn = e.target.closest('.inline-delete-trigger');
+        if (!delBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        closePopover();
 
-    document.querySelectorAll('.inline-delete-trigger').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        var url = delBtn.dataset.deleteUrl;
+        var nome = delBtn.dataset.deleteName;
+        var container = delBtn.closest('.prova-item-row') || delBtn.closest('.disciplina-row');
+
+        var pop = document.createElement('div');
+        pop.className = 'inline-delete-popover';
+        pop.innerHTML = '<span>Excluir <strong>' + nome + '</strong>?</span>' +
+            '<div class="popover-actions">' +
+            '<button class="popover-cancel">Cancelar</button>' +
+            '<button class="popover-confirm">Excluir</button>' +
+            '</div>';
+        container.appendChild(pop);
+        activePopover = pop;
+
+        pop.querySelector('.popover-cancel').addEventListener('click', function (ev) {
+            ev.stopPropagation();
             closePopover();
+        });
 
-            var url = btn.dataset.deleteUrl;
-            var nome = btn.dataset.deleteName;
-            var container = btn.closest('.prova-item-row') || btn.closest('.disciplina-row');
-
-            var pop = document.createElement('div');
-            pop.className = 'inline-delete-popover';
-            pop.innerHTML = '<span>excluir <strong>' + nome + '</strong>?</span>' +
-                '<button class="popover-confirm">Excluir</button>' +
-                '<button class="popover-cancel">Cancelar</button>';
-            container.appendChild(pop);
-            activePopover = pop;
-
-            pop.querySelector('.popover-cancel').addEventListener('click', function (ev) {
-                ev.stopPropagation();
-                closePopover();
-            });
-
-            pop.querySelector('.popover-confirm').addEventListener('click', function (ev) {
-                ev.stopPropagation();
-                var fd = new FormData();
-                fd.append('csrfmiddlewaretoken', csrfToken());
-                fetch(url, { method: 'POST', body: fd })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        if (data.ok) window.location.reload();
-                        else alert(data.error || 'Erro ao excluir.');
-                    })
-                    .catch(function () { window.location.reload(); });
-            });
+        pop.querySelector('.popover-confirm').addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var fd = new FormData();
+            fd.append('csrfmiddlewaretoken', csrfToken());
+            fetch(url, { method: 'POST', body: fd })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Erro ao excluir (código ' + r.status + ')');
+                    return r.json();
+                })
+                .then(function (data) {
+                    if (data.ok) window.location.reload();
+                    else showFlash(data.error || 'Erro ao excluir.', 'error');
+                })
+                .catch(function (err) { closePopover(); showFlash(err.message || 'Erro ao excluir. Tente novamente.', 'error'); });
         });
     });
 
@@ -479,22 +516,31 @@
                 fd.append('nome', nome);
                 fd.append('prova_pk', provaPk);
                 fetch('{% url "exams:disciplina_criar_inline" %}', { method: 'POST', body: fd })
-                    .then(function (r) { return r.json(); })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('Erro ao criar disciplina (código ' + r.status + ')');
+                        return r.json();
+                    })
                     .then(function (data) {
-                        if (data.error) { alert(data.error); return; }
-                        // adiciona na lista sem reload
+                        if (data.error) { showFlash(data.error, 'error'); return; }
                         var lista = document.getElementById('disciplinas-list-' + provaPk);
                         if (lista) {
+                            var emptyMsg = lista.querySelector('.muted');
+                            if (emptyMsg) emptyMsg.closest('li').remove();
                             var li = document.createElement('li');
                             li.className = 'disciplina-item';
-                            li.innerHTML = '<div class="disciplina-row"><a href="' + data.url + '" class="disciplina-nome-link">' + data.nome + '</a><span class="disciplina-count">0 questões</span></div>';
+                            li.innerHTML = '<div class="disciplina-row">' +
+                                '<a href="' + data.url + '" class="disciplina-nome-link" data-rename-url="/provas/disciplina/' + data.pk + '/renomear-inline/">' + data.nome + '</a>' +
+                                '<span class="disciplina-count">0 questões</span>' +
+                                '<a class="disciplina-edit-icon" title="Renomear disciplina"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></a>' +
+                                '<a class="disciplina-delete-icon inline-delete-trigger" title="Excluir disciplina" data-delete-url="/provas/disciplina/' + data.pk + '/excluir-inline/" data-delete-name="' + data.nome + '" data-delete-type="disciplina"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></a>' +
+                                '</div>';
                             lista.appendChild(li);
                         }
                         input.value = '';
                         form.hidden = true;
                         btn.hidden = false;
                     })
-                    .catch(function () { window.location.reload(); });
+                    .catch(function (err) { showFlash(err.message || 'Erro ao criar disciplina. Tente novamente.', 'error'); });
             }
         });
     });
