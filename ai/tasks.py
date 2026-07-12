@@ -58,46 +58,6 @@ def processar_lote(resultado_ids, usar_lote=True):
     return f'{len(resultados)} resultado(s) processado(s)'
 
 
-@shared_task
-def processar_pares(par_ids, usar_lote=True):
-    """Gera os comentários (completo + revisão) de várias questões.
-
-    ``par_ids`` é uma lista de tuplas (pk_completo, pk_revisao). Com
-    ``usar_lote``, envia via Batches API em chunks de 25 questões.
-    """
-    pares = []
-    for pk_c, pk_r in par_ids:
-        try:
-            rc = ResultadoPrompt.objects.select_related(
-                'questao', 'questao__disciplina__prova__user'
-            ).get(pk=pk_c)
-            rr = ResultadoPrompt.objects.get(pk=pk_r)
-        except ResultadoPrompt.DoesNotExist:
-            continue
-        pares.append((rc, rr))
-    if not pares:
-        return 'nenhum par'
-
-    if usar_lote and len(pares) > 1:
-        batch_size = 25
-        total_batches = 0
-        for i in range(0, len(pares), batch_size):
-            chunk = pares[i:i + batch_size]
-            batch_id = services.submeter_batch_pares(chunk)
-            coletar_batch.apply_async(args=[batch_id], countdown=30)
-            total_batches += 1
-        return f'{total_batches} batch(es) com {len(pares)} questão(ões)'
-
-    for rc, rr in pares:
-        profile = getattr(rc.questao.disciplina.prova.user, 'profile', None)
-        try:
-            services.aplicar_par_sincrono(rc, rr, profile=profile)
-        except Exception:
-            logger.exception('Falha ao gerar comentários (par %s/%s)', rc.pk, rr.pk)
-            continue
-    return f'{len(pares)} questão(ões) processada(s)'
-
-
 @shared_task(bind=True, max_retries=240)
 def coletar_batch(self, batch_id):
     """Coleta os resultados de um batch; re-agenda enquanto não finaliza."""

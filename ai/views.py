@@ -7,8 +7,8 @@ from prompts.models import Prompt
 from questions.models import Questao
 
 from .models import ResultadoPrompt
-from .services import estimar_tokens, estimar_tokens_par
-from .tasks import aplicar_resultado, processar_lote, processar_pares
+from .services import estimar_tokens
+from .tasks import aplicar_resultado, processar_lote
 
 
 def _redir(request, fallback='dashboard'):
@@ -81,10 +81,10 @@ def aplicar_lote(request):
 @login_required
 @require_POST
 def gerar_comentarios(request):
-    """Gera os dois comentários (completo + revisão) das questões selecionadas.
+    """Gera a análise (dois parágrafos) das questões selecionadas.
 
-    Uma chamada de IA por questão; a resposta é dividida e salva como dois
-    resultados, ancorados nos prompts padrão (para os PDFs por tipo).
+    Um único prompt padrão do sistema; questões que já têm análise concluída
+    são puladas para não pagar duas vezes.
     """
     ids = request.POST.getlist('questao_ids')
     usar_lote = request.POST.get('usar_lote') == '1'
@@ -92,118 +92,34 @@ def gerar_comentarios(request):
         messages.error(request, 'Selecione ao menos uma questão.')
         return _redir(request)
 
-    padrao_completo = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.COMPLETO).first()
-    padrao_sucinto = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.SUCINTO).first()
-    if not padrao_completo or not padrao_sucinto:
-        messages.error(request, 'Prompts padrão do sistema não encontrados.')
-        return _redir(request)
-
-    questoes = list(Questao.objects.filter(pk__in=ids, disciplina__prova__user=request.user))
-
-    # Classifica cada questão: par completo, ou só a metade que falta —
-    # evita regenerar (e pagar) comentários que já existem.
-    pares, so_completo, so_revisao = [], [], []
-    for q in questoes:
-        tem_c = q.resultados.filter(prompt=padrao_completo, status=ResultadoPrompt.Status.CONCLUIDO).exists()
-        tem_r = q.resultados.filter(prompt=padrao_sucinto, status=ResultadoPrompt.Status.CONCLUIDO).exists()
-        if tem_c and tem_r:
-            continue
-        if tem_r:
-            so_completo.append(q)
-        elif tem_c:
-            so_revisao.append(q)
-        else:
-            pares.append(q)
-    total = len(pares) + len(so_completo) + len(so_revisao)
-    ja_prontas = len(questoes) - total
-    if not total:
-        messages.info(request, 'As questões selecionadas já têm comentários gerados.')
-        return _redir(request)
-
-    profile = getattr(request.user, 'profile', None)
-    if profile is not None:
-        estimados = (
-            estimar_tokens_par(pares)
-            + estimar_tokens(so_completo, padrao_completo)
-            + estimar_tokens(so_revisao, padrao_sucinto)
-        )
-        if not profile.tem_quota(estimados):
-            messages.error(
-                request,
-                f'Quota de IA insuficiente: a operação precisa de ~{estimados:,} tokens '
-                f'e restam {profile.tokens_restantes:,} neste mês.'.replace(',', '.'),
-            )
-            return _redir(request)
-
-    par_ids, single_ids = [], []
-    for questao in pares:
-        rc = ResultadoPrompt.objects.create(questao=questao, prompt=padrao_completo)
-        rr = ResultadoPrompt.objects.create(questao=questao, prompt=padrao_sucinto)
-        par_ids.append((rc.pk, rr.pk))
-    for questao, prompt in [(q, padrao_completo) for q in so_completo] + [(q, padrao_sucinto) for q in so_revisao]:
-        single_ids.append(ResultadoPrompt.objects.create(questao=questao, prompt=prompt).pk)
-    for questao in pares + so_completo + so_revisao:
-        questao.status = Questao.Status.NA_FILA
-        questao.save(update_fields=['status', 'atualizado_em'])
-
-    if par_ids:
-        processar_pares.delay(par_ids, usar_lote)
-    if single_ids:
-        processar_lote.delay(single_ids, usar_lote)
-    aviso = f' ({ja_prontas} já tinham comentários e foram puladas)' if ja_prontas else ''
-    modo = 'em lote' if usar_lote and total > 1 else ''
-    messages.success(
-        request,
-        f'Gerando comentários de {total} questão(ões) {modo}{aviso}.'.replace('  ', ' '),
-    )
-    return _redir(request)
-
-
-@login_required
-@require_POST
-def gerar_revisoes(request):
-    """Gera apenas o parágrafo de revisão das questões selecionadas (modo econômico)."""
-    ids = request.POST.getlist('questao_ids')
-    usar_lote = request.POST.get('usar_lote') == '1'
-    if not ids:
-        messages.error(request, 'Selecione ao menos uma questão.')
-        return _redir(request)
-
-    padrao_sucinto = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.SUCINTO).first()
-    if not padrao_sucinto:
-        messages.error(request, 'Prompt padrão de revisão não encontrado.')
+    padrao = Prompt.objects.filter(user__isnull=True).first()
+    if not padrao:
+        messages.error(request, 'Prompt padrão do sistema não encontrado.')
         return _redir(request)
 
     questoes = list(Questao.objects.filter(pk__in=ids, disciplina__prova__user=request.user))
     pendentes = [
         q for q in questoes
-        if not q.resultados.filter(prompt=padrao_sucinto, status=ResultadoPrompt.Status.CONCLUIDO).exists()
+        if not q.resultados.filter(prompt=padrao, status=ResultadoPrompt.Status.CONCLUIDO).exists()
     ]
     ja_prontas = len(questoes) - len(pendentes)
     if not pendentes:
-        messages.info(request, 'As questões selecionadas já têm revisão gerada.')
+        messages.info(request, 'As questões selecionadas já têm análise gerada.')
         return _redir(request)
 
-    profile = getattr(request.user, 'profile', None)
-    if profile is not None:
-        estimados = estimar_tokens(pendentes, padrao_sucinto)
-        if not profile.tem_quota(estimados):
-            messages.error(
-                request,
-                f'Quota de IA insuficiente: a operação precisa de ~{estimados:,} tokens '
-                f'e restam {profile.tokens_restantes:,} neste mês.'.replace(',', '.'),
-            )
-            return _redir(request)
+    if _sem_quota(request, pendentes, padrao):
+        return _redir(request)
 
     single_ids = []
     for questao in pendentes:
-        single_ids.append(ResultadoPrompt.objects.create(questao=questao, prompt=padrao_sucinto).pk)
+        single_ids.append(ResultadoPrompt.objects.create(questao=questao, prompt=padrao).pk)
         questao.status = Questao.Status.NA_FILA
         questao.save(update_fields=['status', 'atualizado_em'])
 
     processar_lote.delay(single_ids, usar_lote)
-    aviso = f' ({ja_prontas} já tinham revisão e foram puladas)' if ja_prontas else ''
-    messages.success(request, f'Gerando revisão de {len(single_ids)} questão(ões){aviso}.')
+    aviso = f' ({ja_prontas} já tinham análise e foram puladas)' if ja_prontas else ''
+    modo = ' em lote' if usar_lote and len(single_ids) > 1 else ''
+    messages.success(request, f'Gerando análise de {len(single_ids)} questão(ões){modo}{aviso}.')
     return _redir(request)
 
 

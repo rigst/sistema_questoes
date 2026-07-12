@@ -79,9 +79,8 @@
         </div>
     </div>
     <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">
-        {{ disciplina.prova.nome }} · {{ total_questoes }} quest{{ total_questoes|pluralize:"ão,ões" }}{% if total_com_completo or total_com_revisao %} ·
-        <span class="qchip qchip-completo" title="Questões com explicação completa">{{ total_com_completo }} com comentário</span>
-        <span class="qchip qchip-revisao" title="Questões com parágrafo de revisão">{{ total_com_revisao }} com revisão</span>{% endif %}
+        {{ disciplina.prova.nome }} · {{ total_questoes }} quest{{ total_questoes|pluralize:"ão,ões" }}{% if total_com_analise %} ·
+        <span class="qchip qchip-completo" title="Questões com análise gerada">{{ total_com_analise }} com análise</span>{% endif %}
     </p>
 
     {# ---- PROGRESSO DE UPLOAD / PROCESSAMENTO DO PDF ---- #}
@@ -97,15 +96,14 @@
 
     {% if questoes %}
         {# ---- BARRA DE GERAÇÃO DE COMENTÁRIOS ---- #}
-        <form method="post" action="{% url 'ai:gerar_comentarios' %}" id="lote-form" data-prompt-chars="{{ prompt_comb_chars }}">
+        <form method="post" action="{% url 'ai:gerar_comentarios' %}" id="lote-form" data-prompt-chars="{{ prompt_chars }}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="usar_lote" value="1">
             <div class="disc-prompt-bar">
                 <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
-                <button type="submit" class="btn btn-primary btn-compact precisa-selecao" id="lote-btn" disabled>Gerar comentários</button>
-                <button type="submit" class="btn btn-secondary btn-compact precisa-selecao" formaction="{% url 'ai:gerar_revisoes' %}" disabled title="Só o parágrafo de revisão — cerca de 4x mais barato">Gerar só revisão</button>
-                <span class="disc-prompt-hint">Completo + revisão, ou só a revisão (mais barato).</span>
+                <button type="submit" class="btn btn-primary btn-compact precisa-selecao" id="lote-btn" disabled>Gerar análise</button>
+                <span class="disc-prompt-hint">Dois parágrafos por questão: a matéria e a resposta; os erros e as pegadinhas.</span>
                 <span id="cost-preview" class="disc-cost" hidden>
                     <span id="cost-summary"></span>
                 </span>
@@ -127,7 +125,7 @@
                             <th class="col-check"><input type="checkbox" id="sel-todos"></th>
                             <th style="width:55px;">#</th>
                             <th>Enunciado</th>
-                            <th style="width:190px;">Comentários</th>
+                            <th style="width:130px;">Análise</th>
                             <th style="width:80px;">Gabarito</th>
                             <th style="width:60px;"></th>
                         </tr>
@@ -143,9 +141,8 @@
                                     {% if q.status == 'na_fila' or q.status == 'processando' %}
                                         <span class="qchip qchip-gerando">gerando…</span>
                                     {% else %}
-                                        {% if q.tem_completo %}<span class="qchip qchip-completo" title="Tem explicação completa">comentário</span>{% endif %}
-                                        {% if q.tem_revisao %}<span class="qchip qchip-revisao" title="Tem parágrafo de revisão">revisão</span>{% endif %}
-                                        {% if not q.tem_completo and not q.tem_revisao %}<span class="qchip qchip-vazio" title="Sem comentários gerados">—</span>{% endif %}
+                                        {% if q.tem_analise %}<span class="qchip qchip-completo" title="Análise gerada">análise</span>
+                                        {% else %}<span class="qchip qchip-vazio" title="Sem análise gerada">—</span>{% endif %}
                                     {% endif %}
                                 </span>
                             </td>
@@ -175,7 +172,7 @@ function toggleAplicarPrompt() {
   var PRICE_IN  = {{ ai_price_input|unlocalize }};
   var PRICE_OUT = {{ ai_price_output|unlocalize }};
   var BATCH_DISCOUNT = 0.5;
-  var OUTPUT_PAR = 1400;  // completo + revisão numa chamada (medido, effort low)
+  var OUTPUT_ANALISE = 900;  // dois parágrafos (medido, effort low)
   var CHARS_PER_TOKEN = 3.8;
   var SYSTEM_OVERHEAD = 55;
 
@@ -195,7 +192,7 @@ function toggleAplicarPrompt() {
       var qChars = parseInt(cb.dataset.chars || '0', 10);
       totalInputTokens += SYSTEM_OVERHEAD + Math.ceil(promptChars / CHARS_PER_TOKEN) + 10 + Math.ceil(qChars / CHARS_PER_TOKEN);
     });
-    var totalOutputTokens = n * OUTPUT_PAR;
+    var totalOutputTokens = n * OUTPUT_ANALISE;
     var custo = (totalInputTokens / 1e6 * PRICE_IN + totalOutputTokens / 1e6 * PRICE_OUT) * BATCH_DISCOUNT;
     var custoStr = custo < 0.0005 ? '< $0.001' : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
     costSummary.textContent = (n > 1 ? n + ' questões' : '1 questão') + ' · ~' + custoStr;

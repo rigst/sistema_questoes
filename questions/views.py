@@ -7,7 +7,6 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from ai.services import PROMPT_COMBINADO
 from exams.models import Disciplina
 from prompts.models import Prompt
 
@@ -29,18 +28,13 @@ def disciplina(request, pk):
     from ai.models import ResultadoPrompt
 
     disc = _disciplina_do_user(request, pk)
-    padrao_completo = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.COMPLETO).first()
-    padrao_sucinto = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.SUCINTO).first()
-
-    def _tem(prompt):
-        return Exists(ResultadoPrompt.objects.filter(
-            questao=OuterRef('pk'), prompt=prompt,
-            status=ResultadoPrompt.Status.CONCLUIDO,
-        ))
+    padrao = Prompt.objects.filter(user__isnull=True).first()
 
     base = disc.questoes.annotate(
-        tem_completo=_tem(padrao_completo),
-        tem_revisao=_tem(padrao_sucinto),
+        tem_analise=Exists(ResultadoPrompt.objects.filter(
+            questao=OuterRef('pk'), prompt=padrao,
+            status=ResultadoPrompt.Status.CONCLUIDO,
+        )),
     )
     paginator = Paginator(base, 50)
     questoes = paginator.get_page(request.GET.get('page'))
@@ -50,12 +44,11 @@ def disciplina(request, pk):
         'questoes': questoes,
         'page_obj': questoes,
         'total_questoes': paginator.count,
-        'total_com_completo': base.filter(tem_completo=True).count(),
-        'total_com_revisao': base.filter(tem_revisao=True).count(),
+        'total_com_analise': base.filter(tem_analise=True).count(),
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
         'prompts': Prompt.visiveis_para(request.user),
-        'prompt_comb_chars': len(PROMPT_COMBINADO),
+        'prompt_chars': len(padrao.texto) if padrao else 0,
         'em_processamento': disc.importacoes.filter(
             status__in=[ImportacaoPDF.Status.ENVIADO, ImportacaoPDF.Status.PROCESSANDO]
         ).exists(),

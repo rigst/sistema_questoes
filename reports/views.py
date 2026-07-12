@@ -29,10 +29,7 @@ def gerar(request):
     if request.method != 'POST':
         return redirect('reports:lista')
 
-    tipo = request.POST.get('tipo', Prompt.Tipo.COMPLETO)
-    if tipo not in Prompt.Tipo.values:
-        tipo = Prompt.Tipo.COMPLETO
-    prompt = get_object_or_404(Prompt, user__isnull=True, tipo=tipo)
+    prompt = get_object_or_404(Prompt, user__isnull=True)
     com_texto = request.POST.get('com_texto') == '1'
 
     disciplina = None

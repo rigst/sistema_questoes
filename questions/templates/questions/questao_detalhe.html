@@ -46,8 +46,8 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="questao_ids" value="{{ questao.pk }}">
-            <button type="submit" class="btn btn-primary btn-compact">Gerar comentários</button>
-            <span class="muted" style="font-size:.85rem;">Cria a explicação completa e o parágrafo de revisão desta questão.</span>
+            <button type="submit" class="btn btn-primary btn-compact">Gerar análise</button>
+            <span class="muted" style="font-size:.85rem;">Dois parágrafos: a matéria e a resposta; os erros e as pegadinhas.</span>
         </form>
     </div>
 

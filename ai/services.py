@@ -21,54 +21,12 @@ logger = logging.getLogger(__name__)
 # Estimativa de tokens (espelha o preview de custo do frontend em disciplina.html).
 CHARS_PER_TOKEN = 3.8
 SYSTEM_OVERHEAD_TOKENS = 55
-OUTPUT_TOKENS_POR_TIPO = {'sucinto': 350, 'completo': 1200}
+OUTPUT_TOKENS_POR_TIPO = {'sucinto': 350, 'completo': 900}
 
 SYSTEM_PROMPT = (
     'Você é um tutor especialista em questões de concurso público. '
     'Responda sempre em português, de forma didática e em Markdown.'
 )
-
-# Marcadores usados para dividir a resposta combinada nos dois comentários.
-MARCA_COMPLETO = '===COMENTARIO COMPLETO==='
-MARCA_REVISAO = '===REVISAO==='
-
-# Saída estimada da chamada combinada (medida no Sonnet 5, thinking incluso).
-OUTPUT_TOKENS_PAR = 1400
-
-# Prompt único que gera os dois comentários numa só chamada: a entrada
-# (enunciado + imagens + instruções) é paga uma vez, e o app separa a saída
-# pelos marcadores para montar os PDFs de explicações e de revisão.
-PROMPT_COMBINADO = f"""\
-Gere DOIS comentários sobre a questão, separados pelos marcadores abaixo \
-(cada marcador sozinho na própria linha):
-
-{MARCA_COMPLETO}
-{MARCA_REVISAO}
-
-COMENTÁRIO COMPLETO — Markdown com exatamente estes títulos:
-## Tema
-Uma linha: o assunto cobrado.
-## O essencial da matéria
-1 a 2 parágrafos objetivos: regra geral, exceção relevante e base normativa \
-(artigo/súmula), com os termos decisivos em **negrito**.
-## Alternativas
-Cada alternativa na ordem, iniciando com **Correta** ou **Incorreta** e 1 a 2 \
-frases com o fundamento (nas incorretas, o erro específico). Em Certo/Errado, \
-analise a assertiva única.
-## Gabarito
-Uma frase: a alternativa correta e o raciocínio-chave.
-## Dica de prova
-Uma dica: variação que a banca cobra ou armadilha a evitar.
-
-REVISÃO — um único parágrafo de 3 a 5 linhas, começando direto pela primeira \
-palavra (sem título, listas ou negrito): a regra central, por que a \
-alternativa do gabarito é a correta, fechando com o fundamento entre \
-parênteses.
-
-Regras: cite dispositivos com precisão e não invente jurisprudência nem \
-número de artigo; ignore defeitos de digitação da extração; se o gabarito \
-parecer equivocado, siga-o e registre a divergência em nota final.
-"""
 
 # Schema para separação de questões (refino por IA).
 SCHEMA_QUESTOES = {
@@ -123,131 +81,9 @@ def get_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-# Tolerante a variações que o modelo produz: '===X===', '## X', '=== X'…
-RE_MARCA_COMPLETO = re.compile(r'^\s*[=#]+\s*COMENT[ÁA]RIO[_ ]COMPLETO\s*=*\s*$', re.I | re.M)
-RE_MARCA_REVISAO = re.compile(r'^\s*[=#]+\s*REVIS[ÃA]O\s*=*\s*$', re.I | re.M)
-
-
-def dividir_comentarios(texto):
-    """Separa a resposta combinada em (completo, revisão) pelos marcadores.
-
-    Tolerante a variações de acento/espaçamento; sem o marcador de revisão,
-    tudo vai para o completo e a revisão volta vazia.
-    """
-    partes = RE_MARCA_REVISAO.split(texto or '', maxsplit=1)
-    completo = RE_MARCA_COMPLETO.sub('', partes[0]).strip()
-    revisao = partes[1].strip() if len(partes) > 1 else ''
-    return completo, revisao
-
-
-def estimar_tokens_par(questoes):
-    """Estimativa de tokens da geração combinada (entrada única + duas saídas)."""
-    prompt_tokens = len(PROMPT_COMBINADO) / CHARS_PER_TOKEN
-    total = 0
-    for q in questoes:
-        q_tokens = len(q.enunciado_md or '') / CHARS_PER_TOKEN
-        total += SYSTEM_OVERHEAD_TOKENS + prompt_tokens + q_tokens + OUTPUT_TOKENS_PAR
-    return int(total)
-
-
-def _params_par(questao, cache_prompt=False):
-    """Parâmetros da chamada combinada (com ou sem cache do prefixo p/ lotes)."""
-    if cache_prompt:
-        system = [
-            {'type': 'text', 'text': SYSTEM_PROMPT},
-            {'type': 'text', 'text': PROMPT_COMBINADO, 'cache_control': {'type': 'ephemeral'}},
-        ]
-        messages = montar_mensagens(questao)
-    else:
-        system = SYSTEM_PROMPT
-        messages = montar_mensagens(questao, PROMPT_COMBINADO)
-    params = {
-        'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
-        'max_tokens': getattr(settings, 'AI_MAX_TOKENS', 16000),
-        'system': system,
-        'messages': messages,
-    }
-    if not cache_prompt and _suporta_adaptive(params['model']):
-        params['thinking'] = {'type': 'adaptive'}
-        params['output_config'] = {'effort': getattr(settings, 'AI_EFFORT', 'medium')}
-    return params
-
-
-def _gravar_par(res_completo, res_revisao, texto, it, ot, profile):
-    """Divide e persiste o par; usage/custo ficam no completo (evita dupla conta)."""
-    from .models import ResultadoPrompt
-
-    completo, revisao = dividir_comentarios(texto)
-    res_completo.resultado_md = completo
-    res_completo.input_tokens = it
-    res_completo.output_tokens = ot
-    res_completo.custo_estimado = custo_usd(it, ot)
-    res_completo.status = ResultadoPrompt.Status.CONCLUIDO
-    res_completo.save()
-
-    if revisao:
-        res_revisao.resultado_md = revisao
-        res_revisao.status = ResultadoPrompt.Status.CONCLUIDO
-    else:
-        res_revisao.status = ResultadoPrompt.Status.ERRO
-        res_revisao.erro = 'Resposta veio sem o marcador de revisão.'
-    res_revisao.save()
-
-    if profile is not None:
-        profile.registrar_uso(it, ot, res_completo.custo_estimado)
-
-    questao = res_completo.questao
-    questao.status = questao.Status.CONCLUIDA
-    questao.save(update_fields=['status', 'atualizado_em'])
-
-
-def aplicar_par_sincrono(res_completo, res_revisao, profile=None):
-    """Gera os dois comentários de uma questão numa única chamada."""
-    from .models import ResultadoPrompt
-
-    modelo = getattr(settings, 'AI_MODEL', 'claude-sonnet-5')
-    for r in (res_completo, res_revisao):
-        r.status = ResultadoPrompt.Status.PROCESSANDO
-        r.modelo = modelo
-        r.save(update_fields=['status', 'modelo', 'atualizado_em'])
-
-    try:
-        client = get_client()
-        resp = client.messages.create(**_params_par(res_completo.questao))
-        texto = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
-        _gravar_par(res_completo, res_revisao, texto,
-                    resp.usage.input_tokens, resp.usage.output_tokens, profile)
-    except Exception as exc:  # noqa: BLE001
-        for r in (res_completo, res_revisao):
-            r.status = ResultadoPrompt.Status.ERRO
-            r.erro = str(exc)[:2000]
-            r.save(update_fields=['status', 'erro', 'atualizado_em'])
-        questao = res_completo.questao
-        questao.status = questao.Status.ERRO
-        questao.save(update_fields=['status', 'atualizado_em'])
-        raise
-
-
-def submeter_batch_pares(pares):
-    """Submete pares (completo, revisão) via Batches API. Retorna batch_id."""
-    from .models import ResultadoPrompt
-
-    client = get_client()
-    requests = [
-        {'custom_id': f'par-{rc.pk}-{rr.pk}', 'params': _params_par(rc.questao, cache_prompt=True)}
-        for rc, rr in pares
-    ]
-    batch = client.messages.batches.create(requests=requests)
-    todos = [r.pk for par in pares for r in par]
-    ResultadoPrompt.objects.filter(pk__in=todos).update(
-        status=ResultadoPrompt.Status.PROCESSANDO, batch_id=batch.id,
-    )
-    return batch.id
-
-
 def estimar_tokens(questoes, prompt):
     """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
-    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 1200)
+    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 900)
     prompt_tokens = len(prompt.texto or '') / CHARS_PER_TOKEN
     total = 0
     for q in questoes:
@@ -420,9 +256,6 @@ def coletar_batch(batch_id):
         return False
 
     for item in client.messages.batches.results(batch_id):
-        if item.custom_id.startswith('par-'):
-            _coletar_item_par(item)
-            continue
         try:
             res_id = int(item.custom_id.split('-', 1)[1])
             resultado = ResultadoPrompt.objects.select_related(
@@ -455,30 +288,3 @@ def coletar_batch(batch_id):
             resultado.questao.save(update_fields=['status', 'atualizado_em'])
     return True
 
-
-def _coletar_item_par(item):
-    """Processa um item de batch do fluxo combinado (custom_id 'par-<c>-<r>')."""
-    from .models import ResultadoPrompt
-
-    try:
-        _, pk_c, pk_r = item.custom_id.split('-')
-        res_completo = ResultadoPrompt.objects.select_related(
-            'questao', 'questao__disciplina__prova__user'
-        ).get(pk=int(pk_c))
-        res_revisao = ResultadoPrompt.objects.get(pk=int(pk_r))
-    except (ValueError, ResultadoPrompt.DoesNotExist):
-        return
-
-    if item.result.type == 'succeeded':
-        msg = item.result.message
-        texto = ''.join(b.text for b in msg.content if getattr(b, 'type', '') == 'text')
-        profile = getattr(res_completo.questao.disciplina.prova.user, 'profile', None)
-        _gravar_par(res_completo, res_revisao, texto,
-                    msg.usage.input_tokens, msg.usage.output_tokens, profile)
-    else:
-        for r in (res_completo, res_revisao):
-            r.status = ResultadoPrompt.Status.ERRO
-            r.erro = f'Batch: {item.result.type}'
-            r.save(update_fields=['status', 'erro', 'atualizado_em'])
-        res_completo.questao.status = res_completo.questao.Status.ERRO
-        res_completo.questao.save(update_fields=['status', 'atualizado_em'])
