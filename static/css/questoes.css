@@ -868,12 +868,14 @@ html.cards-mode .table-wrap tbody td.actions-col::before { display: none; }
    checkbox + número + bolha do gabarito em cima, enunciado inteiro embaixo */
 html.cards-mode .questoes-table tbody tr {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* metadados agrupados à esquerda (checkbox · número · gabarito);
+     a coluna 1fr só empurra o grupo, e o enunciado ocupa a largura toda */
+  grid-template-columns: auto auto auto 1fr;
   grid-template-areas:
-    "check num  gab"
-    "enun  enun enun";
+    "check num  gab  ."
+    "enun  enun enun enun";
   align-items: center;
-  gap: 0.4rem 0.65rem;
+  gap: 0.4rem 0.55rem;
 }
 
 html.cards-mode .questoes-table tbody td { display: block; padding: 0; }
@@ -895,7 +897,7 @@ html.cards-mode .questoes-table .col-num {
 
 html.cards-mode .questoes-table .col-num::before { content: "Q"; display: inline; }
 
-html.cards-mode .questoes-table .col-gab { grid-area: gab; justify-self: end; }
+html.cards-mode .questoes-table .col-gab { grid-area: gab; }
 html.cards-mode .questoes-table .questao-enunciado { grid-area: enun; }
 html.cards-mode .questoes-table .col-open { display: none; }
 
