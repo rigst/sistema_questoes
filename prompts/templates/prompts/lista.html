@@ -20,6 +20,13 @@
                 <thead><tr><th>Nome</th><th>Texto do Prompt</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for p in prompts %}
+                        {% if p.padrao %}
+                        <tr>
+                            <td>{{ p.nome }} <span class="badge">padrão</span></td>
+                            <td class="prompt-preview">{{ p.texto|truncatechars:70 }}</td>
+                            <td class="actions-col"></td>
+                        </tr>
+                        {% else %}
                         <tr data-row-href="{% url 'prompts:editar' p.pk %}">
                             <td><a href="{% url 'prompts:editar' p.pk %}" class="row-link">{{ p.nome }}</a></td>
                             <td class="prompt-preview">{{ p.texto|truncatechars:70 }}</td>
@@ -32,6 +39,7 @@
                                 </form>
                             </td>
                         </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

@@ -55,6 +55,24 @@ class IAError(Exception):
     pass
 
 
+# Famílias de modelo que aceitam thinking adaptativo + output_config.effort
+# (4.6+; Sonnet 4.5/Haiku 4.5 rejeitam ambos com 400).
+_FAMILIAS_ADAPTIVE = ('opus-4-6', 'opus-4-7', 'opus-4-8', 'sonnet-4-6', 'sonnet-5', 'fable', 'mythos')
+
+
+def _suporta_adaptive(modelo):
+    return any(f in modelo for f in _FAMILIAS_ADAPTIVE)
+
+
+def _params_aplicacao(questao, prompt):
+    """Parâmetros completos do envio síncrono, ajustados ao modelo configurado."""
+    params = _params_mensagem(questao, prompt)
+    if _suporta_adaptive(params['model']):
+        params['thinking'] = {'type': 'adaptive'}
+        params['output_config'] = {'effort': getattr(settings, 'AI_EFFORT', 'medium')}
+    return params
+
+
 def get_client():
     api_key = getattr(settings, 'ANTHROPIC_API_KEY', '')
     if not api_key:
@@ -157,10 +175,7 @@ def aplicar_resultado_sincrono(resultado, profile=None):
 
     try:
         client = get_client()
-        params = _params_mensagem(questao, prompt)
-        params['thinking'] = {'type': 'adaptive'}
-        params['output_config'] = {'effort': getattr(settings, 'AI_EFFORT', 'medium')}
-        resp = client.messages.create(**params)
+        resp = client.messages.create(**_params_aplicacao(questao, prompt))
 
         texto = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
         it = resp.usage.input_tokens

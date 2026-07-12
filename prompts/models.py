@@ -3,14 +3,19 @@ from django.db import models
 
 
 class Prompt(models.Model):
-    """Prompt reutilizável que o usuário aplica sobre as questões via IA."""
+    """Prompt reutilizável aplicado sobre as questões via IA.
+
+    Com ``user=None`` é um prompt padrão do sistema: aparece para todos os
+    usuários (existentes e novos), sempre, e não pode ser editado/excluído.
+    """
 
     class Tipo(models.TextChoices):
         COMPLETO = 'completo', 'Completo'
         SUCINTO = 'sucinto', 'Sucinto (revisão)'
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prompts'
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prompts',
+        null=True, blank=True,
     )
     nome = models.CharField('nome', max_length=200)
     tipo = models.CharField('tipo', max_length=20, choices=Tipo.choices, default=Tipo.COMPLETO)
@@ -28,3 +33,15 @@ class Prompt(models.Model):
 
     def __str__(self):
         return self.nome
+
+    @property
+    def padrao(self):
+        return self.user_id is None
+
+    @classmethod
+    def visiveis_para(cls, user):
+        """Prompts do usuário + padrões do sistema (padrões primeiro)."""
+        return (
+            cls.objects.filter(models.Q(user=user) | models.Q(user__isnull=True))
+            .order_by(models.F('user_id').asc(nulls_first=True), 'nome')
+        )

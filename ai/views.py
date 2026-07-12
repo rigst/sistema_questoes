@@ -36,7 +36,7 @@ def _sem_quota(request, questoes, prompt):
 def aplicar(request, questao_pk):
     """Aplica um prompt a uma única questão."""
     questao = get_object_or_404(Questao, pk=questao_pk, disciplina__prova__user=request.user)
-    prompt = get_object_or_404(Prompt, pk=request.POST.get('prompt_id'), user=request.user)
+    prompt = get_object_or_404(Prompt.visiveis_para(request.user), pk=request.POST.get('prompt_id'))
     if _sem_quota(request, [questao], prompt):
         return _redir(request)
 
@@ -53,7 +53,7 @@ def aplicar(request, questao_pk):
 def aplicar_lote(request):
     """Aplica o mesmo prompt a várias questões selecionadas."""
     ids = request.POST.getlist('questao_ids')
-    prompt = get_object_or_404(Prompt, pk=request.POST.get('prompt_id'), user=request.user)
+    prompt = get_object_or_404(Prompt.visiveis_para(request.user), pk=request.POST.get('prompt_id'))
     usar_lote = request.POST.get('usar_lote') == '1'
     if not ids:
         messages.error(request, 'Selecione ao menos uma questão.')

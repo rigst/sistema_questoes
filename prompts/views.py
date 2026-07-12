@@ -9,7 +9,7 @@ from .models import Prompt
 
 @login_required
 def lista(request):
-    paginator = Paginator(Prompt.objects.filter(user=request.user), 25)
+    paginator = Paginator(Prompt.visiveis_para(request.user), 25)
     prompts = paginator.get_page(request.GET.get('page'))
     return render(request, 'prompts/lista.html', {'prompts': prompts, 'page_obj': prompts})
 

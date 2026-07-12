@@ -35,7 +35,7 @@ def disciplina(request, pk):
         'total_questoes': paginator.count,
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
-        'prompts': Prompt.objects.filter(user=request.user),
+        'prompts': Prompt.visiveis_para(request.user),
         'em_processamento': disc.importacoes.filter(
             status__in=[ImportacaoPDF.Status.ENVIADO, ImportacaoPDF.Status.PROCESSANDO]
         ).exists(),
@@ -137,7 +137,7 @@ def questao_detalhe(request, pk):
     questao = _questao_do_user(request, pk)
     resultados = questao.resultados.select_related('prompt').order_by('-criado_em')
     aplicados = {r.prompt_id for r in resultados}
-    prompts = Prompt.objects.filter(user=request.user)
+    prompts = Prompt.visiveis_para(request.user)
     return render(request, 'questions/questao_detalhe.html', {
         'questao': questao,
         'resultados': resultados,

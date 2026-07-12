@@ -19,7 +19,7 @@ def lista(request):
         'page_obj': relatorios,
         'provas': Prova.objects.filter(user=request.user),
         'disciplinas': Disciplina.objects.filter(prova__user=request.user),
-        'prompts': Prompt.objects.filter(user=request.user),
+        'prompts': Prompt.visiveis_para(request.user),
     }
     return render(request, 'reports/lista.html', contexto)
 
@@ -29,7 +29,7 @@ def gerar(request):
     if request.method != 'POST':
         return redirect('reports:lista')
 
-    prompt = get_object_or_404(Prompt, pk=request.POST.get('prompt_id'), user=request.user)
+    prompt = get_object_or_404(Prompt.visiveis_para(request.user), pk=request.POST.get('prompt_id'))
     com_texto = request.POST.get('com_texto') == '1'
 
     disciplina = None

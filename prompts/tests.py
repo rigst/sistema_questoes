@@ -51,6 +51,26 @@ class PromptViewsTests(TestCase):
         self.client.post(reverse('prompts:excluir', args=[prompt.pk]))
         self.assertFalse(Prompt.objects.filter(pk=prompt.pk).exists())
 
+    def test_prompts_padrao_aparecem_para_todos(self):
+        resp = self.client.get(reverse('prompts:lista'))
+        self.assertContains(resp, 'Explicação completa da questão')
+        self.assertContains(resp, 'Revisão em um parágrafo')
+        self.assertContains(resp, 'padrão')
+
+    def test_prompt_padrao_nao_pode_ser_editado_nem_excluido(self):
+        padrao = Prompt.objects.get(user__isnull=True, tipo=Prompt.Tipo.COMPLETO)
+        resp = self.client.get(reverse('prompts:editar', args=[padrao.pk]))
+        self.assertEqual(resp.status_code, 404)
+        resp = self.client.post(reverse('prompts:excluir', args=[padrao.pk]))
+        self.assertEqual(resp.status_code, 404)
+        self.assertTrue(Prompt.objects.filter(pk=padrao.pk).exists())
+
+    def test_visiveis_para_ordena_padrao_primeiro(self):
+        Prompt.objects.create(user=self.user, nome='AAA meu prompt', texto='x')
+        visiveis = list(Prompt.visiveis_para(self.user))
+        self.assertTrue(visiveis[0].padrao and visiveis[1].padrao)
+        self.assertEqual(visiveis[-1].nome, 'AAA meu prompt')
+
     def test_nao_exclui_prompt_de_outro_usuario(self):
         prompt = Prompt.objects.create(
             user=User.objects.create_user('bia', password='x'), nome='Da Bia', texto='y'

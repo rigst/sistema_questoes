@@ -85,6 +85,18 @@ class AplicarPromptTests(BaseIATestCase):
         self.assertIn('api indisponível', resultado.erro)
         self.assertEqual(self.questao.status, Questao.Status.ERRO)
 
+    @patch('ai.services.get_client')
+    def test_aplicar_funciona_com_prompt_padrao(self, get_client):
+        get_client.return_value.messages.create.return_value = _resposta_fake()
+        padrao = Prompt.objects.get(user__isnull=True, tipo=Prompt.Tipo.SUCINTO)
+        resp = self.client.post(
+            reverse('ai:aplicar', args=[self.questao.pk]),
+            {'prompt_id': padrao.pk},
+        )
+        self.assertEqual(resp.status_code, 302)
+        resultado = ResultadoPrompt.objects.get(questao=self.questao, prompt=padrao)
+        self.assertEqual(resultado.status, ResultadoPrompt.Status.CONCLUIDO)
+
     def test_aplicar_nao_acessa_questao_de_outro_usuario(self):
         outro = User.objects.create_user('bia', password='x')
         self.client.force_login(outro)
@@ -116,3 +128,21 @@ class ServicosIATests(BaseIATestCase):
         params = _params_mensagem(self.questao, self.prompt, cache_prompt=False)
         texto_user = params['messages'][0]['content'][-1]['text']
         self.assertIn(self.prompt.texto, texto_user)
+
+
+class ParametrosModeloTests(BaseIATestCase):
+    def test_haiku_nao_recebe_thinking_nem_effort(self):
+        from django.test import override_settings
+        from ai.services import _params_aplicacao
+        with override_settings(AI_MODEL='claude-haiku-4-5'):
+            params = _params_aplicacao(self.questao, self.prompt)
+        self.assertNotIn('thinking', params)
+        self.assertNotIn('output_config', params)
+
+    def test_sonnet46_recebe_thinking_adaptativo(self):
+        from django.test import override_settings
+        from ai.services import _params_aplicacao
+        with override_settings(AI_MODEL='claude-sonnet-4-6'):
+            params = _params_aplicacao(self.questao, self.prompt)
+        self.assertEqual(params['thinking'], {'type': 'adaptive'})
+        self.assertIn('effort', params['output_config'])
