@@ -1,9 +1,8 @@
 from celery import shared_task
-from django.core.files.base import ContentFile
 
 from . import extraction
 from .forms import _normalizar_enunciado
-from .models import ImportacaoPDF, Questao, QuestaoImagem
+from .models import ImportacaoPDF, Questao
 
 
 @shared_task
@@ -48,7 +47,7 @@ def processar_importacao(importacao_id):
         ordem = imp.disciplina.questoes.count()
         for qx in resultado.questoes:
             ordem += 1
-            questao = Questao.objects.create(
+            Questao.objects.create(
                 disciplina=imp.disciplina,
                 importacao=imp,
                 numero=qx.numero or ordem,
@@ -58,12 +57,6 @@ def processar_importacao(importacao_id):
                 ordem=ordem,
                 status=Questao.Status.DISPONIVEL,
             )
-            for i, png in enumerate(qx.imagens):
-                QuestaoImagem.objects.create(
-                    questao=questao,
-                    ordem=i,
-                    imagem=ContentFile(png, name=f'q{questao.pk}_{i}.png'),
-                )
 
         imp.num_questoes = len(resultado.questoes)
         imp.confianca_media = resultado.confianca_media

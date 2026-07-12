@@ -213,3 +213,33 @@ class ComentariosCombinadosTests(BaseIATestCase):
         completo, revisao = dividir_comentarios(texto)
         self.assertTrue(completo.startswith('## Tema'))
         self.assertTrue(revisao.startswith('Parágrafo de revisão'))
+
+    @patch('ai.services.get_client')
+    def test_gerar_revisoes_cria_so_a_revisao(self, get_client):
+        get_client.return_value.messages.create.return_value = _resposta_fake(texto='A regra central é X (art. 1º).')
+        resp = self.client.post(reverse('ai:gerar_revisoes'), {'questao_ids': [self.questao.pk]})
+        self.assertEqual(resp.status_code, 302)
+        revisao = ResultadoPrompt.objects.get(
+            questao=self.questao, prompt__user__isnull=True, prompt__tipo=Prompt.Tipo.SUCINTO)
+        self.assertEqual(revisao.status, ResultadoPrompt.Status.CONCLUIDO)
+        self.assertFalse(ResultadoPrompt.objects.filter(
+            questao=self.questao, prompt__tipo=Prompt.Tipo.COMPLETO).exists())
+
+    @patch('ai.services.get_client')
+    def test_gerar_comentarios_completa_so_o_que_falta(self, get_client):
+        get_client.return_value.messages.create.return_value = _resposta_fake(texto='## Tema\nX.\n## Gabarito\nA.')
+        # primeiro gera só a revisão
+        self.client.post(reverse('ai:gerar_revisoes'), {'questao_ids': [self.questao.pk]})
+        # depois pede os comentários: deve gerar apenas o completo (sem duplicar a revisão)
+        self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]})
+        self.assertEqual(ResultadoPrompt.objects.filter(
+            questao=self.questao, prompt__tipo=Prompt.Tipo.SUCINTO).count(), 1)
+        self.assertEqual(ResultadoPrompt.objects.filter(
+            questao=self.questao, prompt__tipo=Prompt.Tipo.COMPLETO,
+            status=ResultadoPrompt.Status.CONCLUIDO).count(), 1)
+
+    def test_mensagens_sem_imagens(self):
+        from ai.services import montar_mensagens
+        msgs = montar_mensagens(self.questao, 'instrução')
+        tipos = [b['type'] for b in msgs[0]['content']]
+        self.assertEqual(tipos, ['text'])

@@ -7,28 +7,38 @@ NOME_COMPLETO = 'Explicação completa da questão'
 NOME_SUCINTO = 'Revisão em um parágrafo'
 
 TEXTO_COMPLETO = """\
-Explique esta questão de concurso como um professor experiente da matéria, em cerca de uma página, usando Markdown com exatamente os títulos abaixo.
+Explique a questão em Markdown com exatamente estes títulos:
 
 ## Tema
-Uma linha: o assunto cobrado e onde ele se encaixa dentro da disciplina.
+Uma linha: o assunto cobrado.
 
 ## O essencial da matéria
-Em 2 a 4 parágrafos, ensine a teoria necessária para resolver a questão: conceito, regra geral, exceções relevantes e a base normativa (artigos de lei, dispositivos da CF/88, súmulas e jurisprudência consolidada). Destaque em **negrito** os termos que costumam decidir a questão.
+1 a 2 parágrafos objetivos: regra geral, exceção relevante e base normativa \
+(artigo/súmula), com os termos decisivos em **negrito**.
 
 ## Alternativas
-Analise cada alternativa na ordem (A, B, C…). Comece cada uma com **Correta** ou **Incorreta** e explique o porquê em 1 a 3 frases, apontando o fundamento e, nas incorretas, o erro específico (troca de conceito, exceção ignorada, prazo errado etc.). Em questões de Certo/Errado, analise a assertiva única.
+Cada alternativa na ordem, iniciando com **Correta** ou **Incorreta** e 1 a 2 \
+frases com o fundamento (nas incorretas, o erro específico). Em Certo/Errado, \
+analise a assertiva única.
 
 ## Gabarito
-Uma frase confirmando a alternativa correta e o raciocínio-chave para chegar a ela com segurança.
+Uma frase: a alternativa correta e o raciocínio-chave.
 
-## Como isso cai em prova
-Feche com 1 ou 2 dicas objetivas: variações do tema que as bancas cobram e as armadilhas a evitar.
+## Dica de prova
+Uma dica: variação que a banca cobra ou armadilha a evitar.
 
-Regras: fundamente com precisão e cite o dispositivo quando existir; não invente jurisprudência nem número de artigo — na dúvida, diga que o fundamento é a regra geral da matéria. Ignore pequenos defeitos de digitação vindos da extração do PDF. Se o gabarito informado parecer equivocado, siga-o na resposta, mas registre a divergência em uma nota final.
+Regras: cite dispositivos com precisão e não invente jurisprudência nem número \
+de artigo; ignore defeitos de digitação da extração; se o gabarito parecer \
+equivocado, siga-o e registre a divergência em nota final.
 """
 
 TEXTO_SUCINTO = """\
-Escreva um único parágrafo de revisão (4 a 7 linhas) sobre o ponto da matéria que esta questão cobra — como uma anotação de caderno para reler na véspera da prova. Vá direto à regra central e à exceção mais importante, termine indicando por que a alternativa do gabarito é a correta e feche com o fundamento entre parênteses, quando houver (ex.: art. 34, VII, da CF/88). Comece a resposta diretamente pela primeira palavra do parágrafo: sem título, sem cabeçalho "#", sem listas e sem negrito — apenas o parágrafo corrido. Não analise as alternativas uma a uma.
+Escreva um único parágrafo de revisão (3 a 5 linhas) sobre o ponto que a \
+questão cobra — anotação de véspera de prova: a regra central, por que a \
+alternativa do gabarito é a correta, fechando com o fundamento entre \
+parênteses. Comece direto pela primeira palavra: sem título, sem "#", sem \
+listas, sem negrito. Não analise as alternativas uma a uma. Não invente \
+jurisprudência; ignore defeitos de digitação da extração.
 """
 
 

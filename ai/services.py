@@ -9,7 +9,6 @@ Integração com a API da Anthropic (Claude).
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import re
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Estimativa de tokens (espelha o preview de custo do frontend em disciplina.html).
 CHARS_PER_TOKEN = 3.8
 SYSTEM_OVERHEAD_TOKENS = 55
-OUTPUT_TOKENS_POR_TIPO = {'sucinto': 700, 'completo': 2000}
+OUTPUT_TOKENS_POR_TIPO = {'sucinto': 350, 'completo': 1200}
 
 SYSTEM_PROMPT = (
     'Você é um tutor especialista em questões de concurso público. '
@@ -34,55 +33,41 @@ MARCA_COMPLETO = '===COMENTARIO COMPLETO==='
 MARCA_REVISAO = '===REVISAO==='
 
 # Saída estimada da chamada combinada (medida no Sonnet 5, thinking incluso).
-OUTPUT_TOKENS_PAR = 3000
+OUTPUT_TOKENS_PAR = 1400
 
 # Prompt único que gera os dois comentários numa só chamada: a entrada
 # (enunciado + imagens + instruções) é paga uma vez, e o app separa a saída
 # pelos marcadores para montar os PDFs de explicações e de revisão.
 PROMPT_COMBINADO = f"""\
-Produza DOIS comentários sobre esta questão, na mesma resposta, separados \
-exatamente pelos marcadores abaixo, cada um sozinho em sua própria linha:
+Gere DOIS comentários sobre a questão, separados pelos marcadores abaixo \
+(cada marcador sozinho na própria linha):
 
 {MARCA_COMPLETO}
-(primeiro comentário)
 {MARCA_REVISAO}
-(segundo comentário)
 
-No primeiro comentário, explique a questão como um professor experiente da \
-matéria, em cerca de uma página, usando Markdown com exatamente estes títulos:
-
+COMENTÁRIO COMPLETO — Markdown com exatamente estes títulos:
 ## Tema
-Uma linha: o assunto cobrado e onde ele se encaixa dentro da disciplina.
-
+Uma linha: o assunto cobrado.
 ## O essencial da matéria
-Em 2 a 4 parágrafos, ensine a teoria necessária para resolver a questão: \
-conceito, regra geral, exceções relevantes e a base normativa (artigos de lei, \
-dispositivos da CF/88, súmulas e jurisprudência consolidada). Destaque em \
-**negrito** os termos que costumam decidir a questão.
-
+1 a 2 parágrafos objetivos: regra geral, exceção relevante e base normativa \
+(artigo/súmula), com os termos decisivos em **negrito**.
 ## Alternativas
-Analise cada alternativa na ordem (A, B, C…). Comece cada uma com **Correta** \
-ou **Incorreta** e explique o porquê em 1 a 3 frases, apontando o fundamento e, \
-nas incorretas, o erro específico. Em questões de Certo/Errado, analise a \
-assertiva única.
-
+Cada alternativa na ordem, iniciando com **Correta** ou **Incorreta** e 1 a 2 \
+frases com o fundamento (nas incorretas, o erro específico). Em Certo/Errado, \
+analise a assertiva única.
 ## Gabarito
-Uma frase confirmando a alternativa correta e o raciocínio-chave.
+Uma frase: a alternativa correta e o raciocínio-chave.
+## Dica de prova
+Uma dica: variação que a banca cobra ou armadilha a evitar.
 
-## Como isso cai em prova
-1 ou 2 dicas objetivas: variações que as bancas cobram e armadilhas a evitar.
+REVISÃO — um único parágrafo de 3 a 5 linhas, começando direto pela primeira \
+palavra (sem título, listas ou negrito): a regra central, por que a \
+alternativa do gabarito é a correta, fechando com o fundamento entre \
+parênteses.
 
-No segundo comentário, escreva um único parágrafo de revisão (4 a 7 linhas) — \
-como anotação de caderno para reler na véspera da prova: a regra central, a \
-exceção mais importante, por que a alternativa do gabarito é a correta, \
-fechando com o fundamento entre parênteses. Comece direto pela primeira \
-palavra do parágrafo: sem título, sem listas, sem negrito.
-
-Regras gerais: fundamente com precisão e cite o dispositivo quando existir; \
-não invente jurisprudência nem número de artigo. Ignore pequenos defeitos de \
-digitação vindos da extração do PDF. Se o gabarito informado parecer \
-equivocado, siga-o, mas registre a divergência em nota ao final do primeiro \
-comentário.
+Regras: cite dispositivos com precisão e não invente jurisprudência nem \
+número de artigo; ignore defeitos de digitação da extração; se o gabarito \
+parecer equivocado, siga-o e registre a divergência em nota final.
 """
 
 # Schema para separação de questões (refino por IA).
@@ -262,7 +247,7 @@ def submeter_batch_pares(pares):
 
 def estimar_tokens(questoes, prompt):
     """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
-    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 2000)
+    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 1200)
     prompt_tokens = len(prompt.texto or '') / CHARS_PER_TOKEN
     total = 0
     for q in questoes:
@@ -277,21 +262,6 @@ def custo_usd(input_tokens, output_tokens):
     return (Decimal(input_tokens) / 1_000_000 * pin) + (Decimal(output_tokens) / 1_000_000 * pout)
 
 
-def _blocos_imagens(questao):
-    blocos = []
-    for img in questao.imagens.all():
-        try:
-            with img.imagem.open('rb') as fh:
-                data = base64.standard_b64encode(fh.read()).decode('utf-8')
-            blocos.append({
-                'type': 'image',
-                'source': {'type': 'base64', 'media_type': 'image/png', 'data': data},
-            })
-        except Exception:
-            continue
-    return blocos
-
-
 def _texto_questao(questao, prompt_texto=None):
     partes = []
     if prompt_texto:
@@ -303,10 +273,12 @@ def _texto_questao(questao, prompt_texto=None):
 
 
 def montar_mensagens(questao, prompt_texto=None):
-    """Monta a lista de mensagens (multimodal) para uma questão (+ prompt inline)."""
-    content = _blocos_imagens(questao)
-    content.append({'type': 'text', 'text': _texto_questao(questao, prompt_texto)})
-    return [{'role': 'user', 'content': content}]
+    """Monta a mensagem de uma questão (+ prompt inline). Só texto: os recortes
+    de imagem da extração eram a página inteira/marca-d'água e inflavam a
+    entrada sem agregar conteúdo."""
+    return [{'role': 'user', 'content': [
+        {'type': 'text', 'text': _texto_questao(questao, prompt_texto)},
+    ]}]
 
 
 def _params_mensagem(questao, prompt, cache_prompt=False):

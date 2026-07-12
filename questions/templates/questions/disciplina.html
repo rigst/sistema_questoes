@@ -99,8 +99,9 @@
             <input type="hidden" name="usar_lote" value="1">
             <div class="disc-prompt-bar">
                 <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
-                <button type="submit" class="btn btn-primary btn-compact" id="lote-btn" disabled>Gerar comentários</button>
-                <span class="disc-prompt-hint">Explicação completa + parágrafo de revisão de cada questão selecionada.</span>
+                <button type="submit" class="btn btn-primary btn-compact precisa-selecao" id="lote-btn" disabled>Gerar comentários</button>
+                <button type="submit" class="btn btn-secondary btn-compact precisa-selecao" formaction="{% url 'ai:gerar_revisoes' %}" disabled title="Só o parágrafo de revisão — cerca de 4x mais barato">Gerar só revisão</button>
+                <span class="disc-prompt-hint">Completo + revisão, ou só a revisão (mais barato).</span>
                 <span id="cost-preview" class="disc-cost" hidden>
                     <span id="cost-summary"></span>
                 </span>
@@ -149,9 +150,8 @@
 
 <script>
 function toggleAplicarPrompt() {
-  var selecionadas = document.querySelectorAll('.sel-questao:checked');
-  var loteBtn = document.getElementById('lote-btn');
-  if (loteBtn) loteBtn.disabled = selecionadas.length === 0;
+  var nenhuma = document.querySelectorAll('.sel-questao:checked').length === 0;
+  document.querySelectorAll('.precisa-selecao').forEach(function (btn) { btn.disabled = nenhuma; });
   if (typeof atualizarCusto === 'function') atualizarCusto();
 }
 
@@ -159,7 +159,7 @@ function toggleAplicarPrompt() {
   var PRICE_IN  = {{ ai_price_input|unlocalize }};
   var PRICE_OUT = {{ ai_price_output|unlocalize }};
   var BATCH_DISCOUNT = 0.5;
-  var OUTPUT_PAR = 3000;  // completo + revisão numa chamada (thinking incluso)
+  var OUTPUT_PAR = 1400;  // completo + revisão numa chamada (medido, effort low)
   var CHARS_PER_TOKEN = 3.8;
   var SYSTEM_OVERHEAD = 55;
 

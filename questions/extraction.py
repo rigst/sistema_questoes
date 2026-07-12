@@ -429,9 +429,8 @@ def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
             )
             usou_ia = True
 
-    # Fase 4: recorte das imagens/figuras (90% → 100%).
-    _reportar(92, 'Extraindo imagens e figuras…')
-    _recortar_imagens(pdf_bytes, questoes)
+    # Recorte de imagens desativado: em PDFs de questões os "recortes" eram a
+    # página inteira/marca-d'água, inflando o custo de IA sem agregar conteúdo.
     _reportar(100, 'Finalizando…')
 
     return ResultadoExtracao(
