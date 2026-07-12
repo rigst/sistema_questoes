@@ -151,12 +151,12 @@ CELERY_BEAT_SCHEDULE = {
 # ==============================================================================
 
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-# Modelo padrão — Sonnet (multimodal, 1M contexto, 64K saída)
-AI_MODEL = os.getenv('AI_MODEL', 'claude-sonnet-4-6')
+# Modelo padrão — Sonnet 5 (multimodal, 1M contexto, 128K saída)
+AI_MODEL = os.getenv('AI_MODEL', 'claude-sonnet-5')
 AI_EFFORT = os.getenv('AI_EFFORT', 'medium')  # low | medium | high
 AI_MAX_TOKENS = int(os.getenv('AI_MAX_TOKENS', '16000'))
 
-# Preços por 1M tokens (USD) — Sonnet 4.6: $3 input / $15 output. Ajuste por env.
+# Preços por 1M tokens (USD) — Sonnet 5: $3 input / $15 output. Ajuste por env.
 AI_PRICE_INPUT_PER_MTOK = float(os.getenv('AI_PRICE_INPUT_PER_MTOK', '3.0'))
 AI_PRICE_OUTPUT_PER_MTOK = float(os.getenv('AI_PRICE_OUTPUT_PER_MTOK', '15.0'))
 

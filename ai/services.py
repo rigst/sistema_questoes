@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Estimativa de tokens (espelha o preview de custo do frontend em disciplina.html).
 CHARS_PER_TOKEN = 3.8
 SYSTEM_OVERHEAD_TOKENS = 55
-OUTPUT_TOKENS_POR_TIPO = {'sucinto': 400, 'completo': 1050}
+OUTPUT_TOKENS_POR_TIPO = {'sucinto': 700, 'completo': 2000}
 
 SYSTEM_PROMPT = (
     'Você é um tutor especialista em questões de concurso público. '
@@ -83,7 +83,7 @@ def get_client():
 
 def estimar_tokens(questoes, prompt):
     """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
-    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 1050)
+    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 2000)
     prompt_tokens = len(prompt.texto or '') / CHARS_PER_TOKEN
     total = 0
     for q in questoes:
@@ -152,7 +152,7 @@ def _params_mensagem(questao, prompt, cache_prompt=False):
         system = SYSTEM_PROMPT
         messages = montar_mensagens(questao, prompt.texto)
     return {
-        'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-4-6'),
+        'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
         'max_tokens': getattr(settings, 'AI_MAX_TOKENS', 16000),
         'system': system,
         'messages': messages,
@@ -170,7 +170,7 @@ def aplicar_resultado_sincrono(resultado, profile=None):
     questao = resultado.questao
     prompt = resultado.prompt
     resultado.status = ResultadoPrompt.Status.PROCESSANDO
-    resultado.modelo = getattr(settings, 'AI_MODEL', 'claude-sonnet-4-6')
+    resultado.modelo = getattr(settings, 'AI_MODEL', 'claude-sonnet-5')
     resultado.save(update_fields=['status', 'modelo', 'atualizado_em'])
 
     try:
@@ -219,7 +219,7 @@ def separar_questoes_via_ia(texto, profile=None):
         'corrija-os ao transcrever, sem alterar o conteúdo. Texto:\n\n' + texto[:120000]
     )
     resp = client.messages.create(
-        model=getattr(settings, 'AI_MODEL', 'claude-sonnet-4-6'),
+        model=getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
         max_tokens=getattr(settings, 'AI_MAX_TOKENS', 16000),
         system='Você extrai questões de provas de concurso de forma estruturada.',
         messages=[{'role': 'user', 'content': instrucao}],

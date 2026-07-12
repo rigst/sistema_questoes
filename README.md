@@ -11,7 +11,7 @@ elas — individualmente ou em lote — gerando **relatórios em PDF**.
   confiança é baixa; as questões extraídas ficam disponíveis direto (edição/exclusão avulsa).
 - Preservação de **imagens/figuras** das questões (recorte via PyMuPDF) e envio multimodal.
 - **Prompts** reutilizáveis (completo / sucinto).
-- Aplicação de prompts via **Claude** (`claude-sonnet-4-6`): envio único ou **em lote
+- Aplicação de prompts via **Claude** (`claude-sonnet-5`): envio único ou **em lote
   (Batches API, 50% mais barato)**, com **prompt caching** em lotes (efetivo para
   prompts longos) e **quota por usuário** validada pelo custo estimado da operação.
 - **Relatórios em PDF** (WeasyPrint), com ou sem o texto da questão, por disciplina/prova/prompt.
