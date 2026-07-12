@@ -756,8 +756,64 @@ tbody tr:hover { background: var(--accent-tint); }
 .questoes-table .col-num { font-family: var(--font-mono); font-size: 0.85rem; }
 .questao-enunciado { color: var(--text-soft); line-height: 1.45; }
 
-.questao-abrir { color: inherit; display: block; }
+.questao-abrir {
+  color: inherit;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .questao-abrir:hover, .questao-abrir:focus-visible { color: var(--accent-text); text-decoration: none; }
+
+/* chips de estado dos comentários (bolhas da marca) */
+.qchips { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.qchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.qchip::before {
+  content: "";
+  width: 0.55em; height: 0.55em;
+  border-radius: 50%;
+  border: 1.4px solid currentColor;
+  flex: none;
+}
+
+.qchip-completo {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success);
+}
+
+.qchip-completo::before { background: currentColor; border-color: transparent; }
+
+.qchip-revisao {
+  background: var(--accent-tint);
+  border-color: var(--accent-tint-strong);
+  color: var(--accent-text);
+}
+
+.qchip-revisao::before { background: currentColor; border-color: transparent; }
+
+.qchip-gerando { color: var(--accent-text); border-color: var(--accent-tint-strong); }
+.qchip-gerando::before { background: var(--accent); border-color: transparent; animation: bubble-pulse 1.6s ease-in-out infinite; }
+
+.qchip-vazio { border-style: dashed; }
+.qchip-vazio::before { display: none; }
+
+.col-chips { white-space: nowrap; }
 
 /* "marcar todas" na barra de prompt — visível só no modo cards (thead oculta) */
 .sel-todas-cards {
@@ -865,17 +921,17 @@ html.cards-mode .table-wrap tbody td.actions-col { justify-content: flex-end; }
 html.cards-mode .table-wrap tbody td.actions-col::before { display: none; }
 
 /* lista de questões no modo cards: cada card é um item de cartão-resposta —
-   checkbox + número + bolha do gabarito em cima, enunciado inteiro embaixo */
+   checkbox + número + gabarito em cima, enunciado no meio, chips embaixo */
 html.cards-mode .questoes-table tbody tr {
   display: grid;
-  /* metadados agrupados à esquerda (checkbox · número · gabarito);
-     a coluna 1fr só empurra o grupo, e o enunciado ocupa a largura toda */
-  grid-template-columns: auto auto auto 1fr;
+  grid-template-columns: auto auto 1fr auto;
   grid-template-areas:
-    "check num  gab  ."
-    "enun  enun enun enun";
+    "check num   .     gab"
+    "enun  enun  enun  enun"
+    "chips chips chips chips";
   align-items: center;
-  gap: 0.4rem 0.55rem;
+  gap: 0.45rem 0.55rem;
+  padding: 0.8rem 1rem;
 }
 
 html.cards-mode .questoes-table tbody td { display: block; padding: 0; }
@@ -897,8 +953,16 @@ html.cards-mode .questoes-table .col-num {
 
 html.cards-mode .questoes-table .col-num::before { content: "Q"; display: inline; }
 
-html.cards-mode .questoes-table .col-gab { grid-area: gab; }
-html.cards-mode .questoes-table .questao-enunciado { grid-area: enun; }
+html.cards-mode .questoes-table .col-gab { grid-area: gab; justify-self: end; }
+
+html.cards-mode .questoes-table .questao-enunciado {
+  grid-area: enun;
+  font-size: 0.9rem;
+}
+
+html.cards-mode .questoes-table .questao-enunciado .questao-abrir { -webkit-line-clamp: 3; }
+html.cards-mode .questoes-table .col-chips { grid-area: chips; }
+html.cards-mode .questoes-table .col-chips .qchip-vazio { display: none; }
 html.cards-mode .questoes-table .col-open { display: none; }
 
 /* ---- badges ---------------------------------------------------------------- */

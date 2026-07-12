@@ -78,7 +78,11 @@
             </form>
         </div>
     </div>
-    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ total_questoes }} quest{{ total_questoes|pluralize:"ão,ões" }}</p>
+    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">
+        {{ disciplina.prova.nome }} · {{ total_questoes }} quest{{ total_questoes|pluralize:"ão,ões" }}{% if total_com_completo or total_com_revisao %} ·
+        <span class="qchip qchip-completo" title="Questões com explicação completa">{{ total_com_completo }} com comentário</span>
+        <span class="qchip qchip-revisao" title="Questões com parágrafo de revisão">{{ total_com_revisao }} com revisão</span>{% endif %}
+    </p>
 
     {# ---- PROGRESSO DE UPLOAD / PROCESSAMENTO DO PDF ---- #}
     <div id="pdf-progress-panel" class="disc-banner disc-banner-processing"
@@ -123,6 +127,7 @@
                             <th class="col-check"><input type="checkbox" id="sel-todos"></th>
                             <th style="width:55px;">#</th>
                             <th>Enunciado</th>
+                            <th style="width:190px;">Comentários</th>
                             <th style="width:80px;">Gabarito</th>
                             <th style="width:60px;"></th>
                         </tr>
@@ -132,7 +137,18 @@
                         <tr>
                             <td class="col-check"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}" aria-label="Selecionar questão {{ q.numero }}"></td>
                             <td class="col-num">{{ q.numero }}</td>
-                            <td class="questao-enunciado"><a href="{% url 'questions:questao_detalhe' q.pk %}" class="questao-abrir">{{ q.enunciado_md|truncatechars:90 }}</a></td>
+                            <td class="questao-enunciado"><a href="{% url 'questions:questao_detalhe' q.pk %}" class="questao-abrir">{{ q.enunciado_md|truncatechars:150 }}</a></td>
+                            <td class="col-chips">
+                                <span class="qchips">
+                                    {% if q.status == 'na_fila' or q.status == 'processando' %}
+                                        <span class="qchip qchip-gerando">gerando…</span>
+                                    {% else %}
+                                        {% if q.tem_completo %}<span class="qchip qchip-completo" title="Tem explicação completa">comentário</span>{% endif %}
+                                        {% if q.tem_revisao %}<span class="qchip qchip-revisao" title="Tem parágrafo de revisão">revisão</span>{% endif %}
+                                        {% if not q.tem_completo and not q.tem_revisao %}<span class="qchip qchip-vazio" title="Sem comentários gerados">—</span>{% endif %}
+                                    {% endif %}
+                                </span>
+                            </td>
                             <td class="col-gab">{% if q.gabarito %}<span class="gab-letter">{{ q.gabarito }}</span>{% else %}—{% endif %}</td>
                             <td class="col-open"><a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link" title="Ver questão" aria-label="Ver questão {{ q.numero }}"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a></td>
                         </tr>

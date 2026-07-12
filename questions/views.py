@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,8 +26,23 @@ def _questao_do_user(request, pk):
 
 @login_required
 def disciplina(request, pk):
+    from ai.models import ResultadoPrompt
+
     disc = _disciplina_do_user(request, pk)
-    paginator = Paginator(disc.questoes.prefetch_related('imagens', 'resultados'), 50)
+    padrao_completo = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.COMPLETO).first()
+    padrao_sucinto = Prompt.objects.filter(user__isnull=True, tipo=Prompt.Tipo.SUCINTO).first()
+
+    def _tem(prompt):
+        return Exists(ResultadoPrompt.objects.filter(
+            questao=OuterRef('pk'), prompt=prompt,
+            status=ResultadoPrompt.Status.CONCLUIDO,
+        ))
+
+    base = disc.questoes.annotate(
+        tem_completo=_tem(padrao_completo),
+        tem_revisao=_tem(padrao_sucinto),
+    )
+    paginator = Paginator(base, 50)
     questoes = paginator.get_page(request.GET.get('page'))
     importacoes = disc.importacoes.all()[:10]
     contexto = {
@@ -34,6 +50,8 @@ def disciplina(request, pk):
         'questoes': questoes,
         'page_obj': questoes,
         'total_questoes': paginator.count,
+        'total_com_completo': base.filter(tem_completo=True).count(),
+        'total_com_revisao': base.filter(tem_revisao=True).count(),
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
         'prompts': Prompt.visiveis_para(request.user),
