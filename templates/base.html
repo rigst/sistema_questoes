@@ -5,23 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Estude por questões de concurso: importe PDFs, separe as questões e aplique prompts de IA com relatórios em PDF.">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1C2334">
     <title>{% block title %}Estudo por Questões{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
 
-    <!-- Google Fonts (design system Stölben: Inter + Manrope) -->
+    <!-- Fontes do tema "Bancada": Fraunces (display) + Inter + IBM Plex Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,550;9..144,650&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- Design system Stölben (tokens + componentes .ds-*) -->
-    <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}">
-    <!-- Camada específica do app (sobre os tokens do DS) -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/questoes.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
-<body class="ds-root {% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}">
     <script>
     (function () {
       try {
@@ -43,7 +41,7 @@
         <div class="container">
             <nav class="nav">
                 <div class="nav-top">
-                    <a href="{% url 'dashboard' %}" class="brand">Questões</a>
+                    <a href="{% url 'dashboard' %}" class="brand">{% include "partials/logo.html" %}<span>Questões</span></a>
 
                     {% if user.is_authenticated %}
                         <button class="nav-toggle js-nav-toggle" type="button" aria-expanded="false" aria-controls="header-user-meta header-main-links">
@@ -83,8 +81,7 @@
         </div>
     </header>
 
-    <div class="ds-shell">
-        <main class="container" id="main-content" tabindex="-1">
+    <main class="container" id="main-content" tabindex="-1">
         {% if messages %}
             <div class="flash-stack" role="status" aria-live="polite">
                 <ul class="flash-list">
@@ -96,8 +93,7 @@
         {% endif %}
 
         {% block content %}{% endblock %}
-        </main>
-    </div>
+    </main>
 
     <div id="panel-modal" class="panel-modal" hidden>
         <div class="panel-modal-backdrop" data-close-panel-modal="1"></div>

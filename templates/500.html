@@ -5,16 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Erro interno · Estudo por Questões</title>
     <style>
-        body { font-family: "Inter", system-ui, -apple-system, sans-serif; background: #eef0f4; color: #111827; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .box { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e7e9ee; border-radius: 1.5rem; max-width: 26rem; margin: 1rem; }
-        h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
-        p { color: #6b7280; line-height: 1.6; margin: 0 0 1.5rem; }
-        a { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: .65rem 1.4rem; border-radius: 999px; font-size: .95rem; }
-        a:hover { background: #1d4ed8; }
+        body { font-family: "Inter", system-ui, -apple-system, sans-serif; background: #EDEFF3; color: #1D2534; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .box { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #E2E5EC; border-radius: 16px; max-width: 26rem; margin: 1rem; box-shadow: 0 10px 30px rgba(29,37,52,.07); }
+        .bubbles { width: 92px; height: 14px; margin: 0 auto 1.1rem; background:
+            radial-gradient(circle 6px at 7px 7px, transparent 4.4px, #CFD5E0 4.6px, #CFD5E0 6px, transparent 6.4px),
+            radial-gradient(circle 6px at 31px 7px, transparent 4.4px, #CFD5E0 4.6px, #CFD5E0 6px, transparent 6.4px),
+            radial-gradient(circle 6px at 55px 7px, #F2B33D 6px, transparent 6.4px),
+            radial-gradient(circle 6px at 79px 7px, transparent 4.4px, #CFD5E0 4.6px, #CFD5E0 6px, transparent 6.4px); }
+        h1 { font-family: Georgia, serif; font-size: 1.4rem; margin: 0 0 .5rem; }
+        p { color: #69758E; line-height: 1.6; margin: 0 0 1.5rem; }
+        a { display: inline-block; background: #F2B33D; color: #2B1F04; font-weight: 600; text-decoration: none; padding: .6rem 1.4rem; border-radius: 8px; }
+        a:hover { background: #E09E1A; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #15171D; color: #ECEEF3; }
+            .box { background: #1E212A; border-color: #2A2E3B; }
+            p { color: #8C94A8; }
+        }
     </style>
 </head>
 <body>
     <div class="box">
+        <div class="bubbles"></div>
         <h1>Algo deu errado</h1>
         <p>Ocorreu um erro interno ao processar sua solicitação. Tente novamente em instantes.</p>
         <a href="/">Voltar ao início</a>

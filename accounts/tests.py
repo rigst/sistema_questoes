@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from .services import criar_visitante
@@ -35,10 +35,19 @@ class ProfileQuotaTests(TestCase):
 
 
 class AuthViewsTests(TestCase):
-    def test_login_mostra_visitante_e_cadastro(self):
+    def test_login_mostra_visitante_e_esconde_cadastro_por_padrao(self):
         resp = self.client.get('/login/')
         self.assertContains(resp, 'Entrar como visitante')
+        self.assertNotContains(resp, 'Criar conta')
+
+    @override_settings(ALLOW_PUBLIC_SIGNUP=True)
+    def test_login_mostra_cadastro_com_flag_ativa(self):
+        resp = self.client.get('/login/')
         self.assertContains(resp, 'Criar conta')
+
+    def test_cadastro_desativado_retorna_404(self):
+        resp = self.client.get('/accounts/cadastro/')
+        self.assertEqual(resp.status_code, 404)
 
     def test_entrar_como_visitante_autentica(self):
         resp = self.client.post('/accounts/visitante/', follow=True)
@@ -51,6 +60,7 @@ class AuthViewsTests(TestCase):
         resp = self.client.get('/accounts/visitante/')
         self.assertEqual(resp.status_code, 405)
 
+    @override_settings(ALLOW_PUBLIC_SIGNUP=True)
     def test_cadastro_cria_usuario_e_loga(self):
         resp = self.client.post('/accounts/cadastro/', {
             'username': 'novo_usuario',
@@ -63,6 +73,7 @@ class AuthViewsTests(TestCase):
         self.assertTrue(User.objects.filter(username='novo_usuario').exists())
         self.assertTrue(resp.context['user'].is_authenticated)
 
+    @override_settings(ALLOW_PUBLIC_SIGNUP=True)
     def test_cadastro_exige_email(self):
         resp = self.client.post('/accounts/cadastro/', {
             'username': 'sem_email',
@@ -72,6 +83,7 @@ class AuthViewsTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(User.objects.filter(username='sem_email').exists())
 
+    @override_settings(ALLOW_PUBLIC_SIGNUP=True)
     def test_cadastro_senhas_diferentes_mostra_erro(self):
         resp = self.client.post('/accounts/cadastro/', {
             'username': 'outro',

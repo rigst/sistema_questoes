@@ -167,6 +167,9 @@ QUOTA_TOKENS_VISITOR = int(os.getenv('QUOTA_TOKENS_VISITOR', '100000'))
 # Expiração do visitante (horas de inatividade)
 VISITOR_EXPIRY_HOURS = int(os.getenv('VISITOR_EXPIRY_HOURS', '48'))
 
+# Cadastro público de usuários (desativado por padrão; ligue com ALLOW_PUBLIC_SIGNUP=True)
+ALLOW_PUBLIC_SIGNUP = os.getenv('ALLOW_PUBLIC_SIGNUP', 'False').lower() in ('true', '1', 'yes')
+
 
 # ==============================================================================
 # E-mail (recuperação de senha)

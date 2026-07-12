@@ -9,13 +9,12 @@
 #questao-enunciado { margin-bottom: 1rem; }
 #questao-alternativas { margin-bottom: 1rem; }
 .alt-item { padding: .4rem 0; display: flex; gap: .5rem; }
-.alt-letter { font-weight: 700; color: var(--accent, #2f78db); min-width: 1.2rem; }
+.alt-letter { font-family: var(--font-mono); font-weight: 600; color: var(--accent-text); min-width: 1.2rem; }
 .questao-gabarito {
     padding: .6rem .9rem; border-radius: 8px;
-    background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.12);
+    background: var(--accent-tint); border: 1px solid var(--accent-tint-strong);
     font-size: .88rem;
 }
-.gab-letter { font-weight: 700; color: var(--accent, #2f78db); }
 </style>
 {% endblock %}
 

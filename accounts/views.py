@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -8,7 +10,9 @@ from .services import criar_visitante
 
 
 def cadastro(request):
-    """Cria uma conta e autentica a sessão."""
+    """Cria uma conta e autentica a sessão (se o cadastro público estiver ativo)."""
+    if not getattr(settings, 'ALLOW_PUBLIC_SIGNUP', False):
+        raise Http404
     if request.user.is_authenticated:
         return redirect('dashboard')
     if request.method == 'POST':
