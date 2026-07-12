@@ -127,7 +127,12 @@ def _limpar_texto(texto):
     # que o PostgreSQL rejeita; outros usam os codepoints de ligadura.
     texto = texto.replace('\x00', '')
     texto = texto.replace('ﬁ', 'fi').replace('ﬂ', 'fl')
-    texto = texto.replace('(cid:58)', 'fi')  # ligadura fi comum nesses PDFs
+    # Ligaduras mapeadas por código de glifo (variam por fonte; estes são os
+    # recorrentes nos PDFs de questões). Mapear ANTES de descartar os demais
+    # cids — senão "a(cid:63)rmado" vira "armado", palavra válida que o
+    # dicionário não corrige.
+    for cid, lig in (('(cid:58)', 'fi'), ('(cid:63)', 'fi'), ('(cid:64)', 'fl')):
+        texto = texto.replace(cid, lig)
     texto = RE_CID.sub('', texto)
     # Palavras com fi/fl/ff engolidos pela fonte ("qualicado" → "qualificado").
     texto = _reparar_ligaturas(texto)
