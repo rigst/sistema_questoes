@@ -105,6 +105,7 @@
                         <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }}</option>
                     {% endfor %}
                 </select>
+                <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
                 <button type="submit" class="btn btn-primary btn-compact" id="lote-btn" disabled>Aplicar</button>
                 <span id="cost-preview" class="disc-cost" hidden>
                     <span id="cost-summary"></span>
@@ -135,11 +136,11 @@
                     <tbody>
                         {% for q in questoes %}
                         <tr>
-                            <td class="col-check"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}"></td>
-                            <td>{{ q.numero }}</td>
-                            <td class="questao-enunciado">{{ q.enunciado_md|truncatechars:90 }}</td>
-                            <td>{{ q.gabarito|default:"—" }}</td>
-                            <td><a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link" title="Ver questão"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a></td>
+                            <td class="col-check"><input type="checkbox" name="questao_ids" value="{{ q.pk }}" class="sel-questao" data-chars="{{ q.enunciado_md|length }}" aria-label="Selecionar questão {{ q.numero }}"></td>
+                            <td class="col-num">{{ q.numero }}</td>
+                            <td class="questao-enunciado"><a href="{% url 'questions:questao_detalhe' q.pk %}" class="questao-abrir">{{ q.enunciado_md|truncatechars:90 }}</a></td>
+                            <td class="col-gab">{% if q.gabarito %}<span class="gab-letter">{{ q.gabarito }}</span>{% else %}—{% endif %}</td>
+                            <td class="col-open"><a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link" title="Ver questão" aria-label="Ver questão {{ q.numero }}"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -307,18 +308,20 @@ function toggleAplicarPrompt() {
     }, 3000);
   }
 
-  // ---- Checkboxes ----
-  var selTodos = document.getElementById('sel-todos');
+  // ---- Checkboxes (o toggle "todas" existe na thead e na barra, p/ modo cards) ----
+  var selTodosEls = [document.getElementById('sel-todos'), document.getElementById('sel-todos-cards')].filter(Boolean);
   var selAll = document.querySelectorAll('.sel-questao');
-  if (selTodos) {
-    selTodos.addEventListener('change', function () {
-      selAll.forEach(function (cb) { cb.checked = selTodos.checked; });
+  selTodosEls.forEach(function (toggle) {
+    toggle.addEventListener('change', function () {
+      selAll.forEach(function (cb) { cb.checked = toggle.checked; });
+      selTodosEls.forEach(function (outro) { outro.checked = toggle.checked; });
       toggleAplicarPrompt();
     });
-  }
+  });
   selAll.forEach(function (cb) {
     cb.addEventListener('change', function () {
-      if (selTodos) selTodos.checked = selAll.length > 0 && document.querySelectorAll('.sel-questao:checked').length === selAll.length;
+      var todas = selAll.length > 0 && document.querySelectorAll('.sel-questao:checked').length === selAll.length;
+      selTodosEls.forEach(function (t) { t.checked = todas; });
       toggleAplicarPrompt();
     });
   });

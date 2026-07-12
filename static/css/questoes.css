@@ -753,8 +753,25 @@ tbody tr:hover { background: var(--accent-tint); }
 .row-link { color: inherit; font-weight: 500; }
 .row-link:hover, .row-link:focus-visible { color: var(--accent-text); text-decoration: underline; }
 
-.questoes-table td:nth-child(2) { font-family: var(--font-mono); font-size: 0.85rem; }
+.questoes-table .col-num { font-family: var(--font-mono); font-size: 0.85rem; }
 .questao-enunciado { color: var(--text-soft); line-height: 1.45; }
+
+.questao-abrir { color: inherit; display: block; }
+.questao-abrir:hover, .questao-abrir:focus-visible { color: var(--accent-text); text-decoration: none; }
+
+/* "marcar todas" na barra de prompt — visível só no modo cards (thead oculta) */
+.sel-todas-cards {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  margin: 0;
+  white-space: nowrap;
+}
+
+html.cards-mode .sel-todas-cards { display: inline-flex; }
 
 /* ---- alternador tabela/cards + modo cards (mobile) ------------------------- */
 
@@ -846,7 +863,41 @@ html.cards-mode .table-wrap tbody td:first-child::before { display: none; }
 html.cards-mode .table-wrap tbody td.card-hide { display: none; }
 html.cards-mode .table-wrap tbody td.actions-col { justify-content: flex-end; }
 html.cards-mode .table-wrap tbody td.actions-col::before { display: none; }
-html.cards-mode .col-check { display: none !important; }
+
+/* lista de questões no modo cards: cada card é um item de cartão-resposta —
+   checkbox + número + bolha do gabarito em cima, enunciado inteiro embaixo */
+html.cards-mode .questoes-table tbody tr {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "check num  gab"
+    "enun  enun enun";
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+}
+
+html.cards-mode .questoes-table tbody td { display: block; padding: 0; }
+html.cards-mode .questoes-table tbody td::before { display: none; }
+
+html.cards-mode .questoes-table .col-check {
+  display: flex;
+  grid-area: check;
+  align-items: center;
+}
+
+html.cards-mode .questoes-table .col-num {
+  grid-area: num;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+html.cards-mode .questoes-table .col-num::before { content: "Q"; display: inline; }
+
+html.cards-mode .questoes-table .col-gab { grid-area: gab; justify-self: end; }
+html.cards-mode .questoes-table .questao-enunciado { grid-area: enun; }
+html.cards-mode .questoes-table .col-open { display: none; }
 
 /* ---- badges ---------------------------------------------------------------- */
 
