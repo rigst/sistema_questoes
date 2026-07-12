@@ -146,3 +146,70 @@ class ParametrosModeloTests(BaseIATestCase):
             params = _params_aplicacao(self.questao, self.prompt)
         self.assertEqual(params['thinking'], {'type': 'adaptive'})
         self.assertIn('effort', params['output_config'])
+
+
+class ComentariosCombinadosTests(BaseIATestCase):
+    TEXTO_COMBINADO = (
+        '===COMENTARIO COMPLETO===\n## Tema\nIntervenção federal.\n\n## Gabarito\nLetra A.\n'
+        '===REVISAO===\nA regra central é X, por isso a alternativa A é correta (art. 1º).'
+    )
+
+    def test_dividir_comentarios(self):
+        from ai.services import dividir_comentarios
+        completo, revisao = dividir_comentarios(self.TEXTO_COMBINADO)
+        self.assertTrue(completo.startswith('## Tema'))
+        self.assertIn('Letra A', completo)
+        self.assertTrue(revisao.startswith('A regra central'))
+        self.assertNotIn('===', completo + revisao)
+
+    def test_dividir_sem_marcador_de_revisao(self):
+        from ai.services import dividir_comentarios
+        completo, revisao = dividir_comentarios('## Tema\nSó o completo veio.')
+        self.assertIn('Só o completo veio', completo)
+        self.assertEqual(revisao, '')
+
+    @patch('ai.services.get_client')
+    def test_gerar_comentarios_salva_par_e_debita_uma_vez(self, get_client):
+        get_client.return_value.messages.create.return_value = _resposta_fake(
+            texto=self.TEXTO_COMBINADO, input_tokens=3000, output_tokens=2000,
+        )
+        resp = self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]})
+        self.assertEqual(resp.status_code, 302)
+
+        completo = ResultadoPrompt.objects.get(
+            questao=self.questao, prompt__user__isnull=True, prompt__tipo=Prompt.Tipo.COMPLETO)
+        revisao = ResultadoPrompt.objects.get(
+            questao=self.questao, prompt__user__isnull=True, prompt__tipo=Prompt.Tipo.SUCINTO)
+        self.assertEqual(completo.status, ResultadoPrompt.Status.CONCLUIDO)
+        self.assertEqual(revisao.status, ResultadoPrompt.Status.CONCLUIDO)
+        self.assertIn('## Tema', completo.resultado_md)
+        self.assertTrue(revisao.resultado_md.startswith('A regra central'))
+        # uma única chamada de API; débito de quota uma vez só
+        self.assertEqual(get_client.return_value.messages.create.call_count, 1)
+        profile = self.user.profile
+        profile.refresh_from_db()
+        self.assertEqual(profile.tokens_usados_mes, 5000)
+        self.questao.refresh_from_db()
+        self.assertEqual(self.questao.status, Questao.Status.CONCLUIDA)
+
+    @patch('ai.services.get_client')
+    def test_gerar_comentarios_pula_questoes_ja_prontas(self, get_client):
+        get_client.return_value.messages.create.return_value = _resposta_fake(texto=self.TEXTO_COMBINADO)
+        self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]})
+        antes = ResultadoPrompt.objects.count()
+        resp = self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]}, follow=True)
+        self.assertEqual(ResultadoPrompt.objects.count(), antes)
+        mensagens = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('já têm comentários' in m for m in mensagens))
+
+    def test_estimar_tokens_par_menor_que_duas_chamadas(self):
+        from ai.services import estimar_tokens_par
+        par = estimar_tokens_par([self.questao])
+        self.assertGreater(par, 0)
+
+    def test_dividir_tolera_marcador_como_titulo(self):
+        from ai.services import dividir_comentarios
+        texto = '## COMENTARIO COMPLETO\n## Tema\nX.\n## REVISAO\nParágrafo de revisão (art. 1º).'
+        completo, revisao = dividir_comentarios(texto)
+        self.assertTrue(completo.startswith('## Tema'))
+        self.assertTrue(revisao.startswith('Parágrafo de revisão'))

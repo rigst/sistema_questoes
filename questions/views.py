@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
+from ai.services import PROMPT_COMBINADO
 from exams.models import Disciplina
 from prompts.models import Prompt
 
@@ -36,6 +37,7 @@ def disciplina(request, pk):
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
         'prompts': Prompt.visiveis_para(request.user),
+        'prompt_comb_chars': len(PROMPT_COMBINADO),
         'em_processamento': disc.importacoes.filter(
             status__in=[ImportacaoPDF.Status.ENVIADO, ImportacaoPDF.Status.PROCESSANDO]
         ).exists(),

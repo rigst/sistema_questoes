@@ -42,24 +42,12 @@
     </div>
 
     <div class="form-panel" style="margin-bottom:1rem;">
-        <form method="post" action="{% url 'ai:aplicar' questao.pk %}">
+        <form method="post" action="{% url 'ai:gerar_comentarios' %}" style="display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <div class="form-grid">
-                <div class="full">
-                    <label for="prompt_id">Aplicar prompt</label>
-                    <select name="prompt_id" id="prompt_id" required>
-                        <option value="">— escolha um prompt —</option>
-                        {% for p in prompts %}
-                            <option value="{{ p.pk }}">{{ p.nome }}</option>
-                        {% endfor %}
-                    </select>
-                    {% if not prompts %}<span class="form-note">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
-                </div>
-            </div>
-            <div class="inline-actions inline-actions-end" style="margin-top:.75rem;">
-                <button type="submit" class="btn btn-primary btn-compact">Aplicar</button>
-            </div>
+            <input type="hidden" name="questao_ids" value="{{ questao.pk }}">
+            <button type="submit" class="btn btn-primary btn-compact">Gerar comentários</button>
+            <span class="muted" style="font-size:.85rem;">Cria a explicação completa e o parágrafo de revisão desta questão.</span>
         </form>
     </div>
 

@@ -92,25 +92,18 @@
     </div>
 
     {% if questoes %}
-        {# ---- BARRA PROMPT ---- #}
-        <form method="post" action="{% url 'ai:aplicar_lote' %}" id="lote-form">
+        {# ---- BARRA DE GERAÇÃO DE COMENTÁRIOS ---- #}
+        <form method="post" action="{% url 'ai:gerar_comentarios' %}" id="lote-form" data-prompt-chars="{{ prompt_comb_chars }}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="usar_lote" value="1">
             <div class="disc-prompt-bar">
-                <label for="prompt_id">Prompt</label>
-                <select name="prompt_id" id="prompt_id" required>
-                    <option value="" data-chars="0">— escolha —</option>
-                    {% for p in prompts %}
-                        <option value="{{ p.pk }}" data-chars="{{ p.texto|length }}" data-tipo="{{ p.tipo }}">{{ p.nome }}</option>
-                    {% endfor %}
-                </select>
                 <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
-                <button type="submit" class="btn btn-primary btn-compact" id="lote-btn" disabled>Aplicar</button>
+                <button type="submit" class="btn btn-primary btn-compact" id="lote-btn" disabled>Gerar comentários</button>
+                <span class="disc-prompt-hint">Explicação completa + parágrafo de revisão de cada questão selecionada.</span>
                 <span id="cost-preview" class="disc-cost" hidden>
                     <span id="cost-summary"></span>
                 </span>
-                {% if not prompts %}<span class="disc-prompt-hint">Cadastre um <a href="{% url 'prompts:lista' %}">prompt</a> primeiro.</span>{% endif %}
             </div>
 
             {# ---- IA EM PROCESSAMENTO ---- #}
@@ -166,38 +159,32 @@ function toggleAplicarPrompt() {
   var PRICE_IN  = {{ ai_price_input|unlocalize }};
   var PRICE_OUT = {{ ai_price_output|unlocalize }};
   var BATCH_DISCOUNT = 0.5;
-  var OUTPUT_POR_TIPO = { 'sucinto': 700, 'completo': 2000 };
-  var OUTPUT_FALLBACK = 2000;
+  var OUTPUT_PAR = 3000;  // completo + revisão numa chamada (thinking incluso)
   var CHARS_PER_TOKEN = 3.8;
   var SYSTEM_OVERHEAD = 55;
 
   // ---- Custo ----
   var costPreview = document.getElementById('cost-preview');
   var costSummary = document.getElementById('cost-summary');
-  var promptSel   = document.getElementById('prompt_id');
+  var loteForm = document.getElementById('lote-form');
+  var promptChars = loteForm ? parseInt(loteForm.dataset.promptChars || '0', 10) : 0;
 
   window.atualizarCusto = function () {
-    if (!costPreview || !promptSel) return;
-    var opt = promptSel.options[promptSel.selectedIndex];
-    if (!opt) { costPreview.hidden = true; return; }
-    var promptChars = parseInt(opt.dataset.chars || '0', 10);
-    var promptTipo  = opt.dataset.tipo || '';
-    var outTokens   = OUTPUT_POR_TIPO[promptTipo] || OUTPUT_FALLBACK;
+    if (!costPreview) return;
     var selecionadas = document.querySelectorAll('.sel-questao:checked');
     var n = selecionadas.length;
-    if (n === 0 || !promptSel.value) { costPreview.hidden = true; return; }
+    if (n === 0) { costPreview.hidden = true; return; }
     var totalInputTokens = 0;
     selecionadas.forEach(function (cb) {
       var qChars = parseInt(cb.dataset.chars || '0', 10);
       totalInputTokens += SYSTEM_OVERHEAD + Math.ceil(promptChars / CHARS_PER_TOKEN) + 10 + Math.ceil(qChars / CHARS_PER_TOKEN);
     });
-    var totalOutputTokens = n * outTokens;
+    var totalOutputTokens = n * OUTPUT_PAR;
     var custo = (totalInputTokens / 1e6 * PRICE_IN + totalOutputTokens / 1e6 * PRICE_OUT) * BATCH_DISCOUNT;
     var custoStr = custo < 0.0005 ? '< $0.001' : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
-    costSummary.textContent = n + ' questão' + (n > 1 ? 'ões' : '') + ' · ~' + custoStr;
+    costSummary.textContent = (n > 1 ? n + ' questões' : '1 questão') + ' · ~' + custoStr;
     costPreview.hidden = false;
   };
-  if (promptSel) promptSel.addEventListener('change', atualizarCusto);
 
 
   // ---- Painel de progresso (upload + processamento do PDF) ----

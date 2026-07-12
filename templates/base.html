@@ -57,7 +57,6 @@
                     <div id="header-main-links" class="nav-bottom">
                         <ul class="nav-links">
                             <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Estudos</a></li>
-                            <li><a href="{% url 'prompts:lista' %}" {% if request.resolver_match.namespace == 'prompts' %}class="active"{% endif %}>Prompts</a></li>
                             <li><a href="{% url 'reports:lista' %}" {% if request.resolver_match.namespace == 'reports' %}class="active"{% endif %}>Relatórios</a></li>
                         </ul>
                     </div>
