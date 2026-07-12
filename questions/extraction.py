@@ -24,6 +24,7 @@ import logging
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 import pdfplumber
 
@@ -78,9 +79,58 @@ class ResultadoExtracao:
 # Limpeza de texto / ruído
 # ---------------------------------------------------------------------------
 
+# Termos jurídicos frequentes ausentes do dicionário pt (reparo de ligaduras).
+_TERMOS_EXTRAS = [
+    'hipossuficiente', 'hipossuficientes', 'hipossuficiência',
+    'certificação', 'fiscalizatória', 'fiscalizatório',
+]
+
+_SPELL_PT = None
+
+
+def _dicionario_pt():
+    global _SPELL_PT
+    if _SPELL_PT is None:
+        from spellchecker import SpellChecker
+        _SPELL_PT = SpellChecker(language='pt')
+        _SPELL_PT.word_frequency.load_words(_TERMOS_EXTRAS)
+    return _SPELL_PT
+
+
+RE_TOKEN_PT = re.compile(r'[A-Za-zÀ-ÖØ-öø-ÿ]{4,}')
+_LIGADURAS = ('fi', 'fl', 'ff')
+
+
+@lru_cache(maxsize=50000)
+def _reparar_token(tok):
+    """Reinsere ligadura fi/fl/ff perdida quando o resultado existe no dicionário."""
+    if tok.isupper():  # siglas (STF, CRFB…)
+        return tok
+    low = tok.lower()
+    sp = _dicionario_pt()
+    if low in sp:
+        return tok
+    for lig in _LIGADURAS:
+        for i in range(len(low) + 1):
+            cand = low[:i] + lig + low[i:]
+            if cand in sp:
+                return cand.capitalize() if tok[0].isupper() else cand
+    return tok
+
+
+def _reparar_ligaturas(texto):
+    return RE_TOKEN_PT.sub(lambda m: _reparar_token(m.group(0)), texto)
+
+
 def _limpar_texto(texto):
+    # Glifos de ligadura sem mapeamento Unicode: alguns PDFs viram NUL (0x00),
+    # que o PostgreSQL rejeita; outros usam os codepoints de ligadura.
+    texto = texto.replace('\x00', '')
+    texto = texto.replace('ﬁ', 'fi').replace('ﬂ', 'fl')
     texto = texto.replace('(cid:58)', 'fi')  # ligadura fi comum nesses PDFs
     texto = RE_CID.sub('', texto)
+    # Palavras com fi/fl/ff engolidos pela fonte ("qualicado" → "qualificado").
+    texto = _reparar_ligaturas(texto)
     return texto
 
 

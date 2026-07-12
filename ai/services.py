@@ -198,7 +198,10 @@ def separar_questoes_via_ia(texto, profile=None):
     instrucao = (
         'Separe as questões do texto a seguir. Para cada questão, retorne o '
         'número, o enunciado completo (com alternativas) e o gabarito (letra) '
-        'quando houver. Texto:\n\n' + texto[:120000]
+        'quando houver. O texto vem de extração de PDF e pode ter defeitos: '
+        'palavras com ligaduras perdidas (ex.: "signicado" → "significado", '
+        '"deagração" → "deflagração") e quebras de linha no meio de frases — '
+        'corrija-os ao transcrever, sem alterar o conteúdo. Texto:\n\n' + texto[:120000]
     )
     resp = client.messages.create(
         model=getattr(settings, 'AI_MODEL', 'claude-sonnet-4-6'),

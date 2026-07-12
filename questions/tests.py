@@ -74,3 +74,22 @@ class ExtracaoTests(TestCase):
         self.assertNotIn('024.308', q1.enunciado)
         self.assertNotIn('comentario do professor', q1.enunciado)
         self.assertIn('competencia', q1.enunciado)
+
+
+class LimpezaTextoTests(TestCase):
+    def test_remove_nul_do_texto(self):
+        self.assertEqual(extraction._limpar_texto('abc\x00def'), 'abcdef')
+
+    def test_normaliza_codepoints_de_ligadura(self):
+        self.assertEqual(extraction._limpar_texto('ﬁm do ﬂagrante'), 'fim do flagrante')
+
+    def test_repara_ligaduras_engolidas_pela_fonte(self):
+        texto = 'o signicado da deagração foi vericado e quali cou'
+        reparado = extraction._limpar_texto(texto)
+        self.assertIn('significado', reparado)
+        self.assertIn('deflagração', reparado)
+        self.assertIn('verificado', reparado)
+
+    def test_nao_altera_palavras_corretas_nem_siglas(self):
+        texto = 'O STF julgou o financeiro conforme a CRFB'
+        self.assertEqual(extraction._limpar_texto(texto), texto)
