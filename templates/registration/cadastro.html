@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Criar conta · Estudo por Questões{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+    <div class="auth-card form-panel">
+        <div class="auth-header">
+            <h2>Criar conta</h2>
+            <p>Guarde suas provas, questões e análises de forma permanente.</p>
+        </div>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors">{{ form.non_field_errors }}</div>
+            {% endif %}
+            {% for field in form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-note">{{ field.help_text|safe }}</div>{% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary auth-submit">Criar conta</button>
+        </form>
+
+        <div class="auth-visitor-section">
+            <p class="auth-alt-note">Já tem conta? <a href="{% url 'login' %}">Entrar</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

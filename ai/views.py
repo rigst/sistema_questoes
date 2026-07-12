@@ -7,6 +7,7 @@ from prompts.models import Prompt
 from questions.models import Questao
 
 from .models import ResultadoPrompt
+from .services import estimar_tokens
 from .tasks import aplicar_resultado, processar_lote
 
 
@@ -14,10 +15,18 @@ def _redir(request, fallback='dashboard'):
     return redirect(request.POST.get('next') or fallback)
 
 
-def _sem_quota(request):
+def _sem_quota(request, questoes, prompt):
+    """Bloqueia se a quota restante não cobre o custo estimado da operação."""
     profile = getattr(request.user, 'profile', None)
-    if profile is not None and not profile.tem_quota(1):
-        messages.error(request, 'Sua quota de IA acabou neste mês. Aguarde a renovação ou ajuste o limite.')
+    if profile is None:
+        return False
+    estimados = estimar_tokens(questoes, prompt)
+    if not profile.tem_quota(estimados):
+        messages.error(
+            request,
+            f'Quota de IA insuficiente: a operação precisa de ~{estimados:,} tokens '
+            f'e restam {profile.tokens_restantes:,} neste mês.'.replace(',', '.'),
+        )
         return True
     return False
 
@@ -28,7 +37,7 @@ def aplicar(request, questao_pk):
     """Aplica um prompt a uma única questão."""
     questao = get_object_or_404(Questao, pk=questao_pk, disciplina__prova__user=request.user)
     prompt = get_object_or_404(Prompt, pk=request.POST.get('prompt_id'), user=request.user)
-    if _sem_quota(request):
+    if _sem_quota(request, [questao], prompt):
         return _redir(request)
 
     resultado = ResultadoPrompt.objects.create(questao=questao, prompt=prompt)
@@ -49,10 +58,10 @@ def aplicar_lote(request):
     if not ids:
         messages.error(request, 'Selecione ao menos uma questão.')
         return _redir(request)
-    if _sem_quota(request):
-        return _redir(request)
 
     questoes = Questao.objects.filter(pk__in=ids, disciplina__prova__user=request.user)
+    if _sem_quota(request, questoes, prompt):
+        return _redir(request)
     resultado_ids = []
     for questao in questoes:
         resultado = ResultadoPrompt.objects.create(questao=questao, prompt=prompt)

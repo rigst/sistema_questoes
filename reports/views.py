@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from exams.models import Disciplina, Prova
@@ -11,9 +12,11 @@ from .services import gerar_relatorio
 
 @login_required
 def lista(request):
-    relatorios = Relatorio.objects.filter(user=request.user)
+    paginator = Paginator(Relatorio.objects.filter(user=request.user), 20)
+    relatorios = paginator.get_page(request.GET.get('page'))
     contexto = {
         'relatorios': relatorios,
+        'page_obj': relatorios,
         'provas': Prova.objects.filter(user=request.user),
         'disciplinas': Disciplina.objects.filter(prova__user=request.user),
         'prompts': Prompt.objects.filter(user=request.user),

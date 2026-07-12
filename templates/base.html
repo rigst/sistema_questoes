@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Estude por questões de concurso: importe PDFs, separe as questões e aplique prompts de IA com relatórios em PDF.">
+    <meta name="theme-color" content="#2563eb">
     <title>{% block title %}Estudo por Questões{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
@@ -17,6 +19,7 @@
     <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}">
     <!-- Camada específica do app (sobre os tokens do DS) -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
 </head>
 <body class="ds-root {% block body_class %}{% endblock %}">
     <script>
@@ -26,8 +29,16 @@
         var cards = window.matchMedia("(max-width: 760px)").matches ? true : pref === "cards";
         document.documentElement.classList.toggle("cards-mode", cards);
       } catch (e) {}
+      try {
+        var theme = localStorage.getItem("questoes-theme");
+        if (theme !== "dark" && theme !== "light") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
     })();
     </script>
+    <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
     <header class="site-header">
         <div class="container">
             <nav class="nav">
@@ -57,6 +68,10 @@
                             <span class="header-user-greeting">Olá, {{ user.get_short_name|default:user.username }}</span>
                         </div>
                         <div class="header-user-actions">
+                            <button type="button" class="theme-toggle js-theme-toggle" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+                                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            </button>
                             <form action="{% url 'logout' %}" method="post">
                                 {% csrf_token %}
                                 <button class="nav-logout" type="submit">Sair</button>
@@ -69,7 +84,7 @@
     </header>
 
     <div class="ds-shell">
-        <main class="container">
+        <main class="container" id="main-content" tabindex="-1">
         {% if messages %}
             <div class="flash-stack" role="status" aria-live="polite">
                 <ul class="flash-list">
@@ -111,7 +126,6 @@
         </div>
     </footer>
 
-    <script src="{% static 'js/stolben-ui.js' %}"></script>
     <script>
     (() => {
       const DRAFT_STORAGE_PREFIX = "codex-draft:";
@@ -204,8 +218,22 @@
         const content = document.getElementById("panel-modal-content");
         const loader = document.getElementById("panel-modal-loader");
         if (!modal || !content) return;
-        const openModal = () => { modal.hidden = false; document.body.classList.add("modal-open"); };
-        const closeModal = () => { modal.hidden = true; content.innerHTML = ""; document.body.classList.remove("modal-open"); };
+        let lastFocused = null;
+        const focusablesIn = (root) => Array.from(root.querySelectorAll(
+          "a[href], button:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+        )).filter((el) => el.offsetParent !== null);
+        const openModal = () => {
+          lastFocused = document.activeElement;
+          modal.hidden = false; document.body.classList.add("modal-open");
+        };
+        const closeModal = () => {
+          modal.hidden = true; content.innerHTML = ""; document.body.classList.remove("modal-open");
+          if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+        };
+        const focusFirst = () => {
+          const target = focusablesIn(content)[0] || modal.querySelector(".panel-modal-close");
+          if (target) target.focus();
+        };
         const setLoading = (on) => { if (loader) loader.hidden = !on; };
         const extractSection = (html) => {
           const doc = new DOMParser().parseFromString(html, "text/html");
@@ -221,6 +249,7 @@
             const section = extractSection(html);
             if (!section) { window.location.href = url; return; }
             content.innerHTML = section; content.dataset.actionUrl = url;
+            focusFirst();
           } catch (err) { window.location.href = url; }
           finally { setLoading(false); }
         };
@@ -232,7 +261,18 @@
           const url = trigger.dataset.panelUrl || trigger.getAttribute("href");
           if (url) loadInto(url);
         });
-        document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !modal.hidden) closeModal(); });
+        document.addEventListener("keydown", (event) => {
+          if (modal.hidden) return;
+          if (event.key === "Escape") { closeModal(); return; }
+          if (event.key !== "Tab") return;
+          const focusables = focusablesIn(modal);
+          if (!focusables.length) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+          else if (!modal.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
+        });
         modal.addEventListener("submit", async (event) => {
           const form = event.target;
           if (!(form instanceof HTMLFormElement)) return;
@@ -323,6 +363,83 @@
         listViewResizeTimer = setTimeout(applyListView, 150);
       }, { passive: true });
 
+      const bindUnsavedWarning = (scope = document) => {
+        scope.querySelectorAll('form[data-unsaved-warning]').forEach((form) => {
+          if (form.dataset.unsavedBound === '1') return;
+          form.dataset.unsavedBound = '1';
+          let dirty = false;
+          form.addEventListener('input', () => { dirty = true; });
+          form.addEventListener('submit', () => { dirty = false; });
+          window.addEventListener('beforeunload', (e) => {
+            if (!dirty) return;
+            e.preventDefault();
+            e.returnValue = '';
+          });
+        });
+      };
+
+      const markFieldErrors = () => {
+        document.querySelectorAll("ul.errorlist").forEach((list) => {
+          const holder = list.parentElement;
+          if (!holder) return;
+          const control = holder.querySelector("input, select, textarea");
+          if (control) {
+            control.setAttribute("aria-invalid", "true");
+            control.classList.add("has-error");
+          }
+        });
+      };
+
+      const bindThemeToggle = () => {
+        document.querySelectorAll(".js-theme-toggle").forEach((btn) => {
+          if (btn.dataset.themeBound === "1") return;
+          btn.dataset.themeBound = "1";
+          btn.addEventListener("click", () => {
+            const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+            const next = current === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", next);
+            try { localStorage.setItem("questoes-theme", next); } catch (e) {}
+          });
+        });
+      };
+
+      const bindSubmitLoading = () => {
+        document.addEventListener("submit", (event) => {
+          const form = event.target;
+          if (!(form instanceof HTMLFormElement) || event.defaultPrevented) return;
+          if (form.closest(".panel-modal")) return;
+          // Adia para depois da serialização do form (preserva name/value do botão clicado).
+          setTimeout(() => {
+            form.querySelectorAll("button[type='submit'], input[type='submit']").forEach((btn) => {
+              btn.disabled = true;
+              btn.classList.add("is-busy");
+            });
+          }, 0);
+        });
+        window.addEventListener("pageshow", () => {
+          document.querySelectorAll(".is-busy").forEach((btn) => {
+            btn.disabled = false;
+            btn.classList.remove("is-busy");
+          });
+        });
+      };
+
+      const bindPtBrValidation = () => {
+        document.addEventListener("invalid", (event) => {
+          const el = event.target;
+          if (!el.validity || el.validity.customError) return;
+          if (el.validity.valueMissing) {
+            el.setCustomValidity(el.tagName === "SELECT" ? "Escolha uma opção da lista." : "Preencha este campo.");
+          }
+        }, true);
+        const clear = (event) => {
+          const el = event.target;
+          if (el.setCustomValidity) el.setCustomValidity("");
+        };
+        document.addEventListener("input", clear, true);
+        document.addEventListener("change", clear, true);
+      };
+
       const bindClickableRows = (scope = document) => {
         scope.querySelectorAll('tr[data-row-href]').forEach((row) => {
           if (row.dataset.clickBound === '1') return;
@@ -347,7 +464,13 @@
       injectListViewToggle();
       applyListView();
       bindClickableRows();
+      bindUnsavedWarning();
+      bindSubmitLoading();
+      bindPtBrValidation();
+      markFieldErrors();
+      bindThemeToggle();
     })();
     </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

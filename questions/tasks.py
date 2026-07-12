@@ -56,7 +56,7 @@ def processar_importacao(importacao_id):
                 gabarito=qx.gabarito,
                 confianca_extracao=qx.confianca,
                 ordem=ordem,
-                status=Questao.Status.EM_REVISAO,
+                status=Questao.Status.DISPONIVEL,
             )
             for i, png in enumerate(qx.imagens):
                 QuestaoImagem.objects.create(

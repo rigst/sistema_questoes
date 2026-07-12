@@ -11,9 +11,17 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from decimal import Decimal
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+# Estimativa de tokens (espelha o preview de custo do frontend em disciplina.html).
+CHARS_PER_TOKEN = 3.8
+SYSTEM_OVERHEAD_TOKENS = 55
+OUTPUT_TOKENS_POR_TIPO = {'sucinto': 400, 'completo': 1050}
 
 SYSTEM_PROMPT = (
     'Você é um tutor especialista em questões de concurso público. '
@@ -55,6 +63,17 @@ def get_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
+def estimar_tokens(questoes, prompt):
+    """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
+    out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 1050)
+    prompt_tokens = len(prompt.texto or '') / CHARS_PER_TOKEN
+    total = 0
+    for q in questoes:
+        q_tokens = len(q.enunciado_md or '') / CHARS_PER_TOKEN
+        total += SYSTEM_OVERHEAD_TOKENS + prompt_tokens + q_tokens + out_tokens
+    return int(total)
+
+
 def custo_usd(input_tokens, output_tokens):
     pin = Decimal(str(getattr(settings, 'AI_PRICE_INPUT_PER_MTOK', 3.0)))
     pout = Decimal(str(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)))
@@ -76,31 +95,49 @@ def _blocos_imagens(questao):
     return blocos
 
 
-def _texto_questao(questao, prompt_texto):
-    partes = [prompt_texto.strip(), '', '--- QUESTÃO ---', questao.enunciado_md or '']
+def _texto_questao(questao, prompt_texto=None):
+    partes = []
+    if prompt_texto:
+        partes += [prompt_texto.strip(), '']
+    partes += ['--- QUESTÃO ---', questao.enunciado_md or '']
     if questao.gabarito:
         partes += ['', f'Gabarito informado: {questao.gabarito}']
     return '\n'.join(partes)
 
 
-def montar_mensagens(questao, prompt_texto):
-    """Monta a lista de mensagens (multimodal) para uma questão + prompt."""
+def montar_mensagens(questao, prompt_texto=None):
+    """Monta a lista de mensagens (multimodal) para uma questão (+ prompt inline)."""
     content = _blocos_imagens(questao)
     content.append({'type': 'text', 'text': _texto_questao(questao, prompt_texto)})
     return [{'role': 'user', 'content': content}]
 
 
 def _params_mensagem(questao, prompt, cache_prompt=False):
-    """Parâmetros para messages.create / batches (compartilhado)."""
-    system = SYSTEM_PROMPT
+    """Parâmetros para messages.create / batches (compartilhado).
+
+    Com `cache_prompt`, o texto do prompt migra da mensagem do usuário para o
+    bloco system marcado com cache_control: em lotes, o prefixo estável
+    (system + prompt) é idêntico em todas as requisições e pode ser cacheado
+    (efetivo quando o prompt é longo o bastante para o mínimo cacheável).
+    """
     if cache_prompt:
-        # Cacheia o prefixo estável (system) para lotes do mesmo prompt.
-        system = [{'type': 'text', 'text': SYSTEM_PROMPT, 'cache_control': {'type': 'ephemeral'}}]
+        system = [
+            {'type': 'text', 'text': SYSTEM_PROMPT},
+            {
+                'type': 'text',
+                'text': 'Instruções do usuário:\n' + (prompt.texto or '').strip(),
+                'cache_control': {'type': 'ephemeral'},
+            },
+        ]
+        messages = montar_mensagens(questao)
+    else:
+        system = SYSTEM_PROMPT
+        messages = montar_mensagens(questao, prompt.texto)
     return {
         'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-4-6'),
         'max_tokens': getattr(settings, 'AI_MAX_TOKENS', 16000),
         'system': system,
-        'messages': montar_mensagens(questao, prompt.texto),
+        'messages': messages,
     }
 
 
@@ -145,6 +182,9 @@ def aplicar_resultado_sincrono(resultado, profile=None):
         resultado.status = ResultadoPrompt.Status.ERRO
         resultado.erro = str(exc)[:2000]
         resultado.save(update_fields=['status', 'erro', 'atualizado_em'])
+        # Tira a questão da fila para o polling/badges não ficarem presos.
+        questao.status = questao.Status.ERRO
+        questao.save(update_fields=['status', 'atualizado_em'])
         raise
 
 
@@ -240,4 +280,6 @@ def coletar_batch(batch_id):
             resultado.status = ResultadoPrompt.Status.ERRO
             resultado.erro = f'Batch: {item.result.type}'
             resultado.save(update_fields=['status', 'erro', 'atualizado_em'])
+            resultado.questao.status = resultado.questao.Status.ERRO
+            resultado.questao.save(update_fields=['status', 'atualizado_em'])
     return True

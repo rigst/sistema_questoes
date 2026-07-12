@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import PromptForm
@@ -8,8 +9,9 @@ from .models import Prompt
 
 @login_required
 def lista(request):
-    prompts = Prompt.objects.filter(user=request.user)
-    return render(request, 'prompts/lista.html', {'prompts': prompts})
+    paginator = Paginator(Prompt.objects.filter(user=request.user), 25)
+    prompts = paginator.get_page(request.GET.get('page'))
+    return render(request, 'prompts/lista.html', {'prompts': prompts, 'page_obj': prompts})
 
 
 @login_required
@@ -35,5 +37,4 @@ def excluir(request, pk):
     if request.method == 'POST':
         prompt.delete()
         messages.success(request, 'Prompt excluído.')
-        return redirect('prompts:lista')
-    return render(request, 'prompts/excluir.html', {'prompt': prompt})
+    return redirect('prompts:lista')

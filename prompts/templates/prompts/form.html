@@ -10,9 +10,14 @@
             {% csrf_token %}
             {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
             <div class="form-grid">
-                <div class="full">
+                <div>
                     <label for="{{ form.nome.id_for_label }}">Nome</label>
                     {{ form.nome }}{{ form.nome.errors }}
+                </div>
+                <div>
+                    <label for="{{ form.tipo.id_for_label }}">Tipo de resposta</label>
+                    {{ form.tipo }}{{ form.tipo.errors }}
+                    <p class="form-note">Usado só para estimar o custo: sucinto ≈ respostas curtas, completo ≈ análises longas.</p>
                 </div>
                 <div class="full">
                     <label for="{{ form.texto.id_for_label }}">Texto do prompt</label>

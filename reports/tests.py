@@ -28,14 +28,20 @@ class RelatorioTests(TestCase):
         )
 
     def test_gera_pdf_com_texto(self):
-        rel = gerar_relatorio(self.u, self.prompt, disciplina=self.disc, com_texto=True)
+        rel = gerar_relatorio(self.u, self.prompt, disciplina=self.disc, com_texto=True, formato='pdf')
         self.assertEqual(rel.num_questoes, 1)
         self.assertTrue(rel.arquivo_pdf.size > 0)
 
     def test_gera_pdf_sem_texto(self):
-        rel = gerar_relatorio(self.u, self.prompt, disciplina=self.disc, com_texto=False)
+        rel = gerar_relatorio(self.u, self.prompt, disciplina=self.disc, com_texto=False, formato='pdf')
         self.assertEqual(rel.num_questoes, 1)
         self.assertTrue(rel.arquivo_pdf.size > 0)
+
+    def test_gera_markdown(self):
+        rel = gerar_relatorio(self.u, self.prompt, disciplina=self.disc, formato='md')
+        self.assertEqual(rel.num_questoes, 1)
+        self.assertTrue(rel.arquivo_md.size > 0)
+        self.assertFalse(rel.arquivo_pdf)
 
     def test_escopo_sem_resultados_retorna_zero(self):
         outro = Prompt.objects.create(user=self.u, nome='Outro', texto='x')

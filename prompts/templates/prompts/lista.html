@@ -20,19 +20,23 @@
                 <thead><tr><th>Nome</th><th>Texto do Prompt</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for p in prompts %}
-                        <tr class="clickable-row-prompt" data-edit-url="{% url 'prompts:editar' p.pk %}" onclick="window.location.href='{% url 'prompts:editar' p.pk %}';" style="cursor: pointer;">
-                            <td>{{ p.nome }}</td>
+                        <tr data-row-href="{% url 'prompts:editar' p.pk %}">
+                            <td><a href="{% url 'prompts:editar' p.pk %}" class="row-link">{{ p.nome }}</a></td>
                             <td class="prompt-preview">{{ p.texto|truncatechars:70 }}</td>
-                            <td class="actions-col" onclick="event.stopPropagation();">
-                                <a class="btn btn-icon-action btn-danger-icon" href="{% url 'prompts:excluir' p.pk %}" title="Excluir">
-                                    <svg class="action-icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                </a>
+                            <td class="actions-col">
+                                <form method="post" action="{% url 'prompts:excluir' p.pk %}" data-confirm="Excluir o prompt “{{ p.nome }}”?" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-icon-action btn-danger-icon" title="Excluir" aria-label="Excluir prompt {{ p.nome }}">
+                                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% include "partials/pagination.html" %}
     {% else %}
         <div class="empty-state"><p>Nenhum prompt cadastrado. Crie um completo e um sucinto para revisão.</p></div>
     {% endif %}

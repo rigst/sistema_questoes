@@ -2,125 +2,7 @@
 
 {% block title %}Estudos · Estudo por Questões{% endblock %}
 
-{% block content %}
-<section>
-    <div class="section-heading">
-        <div>
-            <h2>Bons Estudos{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %} ✨</h2>
-            <p class="muted" style="margin-top:.2rem;font-size:.9rem;">cada questão revisada é um passo a mais</p>
-        </div>
-    </div>
-
-    <div class="stats-grid" style="margin-bottom:1.5rem;">
-        <article class="stat-card">
-            <span class="label">Provas</span>
-            <strong class="value">{{ total_provas }}</strong>
-        </article>
-        <article class="stat-card">
-            <span class="label">Questões</span>
-            <strong class="value">{{ total_questoes }}</strong>
-        </article>
-        <article class="stat-card {% if em_revisao > 0 %}stat-card--alert{% endif %}">
-            <span class="label">Para revisar</span>
-            <strong class="value">{{ em_revisao }}</strong>
-        </article>
-        <article class="stat-card {% if na_fila > 0 %}stat-card--processing{% endif %}">
-            <span class="label">Na fila de IA</span>
-            <strong class="value">{{ na_fila }}</strong>
-        </article>
-    </div>
-
-    {% if em_revisao > 0 %}
-    <div class="flash-message flash-warning" style="margin-bottom:1.25rem;">
-        {{ em_revisao }} questão(ões) aguardam revisão manual antes de receber prompts de IA.
-    </div>
-    {% endif %}
-    {% if na_fila > 0 %}
-    <div class="flash-message" style="margin-bottom:1.25rem;">
-        {{ na_fila }} questão(ões) em processamento de IA.
-    </div>
-    {% endif %}
-
-    {% csrf_token %}
-    <div class="provas-tree" id="provas-tree">
-        <div class="provas-tree-left" id="provas-list">
-            {% for prova in provas %}
-            <div class="prova-item {% if forloop.first %}is-active{% endif %}"
-                 data-prova="{{ prova.pk }}">
-                <div class="prova-item-row">
-                    <span class="prova-item-name" data-rename-url="{% url 'exams:prova_renomear_inline' prova.pk %}">{{ prova.nome }}</span>
-                    <a class="prova-item-edit" title="Renomear prova">
-                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    </a>
-                    <a class="prova-item-delete inline-delete-trigger" title="Excluir prova"
-                       data-delete-url="{% url 'exams:prova_excluir_inline' prova.pk %}"
-                       data-delete-name="{{ prova.nome }}"
-                       data-delete-type="prova">
-                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    </a>
-                </div>
-                <div class="prova-item-meta">{{ prova.n_disciplinas }} disciplina{{ prova.n_disciplinas|pluralize }}</div>
-            </div>
-            {% endfor %}
-            <div class="prova-add-row" id="prova-add-row">
-                <button type="button" class="btn-inline-add" id="prova-add-btn">+ nova prova</button>
-                <div id="prova-add-form" class="inline-create-form" hidden>
-                    <input type="text" id="prova-add-input" placeholder="Nome da prova" maxlength="200" autocomplete="off">
-                    <span class="inline-create-hint">Enter · Esc para cancelar</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="provas-tree-right" id="provas-detail">
-            {% for prova in provas %}
-            <div class="prova-detail {% if forloop.first %}is-active{% endif %}" data-prova-detail="{{ prova.pk }}">
-                <div class="prova-detail-header">
-                    <h3>{{ prova.nome }}</h3>
-                </div>
-                {% with disciplinas=prova.disciplinas.all %}
-                <ul class="disciplinas-list" id="disciplinas-list-{{ prova.pk }}">
-                    {% for d in disciplinas %}
-                    <li class="disciplina-item">
-                        <div class="disciplina-row">
-                            <a href="{% url 'questions:disciplina' d.pk %}" class="disciplina-nome-link" data-rename-url="{% url 'exams:disciplina_renomear_inline' d.pk %}">
-                                {{ d.nome }}
-                            </a>
-                            <span class="disciplina-count">{{ d.questoes.count }} quest{{ d.questoes.count|pluralize:"ão,ões" }}</span>
-                            <a class="disciplina-edit-icon" title="Renomear disciplina">
-                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            </a>
-                            <a class="disciplina-delete-icon inline-delete-trigger" title="Excluir disciplina"
-                               data-delete-url="{% url 'exams:disciplina_excluir_inline' d.pk %}"
-                               data-delete-name="{{ d.nome }}"
-                               data-delete-type="disciplina">
-                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                            </a>
-                        </div>
-                    </li>
-                    {% empty %}
-                    <li style="padding:.75rem 0.9rem;">
-                        <p class="muted" style="font-size:.85rem;margin:0;">nenhuma disciplina ainda. adicione abaixo ↓</p>
-                    </li>
-                    {% endfor %}
-                </ul>
-                <div class="disciplina-add-row">
-                    <button type="button" class="btn-inline-add" data-disc-add="{{ prova.pk }}">+ nova disciplina</button>
-                    <div class="inline-create-form disc-add-form" data-prova-pk="{{ prova.pk }}" hidden>
-                        <input type="text" class="disc-add-input" placeholder="Nome da disciplina" maxlength="200" autocomplete="off">
-                        <span class="inline-create-hint">Enter · Esc para cancelar</span>
-                    </div>
-                </div>
-                {% endwith %}
-            </div>
-            {% empty %}
-            <div class="prova-detail is-active" data-prova-detail="__empty__">
-                <div class="empty-state"><p>nenhuma prova ainda. crie a primeira no painel ao lado ←</p></div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</section>
-
+{% block extra_css %}
 <style>
 .provas-tree {
     display: grid;
@@ -128,7 +10,7 @@
     gap: 0;
     border: 1px solid var(--border-strong, #dfe3ea);
     border-radius: 18px;
-    background: #fff;
+    background: var(--surface);
     min-height: 260px;
 }
 .provas-tree-left { border-radius: 18px 0 0 18px; }
@@ -153,9 +35,10 @@
 }
 .prova-item-row { display: flex; align-items: center; gap: 0.4rem; }
 .prova-item-name { font-weight: 600; font-size: 0.9rem; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prova-item-edit, .prova-item-delete { font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; }
+.prova-item-edit, .prova-item-delete { background: none; border: 0; font-size: 0.8rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; }
 .prova-item-delete { color: var(--ds-danger, #d14545); }
-.prova-item:hover .prova-item-edit, .prova-item:hover .prova-item-delete { opacity: 1; }
+.prova-item:hover .prova-item-edit, .prova-item:hover .prova-item-delete,
+.prova-item:focus-within .prova-item-edit, .prova-item:focus-within .prova-item-delete { opacity: 1; }
 .prova-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
 .prova-add-row { padding: 0.5rem 0.75rem; margin-top: auto; border-top: 1px solid var(--border, #e8edf4); }
 .btn-inline-add {
@@ -170,7 +53,7 @@
 .inline-create-form input[type=text] {
     width: 100%; border: 1px solid var(--accent, #2f78db);
     border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 0.87rem;
-    outline: none; background: #fff;
+    outline: none; background: var(--surface);
 }
 .inline-create-hint { font-size: 0.72rem; color: var(--muted); }
 
@@ -191,9 +74,10 @@
 .disciplina-nome-link { flex: 1; text-decoration: none; color: var(--text); font-weight: 500; font-size: 0.92rem; }
 .disciplina-nome-link:hover { color: var(--accent, #2f78db); }
 .disciplina-count { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
-.disciplina-edit-icon, .disciplina-delete-icon { font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; position: relative; z-index: 2; }
+.disciplina-edit-icon, .disciplina-delete-icon { background: none; border: 0; font-size: 0.82rem; color: var(--muted); text-decoration: none; opacity: 0; transition: opacity 0.15s; padding: 2px 5px; border-radius: 4px; display: inline-flex; align-items: center; cursor: pointer; position: relative; z-index: 2; }
 .disciplina-delete-icon { color: var(--ds-danger, #d14545); }
-.disciplina-row:hover .disciplina-edit-icon, .disciplina-row:hover .disciplina-delete-icon { opacity: 1; }
+.disciplina-row:hover .disciplina-edit-icon, .disciplina-row:hover .disciplina-delete-icon,
+.disciplina-row:focus-within .disciplina-edit-icon, .disciplina-row:focus-within .disciplina-delete-icon { opacity: 1; }
 .disciplina-add-row { padding: 0.6rem 0.4rem 0.2rem; }
 
 .inline-delete-popover {
@@ -205,7 +89,7 @@
     padding: 0.65rem 0.85rem;
     border-radius: 10px;
     border: 1px solid var(--ds-danger-border, rgba(209, 69, 69, 0.25));
-    background: #fff;
+    background: var(--surface);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     white-space: nowrap;
     display: flex;
@@ -244,7 +128,7 @@
     padding: 0.2rem 0.55rem;
     border-radius: 6px;
     border: 1px solid var(--border, #e8edf4);
-    background: #fff;
+    background: var(--surface);
     color: var(--text-soft);
     cursor: pointer;
     font-size: 0.8rem;
@@ -264,7 +148,7 @@
     border-radius: 6px !important;
     font-size: inherit !important;
     font-weight: inherit !important;
-    background: #fff !important;
+    background: var(--surface) !important;
     outline: none !important;
     box-shadow: 0 0 0 2px rgba(47, 120, 219, 0.15) !important;
 }
@@ -285,6 +169,122 @@
     .provas-tree-left { border-right: 0; border-bottom: 1px solid var(--border-strong, #dfe3ea); }
 }
 </style>
+{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>Bons Estudos{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %} ✨</h2>
+            <p class="muted" style="margin-top:.2rem;font-size:.9rem;">cada questão revisada é um passo a mais</p>
+        </div>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+        <article class="stat-card">
+            <span class="label">Provas</span>
+            <strong class="value">{{ total_provas }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="label">Questões</span>
+            <strong class="value">{{ total_questoes }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="label">Analisadas</span>
+            <strong class="value">{{ total_concluidas }}</strong>
+        </article>
+        <article class="stat-card {% if na_fila > 0 %}stat-card--processing{% endif %}">
+            <span class="label">Na fila de IA</span>
+            <strong class="value">{{ na_fila }}</strong>
+        </article>
+    </div>
+
+    {% if na_fila > 0 %}
+    <div class="flash-message" style="margin-bottom:1.25rem;">
+        {{ na_fila }} questão(ões) em processamento de IA.
+    </div>
+    {% endif %}
+
+    {% csrf_token %}
+    <div class="provas-tree" id="provas-tree">
+        <div class="provas-tree-left" id="provas-list">
+            {% for prova in provas %}
+            <div class="prova-item {% if forloop.first %}is-active{% endif %}"
+                 data-prova="{{ prova.pk }}" tabindex="0" role="button">
+                <div class="prova-item-row">
+                    <span class="prova-item-name" data-rename-url="{% url 'exams:prova_renomear_inline' prova.pk %}">{{ prova.nome }}</span>
+                    <button type="button" class="prova-item-edit" title="Renomear prova" aria-label="Renomear prova {{ prova.nome }}">
+                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button type="button" class="prova-item-delete inline-delete-trigger" title="Excluir prova" aria-label="Excluir prova {{ prova.nome }}"
+                       data-delete-url="{% url 'exams:prova_excluir_inline' prova.pk %}"
+                       data-delete-name="{{ prova.nome }}"
+                       data-delete-type="prova">
+                        <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                </div>
+                <div class="prova-item-meta">{{ prova.n_disciplinas }} disciplina{{ prova.n_disciplinas|pluralize }}</div>
+            </div>
+            {% endfor %}
+            <div class="prova-add-row" id="prova-add-row">
+                <button type="button" class="btn-inline-add" id="prova-add-btn">+ nova prova</button>
+                <div id="prova-add-form" class="inline-create-form" hidden>
+                    <input type="text" id="prova-add-input" placeholder="Nome da prova" aria-label="Nome da nova prova" maxlength="200" autocomplete="off">
+                    <span class="inline-create-hint">Enter · Esc para cancelar</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="provas-tree-right" id="provas-detail">
+            {% for prova in provas %}
+            <div class="prova-detail {% if forloop.first %}is-active{% endif %}" data-prova-detail="{{ prova.pk }}">
+                <div class="prova-detail-header">
+                    <h3>{{ prova.nome }}</h3>
+                </div>
+                {% with disciplinas=prova.disciplinas.all %}
+                <ul class="disciplinas-list" id="disciplinas-list-{{ prova.pk }}">
+                    {% for d in disciplinas %}
+                    <li class="disciplina-item">
+                        <div class="disciplina-row">
+                            <a href="{% url 'questions:disciplina' d.pk %}" class="disciplina-nome-link" data-rename-url="{% url 'exams:disciplina_renomear_inline' d.pk %}">
+                                {{ d.nome }}
+                            </a>
+                            <span class="disciplina-count">{{ d.questoes.count }} quest{{ d.questoes.count|pluralize:"ão,ões" }}</span>
+                            <button type="button" class="disciplina-edit-icon" title="Renomear disciplina" aria-label="Renomear disciplina {{ d.nome }}">
+                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button type="button" class="disciplina-delete-icon inline-delete-trigger" title="Excluir disciplina" aria-label="Excluir disciplina {{ d.nome }}"
+                               data-delete-url="{% url 'exams:disciplina_excluir_inline' d.pk %}"
+                               data-delete-name="{{ d.nome }}"
+                               data-delete-type="disciplina">
+                                <svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li style="padding:.75rem 0.9rem;">
+                        <p class="muted" style="font-size:.85rem;margin:0;">nenhuma disciplina ainda. adicione abaixo ↓</p>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="disciplina-add-row">
+                    <button type="button" class="btn-inline-add" data-disc-add="{{ prova.pk }}">+ nova disciplina</button>
+                    <div class="inline-create-form disc-add-form" data-prova-pk="{{ prova.pk }}" hidden>
+                        <input type="text" class="disc-add-input" placeholder="Nome da disciplina" aria-label="Nome da nova disciplina" maxlength="200" autocomplete="off">
+                        <span class="inline-create-hint">Enter · Esc para cancelar</span>
+                    </div>
+                </div>
+                {% endwith %}
+            </div>
+            {% empty %}
+            <div class="prova-detail is-active" data-prova-detail="__empty__">
+                <div class="empty-state"><p>Nenhuma prova ainda. Crie a primeira em “+ nova prova”.</p></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
 
 <script>
 (function () {
@@ -306,15 +306,25 @@
     // ---- troca de prova ativa ----
     var provaItems = document.querySelectorAll('.prova-item');
     var provaDetails = document.querySelectorAll('.prova-detail');
+    function ativarProva(item) {
+        var pk = item.dataset.prova;
+        provaItems.forEach(function (i) { i.classList.remove('is-active'); });
+        provaDetails.forEach(function (d) { d.classList.remove('is-active'); });
+        item.classList.add('is-active');
+        var detail = document.querySelector('[data-prova-detail="' + pk + '"]');
+        if (detail) detail.classList.add('is-active');
+    }
     provaItems.forEach(function (item) {
         item.addEventListener('click', function (e) {
             if (e.target.closest('.prova-item-edit') || e.target.closest('.prova-item-delete')) return;
-            var pk = item.dataset.prova;
-            provaItems.forEach(function (i) { i.classList.remove('is-active'); });
-            provaDetails.forEach(function (d) { d.classList.remove('is-active'); });
-            item.classList.add('is-active');
-            var detail = document.querySelector('[data-prova-detail="' + pk + '"]');
-            if (detail) detail.classList.add('is-active');
+            ativarProva(item);
+        });
+        item.addEventListener('keydown', function (e) {
+            if (e.target !== item) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                ativarProva(item);
+            }
         });
     });
 
@@ -531,8 +541,8 @@
                             li.innerHTML = '<div class="disciplina-row">' +
                                 '<a href="' + data.url + '" class="disciplina-nome-link" data-rename-url="/provas/disciplina/' + data.pk + '/renomear-inline/">' + data.nome + '</a>' +
                                 '<span class="disciplina-count">0 questões</span>' +
-                                '<a class="disciplina-edit-icon" title="Renomear disciplina"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></a>' +
-                                '<a class="disciplina-delete-icon inline-delete-trigger" title="Excluir disciplina" data-delete-url="/provas/disciplina/' + data.pk + '/excluir-inline/" data-delete-name="' + data.nome + '" data-delete-type="disciplina"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></a>' +
+                                '<button type="button" class="disciplina-edit-icon" title="Renomear disciplina" aria-label="Renomear disciplina ' + data.nome + '"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+                                '<button type="button" class="disciplina-delete-icon inline-delete-trigger" title="Excluir disciplina" aria-label="Excluir disciplina ' + data.nome + '" data-delete-url="/provas/disciplina/' + data.pk + '/excluir-inline/" data-delete-name="' + data.nome + '" data-delete-type="disciplina"><svg class="action-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>' +
                                 '</div>';
                             lista.appendChild(li);
                         }

@@ -1,8 +1,7 @@
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
 from questions.models import Questao
@@ -29,45 +28,12 @@ def dashboard(request):
         'total_disciplinas': Disciplina.objects.filter(prova__user=request.user).count(),
         'total_questoes': total_questoes,
         'total_concluidas': total_concluidas,
-        'em_revisao': Questao.objects.filter(
-            disciplina__prova__user=request.user, status=Questao.Status.EM_REVISAO
-        ).count(),
         'na_fila': Questao.objects.filter(
             disciplina__prova__user=request.user,
             status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]
         ).count(),
     }
     return render(request, 'exams/dashboard.html', contexto)
-
-
-@login_required
-def provas(request):
-    return redirect('dashboard')
-
-
-@login_required
-def prova_form(request, pk=None):
-    return redirect('dashboard')
-
-
-@login_required
-def prova_detalhe(request, pk):
-    return redirect('dashboard')
-
-
-@login_required
-def prova_excluir(request, pk):
-    return redirect('dashboard')
-
-
-@login_required
-def disciplina_form(request, prova_pk=None, pk=None):
-    return redirect('dashboard')
-
-
-@login_required
-def disciplina_excluir(request, pk):
-    return redirect('dashboard')
 
 
 @login_required

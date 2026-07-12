@@ -40,7 +40,6 @@ class Questao(models.Model):
     """Uma questão extraída de um PDF."""
 
     class Status(models.TextChoices):
-        EM_REVISAO = 'em_revisao', 'Em revisão'
         DISPONIVEL = 'disponivel', 'Disponível'
         NA_FILA = 'na_fila', 'Na fila'
         PROCESSANDO = 'processando', 'Processando'
@@ -57,7 +56,7 @@ class Questao(models.Model):
     numero = models.PositiveIntegerField('número', default=0)
     enunciado_md = models.TextField('enunciado (markdown)', blank=True)
     gabarito = models.CharField('gabarito', max_length=255, blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.EM_REVISAO)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DISPONIVEL)
     confianca_extracao = models.FloatField('confiança da extração', default=0.0)
     ordem = models.PositiveIntegerField('ordem', default=0)
     criado_em = models.DateTimeField(auto_now_add=True)

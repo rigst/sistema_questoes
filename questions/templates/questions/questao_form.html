@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Revisar questão {{ questao.numero }}{% endblock %}
+{% block title %}Editar questão {{ questao.numero }}{% endblock %}
 
 {% block content %}
 <section>
-    <div class="section-heading"><h2>Revisar questão {{ questao.numero }}</h2></div>
+    <div class="section-heading"><h2>Editar questão {{ questao.numero }}</h2></div>
     <div class="form-panel">
         <form method="post" action="{% url 'questions:questao_editar' questao.pk %}">
             {% csrf_token %}
@@ -32,7 +32,8 @@
                 </div>
             {% endif %}
             <div class="inline-actions inline-actions-end">
-                <button type="submit" class="btn btn-primary">Salvar e marcar disponível</button>
+                <a href="{% url 'questions:questao_detalhe' questao.pk %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Salvar</button>
             </div>
         </form>
     </div>

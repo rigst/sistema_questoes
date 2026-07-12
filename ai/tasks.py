@@ -1,8 +1,12 @@
+import logging
+
 from celery import shared_task
 from django.conf import settings
 
 from . import services
 from .models import ResultadoPrompt
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -48,6 +52,8 @@ def processar_lote(resultado_ids, usar_lote=True):
         try:
             services.aplicar_resultado_sincrono(r, profile=profile)
         except Exception:
+            # O resultado e a questão já foram marcados como ERRO no service.
+            logger.exception('Falha ao aplicar prompt (resultado %s)', r.pk)
             continue
     return f'{len(resultados)} resultado(s) processado(s)'
 

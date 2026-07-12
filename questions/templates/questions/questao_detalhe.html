@@ -1,6 +1,23 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Questão {{ questao.numero }} · Resultados{% endblock %}
+
+{% block extra_css %}
+<style>
+.questao-content { font-size: .92rem; line-height: 1.7; }
+#questao-enunciado { margin-bottom: 1rem; }
+#questao-alternativas { margin-bottom: 1rem; }
+.alt-item { padding: .4rem 0; display: flex; gap: .5rem; }
+.alt-letter { font-weight: 700; color: var(--accent, #2f78db); min-width: 1.2rem; }
+.questao-gabarito {
+    padding: .6rem .9rem; border-radius: 8px;
+    background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.12);
+    font-size: .88rem;
+}
+.gab-letter { font-weight: 700; color: var(--accent, #2f78db); }
+</style>
+{% endblock %}
 
 {% block content %}
 <section>
@@ -16,6 +33,13 @@
 
     <div class="section-heading">
         <h2>Questão {{ questao.numero }}</h2>
+        <div class="inline-actions">
+            <a href="{% url 'questions:questao_editar' questao.pk %}" class="btn btn-secondary btn-compact">Editar</a>
+            <form method="post" action="{% url 'questions:questao_excluir' questao.pk %}" data-confirm="Excluir esta questão e todos os seus resultados?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-compact">Excluir</button>
+            </form>
+        </div>
     </div>
 
     <div class="form-panel" style="margin-bottom:1rem;">
@@ -76,21 +100,8 @@
     {% endfor %}
 </section>
 
-<style>
-.questao-content { font-size: .92rem; line-height: 1.7; }
-#questao-enunciado { margin-bottom: 1rem; }
-#questao-alternativas { margin-bottom: 1rem; }
-.alt-item { padding: .4rem 0; display: flex; gap: .5rem; }
-.alt-letter { font-weight: 700; color: var(--accent, #2f78db); min-width: 1.2rem; }
-.questao-gabarito {
-    padding: .6rem .9rem; border-radius: 8px;
-    background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.12);
-    font-size: .88rem;
-}
-.gab-letter { font-weight: 700; color: var(--accent, #2f78db); }
-</style>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{% static 'js/marked.min.js' %}"></script>
 <script>
 (function () {
   var raw = document.getElementById('enunciado-raw');

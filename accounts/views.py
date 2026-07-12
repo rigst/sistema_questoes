@@ -1,9 +1,26 @@
 from django.contrib import messages
 from django.contrib.auth import login
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from .forms import CadastroForm
 from .services import criar_visitante
+
+
+def cadastro(request):
+    """Cria uma conta e autentica a sessão."""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        form = CadastroForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Conta criada. Bons estudos!')
+            return redirect('dashboard')
+    else:
+        form = CadastroForm()
+    return render(request, 'registration/cadastro.html', {'form': form})
 
 
 @require_POST

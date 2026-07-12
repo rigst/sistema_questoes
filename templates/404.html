@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Página não encontrada · Estudo por Questões{% endblock %}
+
+{% block content %}
+<section>
+    <div class="empty-state" style="padding:4rem 2rem;text-align:center;">
+        <h2 style="margin-bottom:.5rem;">Página não encontrada</h2>
+        <p class="muted" style="margin-bottom:1.5rem;">O endereço que você acessou não existe ou foi removido.</p>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">Ir para o dashboard</a>
+    </div>
+</section>
+{% endblock %}

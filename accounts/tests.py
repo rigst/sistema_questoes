@@ -32,3 +32,62 @@ class ProfileQuotaTests(TestCase):
         self.assertIsNotNone(u.profile.expires_at)
         self.assertGreater(u.profile.expires_at, timezone.now())
         self.assertTrue(senha)
+
+
+class AuthViewsTests(TestCase):
+    def test_login_mostra_visitante_e_cadastro(self):
+        resp = self.client.get('/login/')
+        self.assertContains(resp, 'Entrar como visitante')
+        self.assertContains(resp, 'Criar conta')
+
+    def test_entrar_como_visitante_autentica(self):
+        resp = self.client.post('/accounts/visitante/', follow=True)
+        self.assertEqual(resp.status_code, 200)
+        user = resp.context['user']
+        self.assertTrue(user.is_authenticated)
+        self.assertTrue(user.profile.is_visitor)
+
+    def test_entrar_como_visitante_exige_post(self):
+        resp = self.client.get('/accounts/visitante/')
+        self.assertEqual(resp.status_code, 405)
+
+    def test_cadastro_cria_usuario_e_loga(self):
+        resp = self.client.post('/accounts/cadastro/', {
+            'username': 'novo_usuario',
+            'first_name': 'Novo',
+            'email': 'novo@example.com',
+            'password1': 'senha-bem-forte-123',
+            'password2': 'senha-bem-forte-123',
+        }, follow=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(User.objects.filter(username='novo_usuario').exists())
+        self.assertTrue(resp.context['user'].is_authenticated)
+
+    def test_cadastro_exige_email(self):
+        resp = self.client.post('/accounts/cadastro/', {
+            'username': 'sem_email',
+            'password1': 'senha-bem-forte-123',
+            'password2': 'senha-bem-forte-123',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username='sem_email').exists())
+
+    def test_cadastro_senhas_diferentes_mostra_erro(self):
+        resp = self.client.post('/accounts/cadastro/', {
+            'username': 'outro',
+            'email': 'outro@example.com',
+            'password1': 'senha-bem-forte-123',
+            'password2': 'diferente-456',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username='outro').exists())
+
+    def test_reset_de_senha_envia_email(self):
+        from django.core import mail
+
+        user = User.objects.create_user('ana', password='x', email='ana@example.com')
+        resp = self.client.post('/senha/', {'email': user.email}, follow=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Redefinição de senha', mail.outbox[0].subject)
+        self.assertIn('/senha/redefinir/', mail.outbox[0].body)

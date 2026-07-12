@@ -28,6 +28,15 @@
             <input type="hidden" name="next" value="{{ next }}">
             <button type="submit" class="btn btn-primary auth-submit">Entrar</button>
         </form>
+
+        <div class="auth-visitor-section">
+            <p class="auth-alt-note">Ainda não tem conta? <a href="{% url 'accounts:cadastro' %}">Criar conta</a> · <a href="{% url 'password_reset' %}">Esqueci minha senha</a></p>
+            <form method="post" action="{% url 'accounts:entrar_visitante' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary auth-submit">Entrar como visitante</button>
+            </form>
+            <p class="auth-alt-note">Dados de visitante são temporários e expiram após 48h sem uso.</p>
+        </div>
     </div>
 </div>
 {% endblock %}

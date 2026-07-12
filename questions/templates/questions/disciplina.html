@@ -1,6 +1,58 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}{{ disciplina.nome }} · Questões{% endblock %}
+
+{% block extra_css %}
+<style>
+.disc-upload-panel {
+    padding: .85rem 1.1rem; margin-bottom: 1rem;
+    border-radius: 14px; border: 1px solid var(--border-strong, #dfe3ea);
+    background: var(--ds-panel, #f7f9fc);
+}
+.disc-upload-actions { display: flex; align-items: center; gap: .6rem; font-size: .88rem; flex-wrap: wrap; }
+.disc-upload-filename { flex: 1; min-width: 0; font-size: .85rem; color: var(--text-soft, #667); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.disc-progress-track {
+    height: 6px; border-radius: 3px; background: var(--border, #e8edf4); overflow: hidden;
+}
+.disc-progress-fill {
+    height: 100%; border-radius: 3px; background: var(--accent, #2f78db);
+    width: 0%; transition: width .3s ease;
+}
+.disc-progress-indeterminate {
+    width: 100% !important;
+    animation: indeterminate 1.4s ease-in-out infinite;
+    background: linear-gradient(90deg, transparent, var(--accent, #2f78db), transparent);
+    background-size: 200% 100%;
+}
+@keyframes indeterminate { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.disc-progress-label { font-size: .82rem; color: var(--muted); margin-top: .3rem; display: block; }
+
+.disc-banner { display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem; margin-bottom: .75rem; border-radius: 10px; font-size: .85rem; }
+.disc-banner[hidden] { display: none; }
+.disc-banner-processing { background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.15); color: var(--accent, #2f78db); }
+.disc-banner-error { background: rgba(220,53,69,.07); border: 1px solid rgba(220,53,69,.2); color: #c0392b; }
+.disc-banner-error .disc-progress-fill { background: #c0392b; }
+
+.disc-prompt-bar {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .55rem 1rem; margin-bottom: .75rem;
+    border-radius: 10px; border: 1px solid var(--border-strong, #dfe3ea);
+    background: var(--ds-panel, #f7f9fc);
+    font-size: .88rem;
+}
+.disc-prompt-bar label { margin: 0; font-weight: 600; white-space: nowrap; }
+.disc-prompt-bar select { max-width: 240px; font-size: inherit; }
+.disc-prompt-bar .btn { font-size: inherit; }
+.disc-cost { margin-left: auto; color: var(--muted); font-size: .82rem; }
+.disc-prompt-hint { color: var(--muted); font-size: .82rem; }
+
+.col-check { width: 48px; padding-left: 1.2rem !important; padding-right: .5rem !important; }
+.disc-questao-link { font-size: .82rem; color: var(--accent, #2f78db); text-decoration: none; }
+.disc-questao-link:hover { text-decoration: underline; }
+</style>
+{% endblock %}
 
 {% block content %}
 <section>
@@ -26,7 +78,7 @@
             </form>
         </div>
     </div>
-    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }}</p>
+    <p class="muted" style="margin-top:-.5rem;margin-bottom:1rem;">{{ disciplina.prova.nome }} · {{ total_questoes }} quest{{ total_questoes|pluralize:"ão,ões" }}</p>
 
     {# ---- PROGRESSO DE UPLOAD / PROCESSAMENTO DO PDF ---- #}
     <div id="pdf-progress-panel" class="disc-banner disc-banner-processing"
@@ -94,58 +146,12 @@
                 </table>
             </div>
         </form>
+        {% include "partials/pagination.html" %}
     {% else %}
         <div class="empty-state"><p>Nenhuma questão ainda. Importe um PDF para extrair.</p></div>
     {% endif %}
 </section>
 
-<style>
-.disc-upload-panel {
-    padding: .85rem 1.1rem; margin-bottom: 1rem;
-    border-radius: 14px; border: 1px solid var(--border-strong, #dfe3ea);
-    background: var(--ds-panel, #f7f9fc);
-}
-.disc-upload-actions { display: flex; align-items: center; gap: .6rem; font-size: .88rem; flex-wrap: wrap; }
-.disc-upload-filename { flex: 1; min-width: 0; font-size: .85rem; color: var(--text-soft, #667); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.disc-progress-track {
-    height: 6px; border-radius: 3px; background: var(--border, #e8edf4); overflow: hidden;
-}
-.disc-progress-fill {
-    height: 100%; border-radius: 3px; background: var(--accent, #2f78db);
-    width: 0%; transition: width .3s ease;
-}
-.disc-progress-indeterminate {
-    width: 100% !important;
-    animation: indeterminate 1.4s ease-in-out infinite;
-    background: linear-gradient(90deg, transparent, var(--accent, #2f78db), transparent);
-    background-size: 200% 100%;
-}
-@keyframes indeterminate { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.disc-progress-label { font-size: .82rem; color: var(--muted); margin-top: .3rem; display: block; }
-
-.disc-banner { display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem; margin-bottom: .75rem; border-radius: 10px; font-size: .85rem; }
-.disc-banner-processing { background: rgba(47,120,219,.06); border: 1px solid rgba(47,120,219,.15); color: var(--accent, #2f78db); }
-.disc-banner-error { background: rgba(220,53,69,.07); border: 1px solid rgba(220,53,69,.2); color: #c0392b; }
-.disc-banner-error .disc-progress-fill { background: #c0392b; }
-
-.disc-prompt-bar {
-    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
-    padding: .55rem 1rem; margin-bottom: .75rem;
-    border-radius: 10px; border: 1px solid var(--border-strong, #dfe3ea);
-    background: var(--ds-panel, #f7f9fc);
-    font-size: .88rem;
-}
-.disc-prompt-bar label { margin: 0; font-weight: 600; white-space: nowrap; }
-.disc-prompt-bar select { max-width: 240px; font-size: inherit; }
-.disc-prompt-bar .btn { font-size: inherit; }
-.disc-cost { margin-left: auto; color: var(--muted); font-size: .82rem; }
-.disc-prompt-hint { color: var(--muted); font-size: .82rem; }
-
-.col-check { width: 48px; padding-left: 1.2rem !important; padding-right: .5rem !important; }
-.disc-questao-link { font-size: .82rem; color: var(--accent, #2f78db); text-decoration: none; }
-.disc-questao-link:hover { text-decoration: underline; }
-</style>
 
 <script>
 function toggleAplicarPrompt() {
@@ -156,8 +162,8 @@ function toggleAplicarPrompt() {
 }
 
 (function () {
-  var PRICE_IN  = {{ ai_price_input }};
-  var PRICE_OUT = {{ ai_price_output }};
+  var PRICE_IN  = {{ ai_price_input|unlocalize }};
+  var PRICE_OUT = {{ ai_price_output|unlocalize }};
   var BATCH_DISCOUNT = 0.5;
   var OUTPUT_POR_TIPO = { 'sucinto': 400, 'completo': 1050 };
   var OUTPUT_FALLBACK = 1050;

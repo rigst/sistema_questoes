@@ -20,11 +20,14 @@ Gabarito:
 from __future__ import annotations
 
 import io
+import logging
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 
 import pdfplumber
+
+logger = logging.getLogger(__name__)
 
 try:
     import fitz  # PyMuPDF
@@ -390,6 +393,7 @@ def _refinar_com_ia(texto_paginas, profile=None):
     try:
         itens = separar_questoes_via_ia(texto, profile=profile)
     except Exception:
+        logger.exception('Refino por IA falhou; usando apenas a extração por regras')
         return []
     refinadas = []
     for it in itens:

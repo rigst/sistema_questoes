@@ -23,3 +23,6 @@ CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = False
 CELERY_RESULT_BACKEND = 'cache'
 CELERY_CACHE_BACKEND = 'memory'
+
+# E-mails vão para o console em dev.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

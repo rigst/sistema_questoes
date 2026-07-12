@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -24,11 +25,14 @@ def _questao_do_user(request, pk):
 @login_required
 def disciplina(request, pk):
     disc = _disciplina_do_user(request, pk)
-    questoes = disc.questoes.prefetch_related('imagens', 'resultados')
+    paginator = Paginator(disc.questoes.prefetch_related('imagens', 'resultados'), 50)
+    questoes = paginator.get_page(request.GET.get('page'))
     importacoes = disc.importacoes.all()[:10]
     contexto = {
         'disciplina': disc,
         'questoes': questoes,
+        'page_obj': questoes,
+        'total_questoes': paginator.count,
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
         'prompts': Prompt.objects.filter(user=request.user),
@@ -108,10 +112,7 @@ def questao_editar(request, pk):
     if request.method == 'POST':
         form = QuestaoForm(request.POST, instance=questao)
         if form.is_valid():
-            q = form.save(commit=False)
-            if q.status == Questao.Status.EM_REVISAO:
-                q.status = Questao.Status.DISPONIVEL
-            q.save()
+            form.save()
             messages.success(request, 'Questão atualizada.')
             return redirect('questions:disciplina', pk=questao.disciplina.pk)
     else:
@@ -119,34 +120,6 @@ def questao_editar(request, pk):
     return render(request, 'questions/questao_form.html', {
         'form': form, 'questao': questao,
     })
-
-
-@login_required
-def questao_confirmar(request, pk):
-    """Marca uma questão como disponível (revisão concluída)."""
-    questao = _questao_do_user(request, pk)
-    if request.method == 'POST':
-        if questao.status == Questao.Status.EM_REVISAO:
-            questao.status = Questao.Status.DISPONIVEL
-            questao.save(update_fields=['status', 'atualizado_em'])
-    return redirect('questions:disciplina', pk=questao.disciplina.pk)
-
-
-@login_required
-def revisar_lote(request):
-    """Marca questões selecionadas como disponível (revisão concluída)."""
-    if request.method != 'POST':
-        return redirect('dashboard')
-    ids = request.POST.getlist('questao_ids')
-    if ids:
-        Questao.objects.filter(
-            pk__in=ids,
-            disciplina__prova__user=request.user,
-            status=Questao.Status.EM_REVISAO,
-        ).update(status=Questao.Status.DISPONIVEL)
-        messages.success(request, f'{len(ids)} questão(ões) marcadas como revisadas.')
-    next_url = request.POST.get('next', 'dashboard')
-    return redirect(next_url)
 
 
 @login_required
