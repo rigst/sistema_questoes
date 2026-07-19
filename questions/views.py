@@ -25,7 +25,11 @@ def _questao_do_user(request, pk):
 
 @login_required
 def disciplina(request, pk):
-    from ai.models import ResultadoPrompt
+    from django.core.cache import cache
+    from django.db.models import Count
+
+    from ai.models import ResultadoPrompt, TextoTopico
+    from ai.tasks import chave_topicos_classificando
 
     disc = _disciplina_do_user(request, pk)
     padrao = Prompt.objects.filter(user__isnull=True).first()
@@ -59,6 +63,21 @@ def disciplina(request, pk):
         'ai_price_input': float(getattr(settings, 'AI_PRICE_INPUT_PER_MTOK', 3.0)),
         'ai_price_output': float(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)),
     }
+
+    topicos = (
+        disc.topicos.select_related('texto')
+        .prefetch_related('questoes')
+        .annotate(n_questoes=Count('questoes'))
+    )
+    topicos_classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
+    contexto.update({
+        'topicos': topicos,
+        'topicos_classificando': topicos_classificando,
+        'topicos_gerando': topicos_classificando or TextoTopico.objects.filter(
+            topico__disciplina=disc,
+            status__in=[TextoTopico.Status.PENDENTE, TextoTopico.Status.PROCESSANDO],
+        ).exists(),
+    })
     return render(request, 'questions/disciplina.html', contexto)
 
 
@@ -74,6 +93,31 @@ def ia_status(request, pk):
         'total': total,
         'na_fila': na_fila,
         'concluidas': concluidas,
+    })
+
+
+@login_required
+def topicos_status(request, pk):
+    from django.core.cache import cache
+
+    from ai.models import TextoTopico
+    from ai.tasks import chave_topicos_classificando, chave_topicos_erro
+
+    disc = _disciplina_do_user(request, pk)
+    classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
+    erro_classificacao = cache.get(chave_topicos_erro(disc.pk)) or ''
+    textos = TextoTopico.objects.filter(topico__disciplina=disc)
+    total = textos.count()
+    concluidos = textos.filter(status=TextoTopico.Status.CONCLUIDO).count()
+    erros = textos.filter(status=TextoTopico.Status.ERRO).count()
+    pendentes = total - concluidos - erros
+    return JsonResponse({
+        'classificando': classificando,
+        'erro_classificacao': erro_classificacao,
+        'total': total,
+        'concluidos': concluidos,
+        'erros': erros,
+        'em_processamento': classificando or pendentes > 0,
     })
 
 

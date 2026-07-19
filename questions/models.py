@@ -36,6 +36,26 @@ class ImportacaoPDF(models.Model):
         return f'Importação #{self.pk} ({self.disciplina.nome})'
 
 
+class Topico(models.Model):
+    """Tema de estudo identificado pela IA dentro de uma disciplina."""
+
+    disciplina = models.ForeignKey(
+        Disciplina, on_delete=models.CASCADE, related_name='topicos'
+    )
+    nome = models.CharField('nome', max_length=200)
+    descricao = models.CharField('descrição', max_length=500, blank=True)
+    ordem = models.PositiveIntegerField('ordem', default=0)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'tópico'
+        verbose_name_plural = 'tópicos'
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return f'{self.nome} ({self.disciplina.nome})'
+
+
 class Questao(models.Model):
     """Uma questão extraída de um PDF."""
 
@@ -51,6 +71,10 @@ class Questao(models.Model):
     )
     importacao = models.ForeignKey(
         ImportacaoPDF, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='questoes',
+    )
+    topico = models.ForeignKey(
+        Topico, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='questoes',
     )
     numero = models.PositiveIntegerField('número', default=0)

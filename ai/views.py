@@ -1,14 +1,22 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
+from exams.models import Disciplina
 from prompts.models import Prompt
 from questions.models import Questao
 
 from .models import ResultadoPrompt
-from .services import estimar_tokens
-from .tasks import aplicar_resultado, processar_lote
+from .services import estimar_tokens, estimar_tokens_topicos
+from .tasks import (
+    aplicar_resultado,
+    chave_topicos_classificando,
+    chave_topicos_erro,
+    gerar_topicos as gerar_topicos_task,
+    processar_lote,
+)
 
 
 def _redir(request, fallback='dashboard'):
@@ -120,6 +128,49 @@ def gerar_comentarios(request):
     aviso = f' ({ja_prontas} já tinham análise e foram puladas)' if ja_prontas else ''
     modo = ' em lote' if usar_lote and len(single_ids) > 1 else ''
     messages.success(request, f'Gerando análise de {len(single_ids)} questão(ões){modo}{aviso}.')
+    return _redir(request)
+
+
+@login_required
+@require_POST
+def gerar_topicos(request, disciplina_pk):
+    """Agrupa as questões da disciplina em tópicos e gera o texto de estudo
+    de cada um. Regerar apaga os tópicos e textos anteriores."""
+    disc = get_object_or_404(Disciplina, pk=disciplina_pk, prova__user=request.user)
+    questoes = list(disc.questoes.all())
+    if not questoes:
+        messages.error(request, 'Importe questões antes de gerar os tópicos.')
+        return _redir(request)
+
+    profile = getattr(request.user, 'profile', None)
+    estimados = estimar_tokens_topicos(questoes)
+    if profile is not None and not profile.tem_quota(estimados):
+        messages.error(
+            request,
+            f'Quota de IA insuficiente: a operação precisa de ~{estimados:,} tokens '
+            f'e restam {profile.tokens_restantes:,} neste mês.'.replace(',', '.'),
+        )
+        return _redir(request)
+
+    sem_analise = sum(
+        1 for q in questoes
+        if not q.resultados.filter(status=ResultadoPrompt.Status.CONCLUIDO).exists()
+    )
+
+    disc.topicos.all().delete()
+    cache.delete(chave_topicos_erro(disc.pk))
+    cache.set(chave_topicos_classificando(disc.pk), 1, 3600)
+    gerar_topicos_task.delay(disc.pk)
+
+    aviso = (
+        f' Atenção: {sem_analise} questão(ões) ainda sem análise — os textos '
+        'ficam mais completos se as análises forem geradas antes.'
+        if sem_analise else ''
+    )
+    messages.success(
+        request,
+        f'Gerando tópicos e textos de estudo para {len(questoes)} questão(ões).{aviso}',
+    )
     return _redir(request)
 
 

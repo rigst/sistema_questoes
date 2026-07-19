@@ -7,10 +7,16 @@ from django.urls import reverse
 
 from exams.models import Disciplina, Prova
 from prompts.models import Prompt
-from questions.models import Questao
+from questions.models import Questao, Topico
 
-from .models import ResultadoPrompt
-from .services import _params_mensagem, estimar_tokens
+from .models import ResultadoPrompt, TextoTopico
+from .services import (
+    _params_mensagem,
+    _params_sintese,
+    estimar_tokens,
+    estimar_tokens_topicos,
+    montar_conteudo_topico,
+)
 from .tasks import processar_lote
 
 User = get_user_model()
@@ -179,3 +185,137 @@ class AnaliseUnicaTests(BaseIATestCase):
         from ai.services import montar_mensagens
         msgs = montar_mensagens(self.questao, 'instrução')
         self.assertEqual([b['type'] for b in msgs[0]['content']], ['text'])
+
+
+class TopicosTests(BaseIATestCase):
+    def setUp(self):
+        super().setUp()
+        self.q2 = Questao.objects.create(
+            disciplina=self.disc, numero=2, enunciado_md='Outro enunciado', gabarito='B',
+        )
+
+    def _classificacao_fake(self, topicos):
+        import json
+        return _resposta_fake(texto=json.dumps({'topicos': topicos}))
+
+    @patch('ai.services.get_client')
+    def test_fluxo_completo_com_um_topico_sintese_sincrona(self, get_client):
+        classificacao = self._classificacao_fake([
+            {'nome': 'Tema Único', 'descricao': 'Tudo.',
+             'questoes': [self.questao.pk, self.q2.pk]},
+        ])
+        sintese = _resposta_fake(texto='## Texto do tópico', input_tokens=500, output_tokens=300)
+        get_client.return_value.messages.create.side_effect = [classificacao, sintese]
+
+        resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
+        self.assertEqual(resp.status_code, 302)
+
+        topico = Topico.objects.get(disciplina=self.disc)
+        self.assertEqual(topico.nome, 'Tema Único')
+        self.assertEqual(
+            set(topico.questoes.values_list('pk', flat=True)),
+            {self.questao.pk, self.q2.pk},
+        )
+        self.assertEqual(topico.texto.status, TextoTopico.Status.CONCLUIDO)
+        self.assertIn('Texto do tópico', topico.texto.texto_md)
+
+        profile = self.user.profile
+        profile.refresh_from_db()
+        self.assertGreater(profile.tokens_usados_mes, 0)
+
+    @patch('ai.services.get_client')
+    def test_sobras_vao_para_outros_temas_e_lote_e_submetido(self, get_client):
+        get_client.return_value.messages.create.side_effect = [
+            self._classificacao_fake([
+                {'nome': 'Tema A', 'descricao': '', 'questoes': [self.questao.pk]},
+            ]),
+        ]
+        get_client.return_value.messages.batches.create.return_value = SimpleNamespace(id='batch_teste')
+        get_client.return_value.messages.batches.retrieve.return_value = SimpleNamespace(
+            processing_status='in_progress',
+        )
+
+        self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
+
+        nomes = set(Topico.objects.values_list('nome', flat=True))
+        self.assertEqual(nomes, {'Tema A', 'Outros temas'})
+        self.q2.refresh_from_db()
+        self.assertEqual(self.q2.topico.nome, 'Outros temas')
+
+        textos = TextoTopico.objects.all()
+        self.assertEqual(textos.count(), 2)
+        for t in textos:
+            self.assertEqual(t.status, TextoTopico.Status.PROCESSANDO)
+            self.assertEqual(t.batch_id, 'batch_teste')
+
+    @patch('ai.services.get_client')
+    def test_regerar_apaga_topicos_e_textos_anteriores(self, get_client):
+        antigo = Topico.objects.create(disciplina=self.disc, nome='Velho')
+        TextoTopico.objects.create(topico=antigo, status=TextoTopico.Status.CONCLUIDO)
+        self.questao.topico = antigo
+        self.questao.save(update_fields=['topico'])
+
+        get_client.return_value.messages.create.side_effect = [
+            self._classificacao_fake([
+                {'nome': 'Novo', 'descricao': '',
+                 'questoes': [self.questao.pk, self.q2.pk]},
+            ]),
+            _resposta_fake(texto='Texto novo.'),
+        ]
+        self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
+
+        self.assertFalse(Topico.objects.filter(nome='Velho').exists())
+        self.assertEqual(Topico.objects.count(), 1)
+        self.assertEqual(TextoTopico.objects.count(), 1)
+        self.questao.refresh_from_db()
+        self.assertEqual(self.questao.topico.nome, 'Novo')
+
+    def test_gerar_topicos_bloqueia_sem_quota(self):
+        profile = self.user.profile
+        profile.quota_tokens_mes = 10
+        profile.save()
+        resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]), follow=True)
+        self.assertFalse(Topico.objects.exists())
+        mensagens = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('Quota de IA insuficiente' in m for m in mensagens))
+
+    def test_conteudo_topico_inclui_enunciados_gabaritos_e_analises(self):
+        topico = Topico.objects.create(disciplina=self.disc, nome='Tema')
+        self.disc.questoes.update(topico=topico)
+        ResultadoPrompt.objects.create(
+            questao=self.questao, prompt=self.prompt,
+            status=ResultadoPrompt.Status.CONCLUIDO, resultado_md='Ponto exclusivo da Q1.',
+        )
+        ResultadoPrompt.objects.create(
+            questao=self.q2, prompt=self.prompt,
+            status=ResultadoPrompt.Status.ERRO, resultado_md='Não deve entrar.',
+        )
+        conteudo = montar_conteudo_topico(topico)
+        self.assertIn('Enunciado da questão', conteudo)
+        self.assertIn('Outro enunciado', conteudo)
+        self.assertIn('Gabarito: A', conteudo)
+        self.assertIn('Ponto exclusivo da Q1.', conteudo)
+        self.assertNotIn('Não deve entrar.', conteudo)
+
+    def test_params_sintese_com_cache_move_instrucoes_para_system(self):
+        topico = Topico.objects.create(disciplina=self.disc, nome='Tema')
+        self.disc.questoes.update(topico=topico)
+        params = _params_sintese(topico, cache_prompt=True)
+        system = params['system']
+        self.assertIsInstance(system, list)
+        self.assertEqual(system[-1]['cache_control'], {'type': 'ephemeral'})
+        self.assertIn('TODAS as informações relevantes', system[-1]['text'])
+        self.assertIn('Enunciado da questão', params['messages'][0]['content'])
+
+    def test_estimar_tokens_topicos_positivo(self):
+        self.assertGreater(estimar_tokens_topicos([self.questao, self.q2]), 0)
+        self.assertEqual(estimar_tokens_topicos([]), 0)
+
+    def test_status_endpoint(self):
+        topico = Topico.objects.create(disciplina=self.disc, nome='Tema')
+        TextoTopico.objects.create(topico=topico, status=TextoTopico.Status.CONCLUIDO)
+        resp = self.client.get(reverse('questions:topicos_status', args=[self.disc.pk]))
+        data = resp.json()
+        self.assertEqual(data['total'], 1)
+        self.assertEqual(data['concluidos'], 1)
+        self.assertFalse(data['em_processamento'])
