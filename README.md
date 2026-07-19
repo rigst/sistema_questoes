@@ -44,3 +44,9 @@ python manage.py test
 - `deploy/` traz Gunicorn, systemd (`questoes.service`, `questoes_celery.service`) e Nginx.
 - Worker + Beat: `celery -A config worker --beat -l info` (Beat limpa visitantes expirados).
 - `python manage.py collectstatic`.
+
+## Licença
+
+Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).
+
+O sistema utiliza [PyMuPDF](https://github.com/pymupdf/PyMuPDF), licenciado sob AGPL-3.0 pela Artifex Software. Em conformidade com a cláusula de rede da AGPL (§13), o código-fonte completo deste sistema está disponível em <https://github.com/rigst/sistema_questoes>.

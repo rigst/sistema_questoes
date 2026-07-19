@@ -11,10 +11,8 @@
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
 
-    <!-- Fontes do tema "Bancada": Fraunces (display) + Inter + IBM Plex Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,550;9..144,650&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Fontes do tema "Bancada": Fraunces (display) + Inter + IBM Plex Mono (auto-hospedadas) -->
+    <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
 
     <link rel="stylesheet" href="{% static 'css/questoes.css' %}">
     {% block extra_css %}{% endblock %}
@@ -110,7 +108,7 @@
             <div class="site-footer-inner">
                 <div class="site-footer-brand-block">
                     <p class="site-footer-brand">Estudo por Questões</p>
-                    <p class="site-footer-copy">Um app <a href="https://stolben.com/" target="_blank" rel="noopener">Stölben</a> · &copy; 2026</p>
+                    <p class="site-footer-copy">Um app <a href="https://stolben.com/" target="_blank" rel="noopener">Stölben</a> · &copy; 2026 · <a href="https://github.com/rigst/sistema_questoes" target="_blank" rel="noopener">Código-fonte (AGPL-3.0)</a></p>
                 </div>
                 <ul class="site-footer-points">
                     <li><span class="site-footer-dot"></span> Importa PDFs de concurso</li>
