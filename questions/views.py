@@ -72,6 +72,11 @@ def disciplina(request, pk):
     topicos_classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
     contexto.update({
         'topicos': topicos,
+        'total_analisadas': disc.questoes.filter(Exists(
+            ResultadoPrompt.objects.filter(
+                questao=OuterRef('pk'), status=ResultadoPrompt.Status.CONCLUIDO,
+            )
+        )).count(),
         'topicos_classificando': topicos_classificando,
         'topicos_gerando': topicos_classificando or TextoTopico.objects.filter(
             topico__disciplina=disc,

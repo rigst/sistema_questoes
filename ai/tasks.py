@@ -78,7 +78,7 @@ def coletar_batch(self, batch_id):
 
 @shared_task
 def gerar_topicos(disciplina_id):
-    """Classifica as questões da disciplina em tópicos e submete as sínteses.
+    """Classifica as questões analisadas da disciplina em tópicos e submete as sínteses.
 
     1. Uma chamada de classificação (structured outputs) agrupa as questões.
     2. Cria os Topico e associa as questões; sobras vão para "Outros temas".
@@ -95,10 +95,17 @@ def gerar_topicos(disciplina_id):
         return 'disciplina inexistente'
 
     profile = getattr(disc.prova.user, 'profile', None)
-    questoes = list(disc.questoes.all())
+    # Só questões com análise concluída: as análises são a matéria-prima
+    # dos textos, então questões sem análise ficam fora dos tópicos.
+    from django.db.models import Exists, OuterRef
+    questoes = list(disc.questoes.filter(Exists(
+        ResultadoPrompt.objects.filter(
+            questao=OuterRef('pk'), status=ResultadoPrompt.Status.CONCLUIDO,
+        )
+    )))
     if not questoes:
         cache.delete(chave_topicos_classificando(disciplina_id))
-        return 'sem questões'
+        return 'sem questões analisadas'
 
     try:
         grupos = services.classificar_topicos_via_ia(questoes, profile=profile)

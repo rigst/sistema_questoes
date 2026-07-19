@@ -193,6 +193,13 @@ class TopicosTests(BaseIATestCase):
         self.q2 = Questao.objects.create(
             disciplina=self.disc, numero=2, enunciado_md='Outro enunciado', gabarito='B',
         )
+        # Os tópicos são gerados só com questões que têm análise concluída.
+        for q in (self.questao, self.q2):
+            ResultadoPrompt.objects.create(
+                questao=q, prompt=self.prompt,
+                status=ResultadoPrompt.Status.CONCLUIDO,
+                resultado_md=f'Análise da questão {q.numero}.',
+            )
 
     def _classificacao_fake(self, topicos):
         import json
@@ -269,6 +276,38 @@ class TopicosTests(BaseIATestCase):
         self.assertEqual(TextoTopico.objects.count(), 1)
         self.questao.refresh_from_db()
         self.assertEqual(self.questao.topico.nome, 'Novo')
+
+    @patch('ai.services.get_client')
+    def test_questoes_sem_analise_ficam_fora(self, get_client):
+        q3 = Questao.objects.create(
+            disciplina=self.disc, numero=3, enunciado_md='Questão sem análise',
+        )
+        get_client.return_value.messages.create.side_effect = [
+            self._classificacao_fake([
+                {'nome': 'Tema', 'descricao': '',
+                 'questoes': [self.questao.pk, self.q2.pk]},
+            ]),
+            _resposta_fake(texto='Texto.'),
+        ]
+        resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]), follow=True)
+
+        q3.refresh_from_db()
+        self.assertIsNone(q3.topico)
+        self.assertEqual(Topico.objects.count(), 1)
+        # A questão sem análise não vai nem para "Outros temas"
+        self.assertFalse(Topico.objects.filter(nome='Outros temas').exists())
+        # O enunciado dela não entra na chamada de classificação
+        primeira_chamada = get_client.return_value.messages.create.call_args_list[0]
+        self.assertNotIn('Questão sem análise', primeira_chamada.kwargs['messages'][0]['content'])
+        mensagens = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('1 questão(ões) sem análise ficaram de fora' in m for m in mensagens))
+
+    def test_bloqueia_quando_nenhuma_questao_tem_analise(self):
+        ResultadoPrompt.objects.all().delete()
+        resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]), follow=True)
+        self.assertFalse(Topico.objects.exists())
+        mensagens = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('Nenhuma questão tem análise concluída' in m for m in mensagens))
 
     def test_gerar_topicos_bloqueia_sem_quota(self):
         profile = self.user.profile

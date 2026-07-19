@@ -134,16 +134,28 @@ def gerar_comentarios(request):
 @login_required
 @require_POST
 def gerar_topicos(request, disciplina_pk):
-    """Agrupa as questões da disciplina em tópicos e gera o texto de estudo
-    de cada um. Regerar apaga os tópicos e textos anteriores."""
+    """Agrupa as questões ANALISADAS da disciplina em tópicos e gera o texto
+    de estudo de cada um. Questões sem análise concluída ficam de fora — as
+    análises são a matéria-prima dos textos. Regerar apaga os anteriores."""
+    from django.db.models import Exists, OuterRef
+
     disc = get_object_or_404(Disciplina, pk=disciplina_pk, prova__user=request.user)
-    questoes = list(disc.questoes.all())
-    if not questoes:
-        messages.error(request, 'Importe questões antes de gerar os tópicos.')
+    total = disc.questoes.count()
+    analisadas = list(disc.questoes.filter(Exists(
+        ResultadoPrompt.objects.filter(
+            questao=OuterRef('pk'), status=ResultadoPrompt.Status.CONCLUIDO,
+        )
+    )))
+    if not analisadas:
+        messages.error(
+            request,
+            'Nenhuma questão tem análise concluída. Gere as análises antes — '
+            'os tópicos e textos são construídos a partir delas.',
+        )
         return _redir(request)
 
     profile = getattr(request.user, 'profile', None)
-    estimados = estimar_tokens_topicos(questoes)
+    estimados = estimar_tokens_topicos(analisadas)
     if profile is not None and not profile.tem_quota(estimados):
         messages.error(
             request,
@@ -152,24 +164,16 @@ def gerar_topicos(request, disciplina_pk):
         )
         return _redir(request)
 
-    sem_analise = sum(
-        1 for q in questoes
-        if not q.resultados.filter(status=ResultadoPrompt.Status.CONCLUIDO).exists()
-    )
-
     disc.topicos.all().delete()
     cache.delete(chave_topicos_erro(disc.pk))
     cache.set(chave_topicos_classificando(disc.pk), 1, 3600)
     gerar_topicos_task.delay(disc.pk)
 
-    aviso = (
-        f' Atenção: {sem_analise} questão(ões) ainda sem análise — os textos '
-        'ficam mais completos se as análises forem geradas antes.'
-        if sem_analise else ''
-    )
+    fora = total - len(analisadas)
+    aviso = f' {fora} questão(ões) sem análise ficaram de fora.' if fora else ''
     messages.success(
         request,
-        f'Gerando tópicos e textos de estudo para {len(questoes)} questão(ões).{aviso}',
+        f'Gerando tópicos e textos com {len(analisadas)} questão(ões) analisada(s).{aviso}',
     )
     return _redir(request)
 

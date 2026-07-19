@@ -182,15 +182,18 @@
                       style="margin:0;">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="btn btn-primary btn-compact" {% if topicos_gerando %}disabled{% endif %}>
+                    <button type="submit" class="btn btn-primary btn-compact"
+                            {% if topicos_gerando or not total_analisadas %}disabled{% endif %}
+                            {% if not total_analisadas %}title="Gere as análises das questões primeiro"{% endif %}>
                         {% if topicos %}Regerar tópicos{% else %}Gerar tópicos e textos{% endif %}
                     </button>
                 </form>
             </div>
         </div>
         <p class="muted" style="margin-top:-.5rem;margin-bottom:.75rem;font-size:.85rem;">
-            A IA agrupa as questões por tema e escreve um texto de estudo por tópico, reunindo
-            sem repetição todas as informações das análises. Gere as análises antes para textos mais completos.
+            A IA agrupa por tema as questões <strong>que já têm análise</strong>
+            ({{ total_analisadas }} de {{ total_questoes }}) e escreve um texto de estudo por tópico,
+            reunindo sem repetição todas as informações das análises. Questões sem análise ficam de fora.
         </p>
 
         <div id="topicos-banner" class="disc-banner disc-banner-processing" {% if not topicos_gerando %}hidden{% endif %}>
@@ -231,7 +234,10 @@
         </details>
         {% empty %}
             {% if not topicos_gerando %}
-            <div class="empty-state"><p>Nenhum tópico ainda. Clique em "Gerar tópicos e textos" para agrupar as questões por tema.</p></div>
+            <div class="empty-state"><p>
+                {% if total_analisadas %}Nenhum tópico ainda. Clique em "Gerar tópicos e textos" para agrupar as questões analisadas por tema.
+                {% else %}Nenhum tópico ainda. Gere as análises das questões primeiro — os tópicos e textos são construídos a partir delas.{% endif %}
+            </p></div>
             {% endif %}
         {% endfor %}
     {% else %}
