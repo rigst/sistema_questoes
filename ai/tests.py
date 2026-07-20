@@ -1,6 +1,6 @@
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -35,6 +35,25 @@ def _resposta_fake(texto='**Análise.**', input_tokens=200, output_tokens=100):
     )
 
 
+def _mock_stream(get_client_mock, resposta_ou_lista):
+    """Configura get_client().messages.stream(...) — usado por _criar_mensagem
+    no lugar de messages.create() — para devolver a(s) resposta(s) via
+    get_final_message(), como create() devolvia diretamente antes."""
+    def _context_manager(resposta):
+        cm = MagicMock()
+        cm.__enter__.return_value.get_final_message.return_value = resposta
+        cm.__exit__.return_value = False
+        return cm
+
+    stream_mock = get_client_mock.return_value.messages.stream
+    if isinstance(resposta_ou_lista, Exception):
+        stream_mock.side_effect = resposta_ou_lista
+    elif isinstance(resposta_ou_lista, list):
+        stream_mock.side_effect = [_context_manager(r) for r in resposta_ou_lista]
+    else:
+        stream_mock.return_value = _context_manager(resposta_ou_lista)
+
+
 class BaseIATestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user('ana', password='x')
@@ -50,7 +69,7 @@ class BaseIATestCase(TestCase):
 class AplicarPromptTests(BaseIATestCase):
     @patch('ai.services.get_client')
     def test_aplicar_conclui_resultado_e_debita_quota(self, get_client):
-        get_client.return_value.messages.create.return_value = _resposta_fake()
+        _mock_stream(get_client, _resposta_fake())
 
         resp = self.client.post(
             reverse('ai:aplicar', args=[self.questao.pk]),
@@ -84,7 +103,7 @@ class AplicarPromptTests(BaseIATestCase):
 
     @patch('ai.services.get_client')
     def test_lote_sequencial_marca_erro_sem_travar_questao(self, get_client):
-        get_client.return_value.messages.create.side_effect = RuntimeError('api indisponível')
+        _mock_stream(get_client, RuntimeError('api indisponível'))
         resultado = ResultadoPrompt.objects.create(questao=self.questao, prompt=self.prompt)
         self.questao.status = Questao.Status.NA_FILA
         self.questao.save(update_fields=['status'])
@@ -99,7 +118,7 @@ class AplicarPromptTests(BaseIATestCase):
 
     @patch('ai.services.get_client')
     def test_aplicar_funciona_com_prompt_padrao(self, get_client):
-        get_client.return_value.messages.create.return_value = _resposta_fake()
+        _mock_stream(get_client, _resposta_fake())
         padrao = Prompt.objects.get(user__isnull=True)
         resp = self.client.post(
             reverse('ai:aplicar', args=[self.questao.pk]),
@@ -164,22 +183,22 @@ class ParametrosModeloTests(BaseIATestCase):
 class AnaliseUnicaTests(BaseIATestCase):
     @patch('ai.services.get_client')
     def test_gerar_analise_salva_resultado_unico(self, get_client):
-        get_client.return_value.messages.create.return_value = _resposta_fake(
+        _mock_stream(get_client, _resposta_fake(
             texto='A regra central é X (art. 1º).\n\nA alternativa (B) erra porque...',
             input_tokens=800, output_tokens=400,
-        )
+        ))
         resp = self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]})
         self.assertEqual(resp.status_code, 302)
         resultado = ResultadoPrompt.objects.get(questao=self.questao, prompt__user__isnull=True)
         self.assertEqual(resultado.status, ResultadoPrompt.Status.CONCLUIDO)
         self.assertIn('regra central', resultado.resultado_md)
-        self.assertEqual(get_client.return_value.messages.create.call_count, 1)
+        self.assertEqual(get_client.return_value.messages.stream.call_count, 1)
         self.questao.refresh_from_db()
         self.assertEqual(self.questao.status, Questao.Status.CONCLUIDA)
 
     @patch('ai.services.get_client')
     def test_gerar_analise_pula_ja_prontas(self, get_client):
-        get_client.return_value.messages.create.return_value = _resposta_fake(texto='Análise.')
+        _mock_stream(get_client, _resposta_fake(texto='Análise.'))
         self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]})
         antes = ResultadoPrompt.objects.count()
         resp = self.client.post(reverse('ai:gerar_comentarios'), {'questao_ids': [self.questao.pk]}, follow=True)
@@ -241,9 +260,9 @@ class TetoDeGastosTests(BaseIATestCase):
 
         # Resposta muito maior que qualquer estimativa razoável para questões
         # curtas — o gasto real já estoura o teto logo no primeiro item.
-        get_client.return_value.messages.create.return_value = _resposta_fake(
+        _mock_stream(get_client, _resposta_fake(
             texto='Resposta.', input_tokens=100, output_tokens=50000,
-        )
+        ))
 
         resultado_msg = processar_lote([r1.pk, r2.pk, r3.pk], usar_lote=False)
 
@@ -254,7 +273,7 @@ class TetoDeGastosTests(BaseIATestCase):
         self.assertEqual(r2.status, ResultadoPrompt.Status.ERRO)
         self.assertIn('teto de gastos', r2.erro)
         self.assertEqual(r3.status, ResultadoPrompt.Status.ERRO)
-        self.assertEqual(get_client.return_value.messages.create.call_count, 1)
+        self.assertEqual(get_client.return_value.messages.stream.call_count, 1)
         self.assertIn('pulado', resultado_msg)
 
         q2.refresh_from_db()
@@ -301,7 +320,7 @@ class TetoDeGastosTests(BaseIATestCase):
             grupos.append({'nome': f'Tema {i}', 'descricao': '', 'questoes': [q.pk]})
 
         classificacao = _resposta_fake(texto=json.dumps({'topicos': grupos}))
-        get_client.return_value.messages.create.return_value = classificacao
+        _mock_stream(get_client, classificacao)
         mock_estimar_sintese.side_effect = [4000, 1000]  # chunk1 (25 tópicos), chunk2 (2 tópicos)
         mock_submeter.return_value = 'batch_y'
 
@@ -341,7 +360,7 @@ class TopicosTests(BaseIATestCase):
              'questoes': [self.questao.pk, self.q2.pk]},
         ])
         sintese = _resposta_fake(texto='## Texto do tópico', input_tokens=500, output_tokens=300)
-        get_client.return_value.messages.create.side_effect = [classificacao, sintese]
+        _mock_stream(get_client, [classificacao, sintese])
 
         resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
         self.assertEqual(resp.status_code, 302)
@@ -363,14 +382,14 @@ class TopicosTests(BaseIATestCase):
     def test_classificacao_usa_effort_e_max_tokens_maior_em_disciplina_grande(self, get_client):
         from django.test import override_settings
 
-        get_client.return_value.messages.create.return_value = self._classificacao_fake(
+        _mock_stream(get_client, self._classificacao_fake(
             [{'nome': 'Tema', 'descricao': 'x', 'questoes': list(range(1, 301))}]
-        )
+        ))
         questoes_grandes = [SimpleNamespace(pk=i, enunciado_md=f'Enunciado {i}') for i in range(1, 301)]
         with override_settings(AI_MODEL='claude-sonnet-5', AI_MAX_TOKENS=16000, AI_EFFORT='low'):
             classificar_topicos_via_ia(questoes_grandes)
 
-        kwargs = get_client.return_value.messages.create.call_args.kwargs
+        kwargs = get_client.return_value.messages.stream.call_args.kwargs
         self.assertEqual(kwargs['thinking'], {'type': 'adaptive'})
         self.assertEqual(kwargs['output_config']['effort'], 'low')
         self.assertGreater(kwargs['max_tokens'], 16000)
@@ -380,18 +399,18 @@ class TopicosTests(BaseIATestCase):
         resposta_vazia = SimpleNamespace(
             content=[], usage=SimpleNamespace(input_tokens=100, output_tokens=0), stop_reason='max_tokens',
         )
-        get_client.return_value.messages.create.return_value = resposta_vazia
+        _mock_stream(get_client, resposta_vazia)
         with self.assertRaises(IAError) as ctx:
             classificar_topicos_via_ia([self.questao, self.q2])
         self.assertIn('max_tokens', str(ctx.exception))
 
     @patch('ai.services.get_client')
     def test_sobras_vao_para_outros_temas_e_lote_e_submetido(self, get_client):
-        get_client.return_value.messages.create.side_effect = [
+        _mock_stream(get_client, [
             self._classificacao_fake([
                 {'nome': 'Tema A', 'descricao': '', 'questoes': [self.questao.pk]},
             ]),
-        ]
+        ])
         get_client.return_value.messages.batches.create.return_value = SimpleNamespace(id='batch_teste')
         get_client.return_value.messages.batches.retrieve.return_value = SimpleNamespace(
             processing_status='in_progress',
@@ -417,13 +436,13 @@ class TopicosTests(BaseIATestCase):
         self.questao.topico = antigo
         self.questao.save(update_fields=['topico'])
 
-        get_client.return_value.messages.create.side_effect = [
+        _mock_stream(get_client, [
             self._classificacao_fake([
                 {'nome': 'Novo', 'descricao': '',
                  'questoes': [self.questao.pk, self.q2.pk]},
             ]),
             _resposta_fake(texto='Texto novo.'),
-        ]
+        ])
         self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
 
         self.assertFalse(Topico.objects.filter(nome='Velho').exists())
@@ -437,13 +456,13 @@ class TopicosTests(BaseIATestCase):
         q3 = Questao.objects.create(
             disciplina=self.disc, numero=3, enunciado_md='Questão sem análise',
         )
-        get_client.return_value.messages.create.side_effect = [
+        _mock_stream(get_client, [
             self._classificacao_fake([
                 {'nome': 'Tema', 'descricao': '',
                  'questoes': [self.questao.pk, self.q2.pk]},
             ]),
             _resposta_fake(texto='Texto.'),
-        ]
+        ])
         resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]), follow=True)
 
         q3.refresh_from_db()
@@ -452,7 +471,7 @@ class TopicosTests(BaseIATestCase):
         # A questão sem análise não vai nem para "Outros temas"
         self.assertFalse(Topico.objects.filter(nome='Outros temas').exists())
         # O enunciado dela não entra na chamada de classificação
-        primeira_chamada = get_client.return_value.messages.create.call_args_list[0]
+        primeira_chamada = get_client.return_value.messages.stream.call_args_list[0]
         self.assertNotIn('Questão sem análise', primeira_chamada.kwargs['messages'][0]['content'])
         mensagens = [str(m) for m in resp.context['messages']]
         self.assertTrue(any('1 questão(ões) sem análise ficaram de fora' in m for m in mensagens))

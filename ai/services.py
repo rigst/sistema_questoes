@@ -104,6 +104,18 @@ def get_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
+def _criar_mensagem(client, params):
+    """Equivalente a client.messages.create(**params), mas via streaming.
+
+    Chamadas com max_tokens alto (tópicos/disciplinas grandes, thinking
+    adaptativo) podem passar de 10 minutos, e o SDK exige streaming nesse
+    caso — ver https://github.com/anthropics/anthropic-sdk-python#long-requests.
+    stream.get_final_message() devolve o mesmo objeto Message de sempre.
+    """
+    with client.messages.stream(**params) as stream:
+        return stream.get_final_message()
+
+
 def estimar_tokens(questoes, prompt):
     """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
     out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 900)
@@ -200,7 +212,7 @@ def aplicar_resultado_sincrono(resultado, profile=None):
 
     try:
         client = get_client()
-        resp = client.messages.create(**_params_aplicacao(questao, prompt))
+        resp = _criar_mensagem(client, _params_aplicacao(questao, prompt))
 
         texto = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
         it = resp.usage.input_tokens
@@ -243,13 +255,13 @@ def separar_questoes_via_ia(texto, profile=None):
         '"deagração" → "deflagração") e quebras de linha no meio de frases — '
         'corrija-os ao transcrever, sem alterar o conteúdo. Texto:\n\n' + texto[:120000]
     )
-    resp = client.messages.create(
-        model=getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
-        max_tokens=getattr(settings, 'AI_MAX_TOKENS', 16000),
-        system='Você extrai questões de provas de concurso de forma estruturada.',
-        messages=[{'role': 'user', 'content': instrucao}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA_QUESTOES}},
-    )
+    resp = _criar_mensagem(client, {
+        'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
+        'max_tokens': getattr(settings, 'AI_MAX_TOKENS', 16000),
+        'system': 'Você extrai questões de provas de concurso de forma estruturada.',
+        'messages': [{'role': 'user', 'content': instrucao}],
+        'output_config': {'format': {'type': 'json_schema', 'schema': SCHEMA_QUESTOES}},
+    })
     texto_json = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
     if profile is not None:
         profile.registrar_uso(
@@ -416,7 +428,7 @@ def classificar_topicos_via_ia(questoes, profile=None):
     if _suporta_adaptive(modelo):
         params['thinking'] = {'type': 'adaptive'}
         output_config['effort'] = getattr(settings, 'AI_EFFORT', 'medium')
-    resp = client.messages.create(**params)
+    resp = _criar_mensagem(client, params)
     texto_json = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
     if not texto_json:
         raise IAError(
@@ -493,7 +505,7 @@ def sintetizar_texto_sincrono(texto, profile=None):
             params['thinking'] = {'type': 'adaptive'}
             params['output_config'] = {'effort': getattr(settings, 'AI_EFFORT', 'medium')}
         client = get_client()
-        resp = client.messages.create(**params)
+        resp = _criar_mensagem(client, params)
 
         corpo = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
         it = resp.usage.input_tokens
