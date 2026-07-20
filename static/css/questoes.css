@@ -64,13 +64,11 @@
   --radius-md: 12px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-  --max-width: 1320px;
-  /* A leitura corrida tem medida própria: alargar a página não pode alargar
-     a linha de texto além do confortável. */
-  --max-width-leitura: 900px;
-  /* Listas longas leem melhor estreitas; a página segue larga
-     para as laterais aparecerem. */
-  --max-width-lista: 940px;
+  /* Medida única da coluna de conteúdo: todas as páginas ocupam a mesma
+     faixa horizontal. Quem precisa de menos (formulários, cartões) encolhe
+     por dentro; ninguém alarga por fora. A prosa tem seu próprio teto em
+     ch, dentro desta coluna. */
+  --max-width: 960px;
   --shadow-sheet: 0 1px 2px rgba(29, 37, 52, 0.05), 0 10px 30px rgba(29, 37, 52, 0.07);
   --shadow-pop: 0 24px 60px rgba(29, 37, 52, 0.22);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -252,7 +250,7 @@ body {
    o motivo da marca — descendo pelas duas bordas, tingida pelo marca-texto
    (esquerda) e pela caneta azul (direita), bem leve, atrás de tudo.
    Só aparece onde há espaço sobrando, nunca sob o conteúdo. */
-@media (min-width: 1500px) {
+@media (min-width: 1280px) {
   body::before,
   body::after {
     content: "";
@@ -260,7 +258,7 @@ body {
     top: 0;
     bottom: 0;
     z-index: -1;
-    width: max(96px, calc(50vw - 700px));
+    width: max(96px, calc(50vw - 540px));
     pointer-events: none;
     opacity: var(--lado-op, 0.14);
     -webkit-mask: url("../img/lateral-cartao.svg") center top / 160px auto repeat-y;
@@ -1446,7 +1444,7 @@ body.modal-open { overflow: hidden; }
 
 
 /* ---- página de leitura do tópico ---- */
-.leitura { max-width: var(--max-width-leitura); margin: 0 auto; }
+.leitura { margin: 0 auto; }
 .leitura-head { margin-bottom: 1.8rem; }
 .leitura-head h1 { font-size: 1.9rem; margin: 0 0 .5rem; }
 .leitura-desc { color: var(--muted); font-size: .95rem; font-style: italic; margin: 0 0 .7rem; }
@@ -1585,11 +1583,6 @@ body.modal-open { overflow: hidden; }
 
 /* Listas longas ficam na medida de leitura, centradas: a página segue larga
    (as laterais aparecem), o texto não. */
-.topico-lista,
-.leitura-progresso,
-#painel-questoes > form,
-#painel-questoes .pagination { max-width: var(--max-width-lista); margin-left: auto; margin-right: auto; }
-
 /* ---- marcação do texto de estudo ---------------------------------------- */
 
 /* Marca-texto: o motivo da marca aplicado ao que a IA destacou como decisivo.
@@ -1952,11 +1945,7 @@ body.modal-open { overflow: hidden; }
   .leitura-prog-track { width: 74px; }
 }
 
-/* ---- dashboard na mesma medida das demais páginas ----------------------- */
-/* A dashboard nasceu ocupando os 1320px do container e destoava do resto do
-   app, que lê em 940px. */
-.painel-estudo,
-.dashboard-conteudo { max-width: var(--max-width-lista); margin-left: auto; margin-right: auto; }
+
 
 /* ---- navegação entre tópicos no topo da leitura ------------------------- */
 .leitura-nav-topo {
