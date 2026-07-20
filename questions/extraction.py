@@ -173,15 +173,38 @@ def _eh_ruido(linha, ruido):
 def _detectar_gabarito(texto_paginas):
     """Detecta o gabarito por grade ('1 D 2 A ...') ou por seção 'GABARITO'."""
     mapa = {}
+    # A grade quase sempre termina numa linha parcial, quando o total de
+    # questões não é múltiplo da largura da linha ("353 E 354 B" ao fim de uma
+    # grade de 8 por linha). Ela não passa no mínimo de 3 pares, então fica
+    # guardada e só entra se realmente continuar a grade já reconhecida.
+    parciais = []
     for tp in texto_paginas:
         for linha in tp.split('\n'):
             pares = RE_GABARITO_PAR.findall(linha)
+            if not pares:
+                continue
+            resto = RE_GABARITO_PAR.sub('', linha).strip()
             if len(pares) >= 3:
-                resto = RE_GABARITO_PAR.sub('', linha).strip()
                 if len(resto) <= len(linha) * 0.35:
                     for num, letra in pares:
                         mapa[int(num)] = letra.upper()
+            elif not resto:
+                parciais.append(pares)
+
     if mapa:
+        # Encaixa as linhas parciais que emendam no fim da grade. Exigir a
+        # continuidade evita capturar um "1 A" solto de legenda ou rodapé.
+        pendentes = list(parciais)
+        avancou = True
+        while avancou and pendentes:
+            avancou = False
+            for pares in list(pendentes):
+                numeros = [int(n) for n, _ in pares]
+                if min(numeros) == max(mapa) + 1 and not (set(numeros) & set(mapa)):
+                    for num, letra in pares:
+                        mapa[int(num)] = letra.upper()
+                    pendentes.remove(pares)
+                    avancou = True
         return mapa
 
     # Fallback: seção textual após a palavra GABARITO.

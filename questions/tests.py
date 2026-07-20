@@ -436,3 +436,40 @@ class ParserAlternativasTests(TestCase):
             cwd=base, capture_output=True, text=True, timeout=60,
         )
         self.assertEqual(r.returncode, 0, msg=r.stdout + r.stderr)
+
+
+class GabaritoGradeTests(TestCase):
+    """A grade de gabarito quase sempre termina numa linha parcial, quando o
+    total de questões não é múltiplo da largura da linha. Ela tem menos pares
+    que o mínimo exigido e por isso ficava de fora — foi o que deixou as
+    questões 353 e 354 de Direito Penal sem gabarito."""
+
+    def test_linha_final_parcial_da_grade_entra(self):
+        paginas = [
+            'GABARITO\n'
+            '1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n'
+            '9 D 10 E 11 A 12 B 13 C 14 D 15 E 16 A\n'
+            '17 B 18 C\n'
+        ]
+        mapa = extraction._detectar_gabarito(paginas)
+        self.assertEqual(len(mapa), 18)
+        self.assertEqual(mapa[17], 'B')
+        self.assertEqual(mapa[18], 'C')
+
+    def test_par_solto_fora_da_sequencia_nao_entra(self):
+        # "1 A" de legenda/rodapé não pode virar gabarito: não emenda no fim.
+        paginas = [
+            '10 A 11 B 12 C 13 D 14 E 15 A\n'
+            '1 A\n'
+            '99 E\n'
+        ]
+        mapa = extraction._detectar_gabarito(paginas)
+        self.assertEqual(sorted(mapa), [10, 11, 12, 13, 14, 15])
+
+    def test_linha_parcial_com_texto_em_volta_nao_entra(self):
+        paginas = [
+            '1 A 2 B 3 C 4 D 5 E 6 A\n'
+            'conforme o art. 7 A da lei\n'
+        ]
+        mapa = extraction._detectar_gabarito(paginas)
+        self.assertEqual(sorted(mapa), [1, 2, 3, 4, 5, 6])
