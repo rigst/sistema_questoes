@@ -60,7 +60,10 @@
   --radius-md: 12px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-  --max-width: 1120px;
+  --max-width: 1320px;
+  /* A leitura corrida tem medida própria: alargar a página não pode alargar
+     a linha de texto além do confortável. */
+  --max-width-leitura: 900px;
   --shadow-sheet: 0 1px 2px rgba(29, 37, 52, 0.05), 0 10px 30px rgba(29, 37, 52, 0.07);
   --shadow-pop: 0 24px 60px rgba(29, 37, 52, 0.22);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -230,6 +233,43 @@ body {
   background-image: radial-gradient(820px 380px at 50% -8%, rgba(233, 172, 51, 0.07), transparent 60%);
   background-attachment: fixed;
 }
+
+/* Laterais decorativas nas telas largas: a coluna de um cartão-resposta —
+   o motivo da marca — descendo pelas duas bordas, tingida pelo marca-texto
+   (esquerda) e pela caneta azul (direita), bem leve, atrás de tudo.
+   Só aparece onde há espaço sobrando, nunca sob o conteúdo. */
+@media (min-width: 1500px) {
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: -1;
+    width: max(96px, calc(50vw - 700px));
+    pointer-events: none;
+    opacity: var(--lado-op, 0.14);
+    -webkit-mask: url("../img/lateral-cartao.svg") center top / 160px auto repeat-y;
+    mask: url("../img/lateral-cartao.svg") center top / 160px auto repeat-y;
+  }
+  /* marca-texto à esquerda, caneta azul à direita */
+  body::before {
+    left: 0;
+    background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  }
+  body::after {
+    right: 0;
+    background: linear-gradient(180deg, var(--link), var(--accent));
+    transform: scaleX(-1);
+  }
+}
+
+:root { --lado-op: 0.16; }
+:root[data-theme="dark"] { --lado-op: 0.12; }
+:root[data-theme="papel"] { --lado-op: 0.22; }
+:root[data-theme="preto"] { --lado-op: 0.1; }
+
+@media print { body::before, body::after { display: none; } }
 
 h1, h2, h3, h4 {
   font-family: var(--font-display);
@@ -1332,8 +1372,9 @@ body.modal-open { overflow: hidden; }
 
 /* ---- leitura longa do texto do tópico ---- */
 .topico-texto {
-    /* ~68 caracteres por linha: a medida confortável para leitura corrida */
-    max-width: 68ch;
+    /* ~78 caracteres por linha: o teto do confortável para leitura corrida,
+       agora que a página é mais larga */
+    max-width: 78ch;
     font-size: 1.02rem;
     line-height: 1.78;
     color: var(--text-soft);
@@ -1385,7 +1426,7 @@ body.modal-open { overflow: hidden; }
 
 
 /* ---- página de leitura do tópico ---- */
-.leitura { max-width: 780px; margin: 0 auto; }
+.leitura { max-width: var(--max-width-leitura); margin: 0 auto; }
 .leitura-head { margin-bottom: 1.8rem; }
 .leitura-head h1 { font-size: 1.9rem; margin: 0 0 .5rem; }
 .leitura-desc { color: var(--muted); font-size: .95rem; font-style: italic; margin: 0 0 .7rem; }
@@ -1463,3 +1504,57 @@ body.modal-open { overflow: hidden; }
 
 /* denominador discreto no cartão "Tópicos lidos" */
 .stat-card .value-de { color: var(--muted); font-size: .62em; font-weight: 500; }
+
+/* ---- índice de tópicos ---- */
+.topico-lista { list-style: none; margin: 0; padding: 0; }
+.topico-item {
+    display: flex; align-items: flex-start; gap: .75rem;
+    padding: .8rem .9rem; margin-bottom: .45rem;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); transition: border-color .15s ease, background .15s ease;
+}
+.topico-item:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.topico-item.is-lido { background: var(--success-soft); border-color: var(--success-border); }
+.topico-item-vazio { list-style: none; }
+
+.topico-check {
+    flex: none; width: 26px; height: 26px; margin-top: .1rem;
+    border-radius: 50%; border: 1.5px solid var(--border-strong);
+    background: var(--surface); color: transparent;
+    font-size: .82rem; line-height: 1; cursor: pointer;
+    display: grid; place-items: center; transition: .15s;
+}
+.topico-check:hover { border-color: var(--success); }
+.topico-check[data-lido="1"] {
+    background: var(--success); border-color: var(--success); color: #fff;
+}
+
+.topico-link { flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+.topico-link:hover .topico-nome { color: var(--link); text-decoration: underline; }
+.topico-nome {
+    display: block; font-family: var(--font-display); font-weight: 550;
+    font-size: 1.05rem; color: var(--text);
+}
+.topico-resumo {
+    display: block; color: var(--muted); font-size: .84rem;
+    margin-top: .15rem; line-height: 1.5;
+}
+/* O balaio de sobras não compete visualmente com os temas de verdade. */
+.topico-item.is-sobras .topico-nome { color: var(--muted); font-style: italic; }
+.topico-tags { flex: none; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+
+/* Mobile: no índice, as etiquetas descem para baixo do título em vez de
+   disputar a largura com ele (o nome ficava quebrado em 3 linhas). */
+@media (max-width: 560px) {
+  /* Grid: o check acompanha o título na 1ª linha e só as etiquetas descem,
+     alinhadas com o texto. */
+  .topico-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.45rem 0.75rem;
+    align-items: start;
+  }
+  .topico-check { grid-area: 1 / 1; }
+  .topico-link { grid-area: 1 / 2; }
+  .topico-tags { grid-area: 2 / 2; }
+}

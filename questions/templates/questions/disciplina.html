@@ -77,44 +77,6 @@
 }
 .disc-painel[hidden] { display: none; }
 
-/* ---- índice de tópicos ---- */
-.topico-lista { list-style: none; margin: 0; padding: 0; }
-.topico-item {
-    display: flex; align-items: flex-start; gap: .75rem;
-    padding: .8rem .9rem; margin-bottom: .45rem;
-    border: 1px solid var(--border); border-radius: 12px;
-    background: var(--surface); transition: border-color .15s ease, background .15s ease;
-}
-.topico-item:hover { border-color: var(--border-strong); background: var(--surface-2); }
-.topico-item.is-lido { background: var(--success-soft); border-color: var(--success-border); }
-.topico-item-vazio { list-style: none; }
-
-.topico-check {
-    flex: none; width: 26px; height: 26px; margin-top: .1rem;
-    border-radius: 50%; border: 1.5px solid var(--border-strong);
-    background: var(--surface); color: transparent;
-    font-size: .82rem; line-height: 1; cursor: pointer;
-    display: grid; place-items: center; transition: .15s;
-}
-.topico-check:hover { border-color: var(--success); }
-.topico-check[data-lido="1"] {
-    background: var(--success); border-color: var(--success); color: #fff;
-}
-
-.topico-link { flex: 1; min-width: 0; text-decoration: none; color: inherit; }
-.topico-link:hover .topico-nome { color: var(--link); text-decoration: underline; }
-.topico-nome {
-    display: block; font-family: var(--font-display); font-weight: 550;
-    font-size: 1.05rem; color: var(--text);
-}
-.topico-resumo {
-    display: block; color: var(--muted); font-size: .84rem;
-    margin-top: .15rem; line-height: 1.5;
-}
-/* O balaio de sobras não compete visualmente com os temas de verdade. */
-.topico-item.is-sobras .topico-nome { color: var(--muted); font-style: italic; }
-.topico-tags { flex: none; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
-
 @media (max-width: 640px) {
     .topico-body { padding: .2rem 1rem 1.1rem; }
     .topico-texto { font-size: 1rem; }

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="320" viewBox="0 0 160 320" fill="none">
+  <!--
+    Motivo lateral do app: a coluna de um cartão-resposta.
+    Serve de máscara (mask) — só a forma importa, a cor vem do gradiente do
+    CSS. Cada bloco é uma "questão": o número à esquerda e as cinco bolhas,
+    uma delas preenchida, como no gabarito de uma prova real.
+  -->
+  <g fill="#000">
+    <!-- régua da margem, como a linha vertical do caderno de prova -->
+    <rect x="14" y="0" width="1.5" height="320"/>
+
+    <!-- questão 1 — marcada na C -->
+    <rect x="26" y="30" width="12" height="2" rx="1"/>
+    <circle cx="56" cy="31" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="76" cy="31" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="96" cy="31" r="5.5"/>
+    <circle cx="116" cy="31" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="136" cy="31" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+
+    <!-- questão 2 — marcada na A -->
+    <rect x="26" y="93" width="12" height="2" rx="1"/>
+    <circle cx="56" cy="94" r="5.5"/>
+    <circle cx="76" cy="94" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="96" cy="94" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="116" cy="94" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="136" cy="94" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+
+    <!-- questão 3 — marcada na E -->
+    <rect x="26" y="156" width="12" height="2" rx="1"/>
+    <circle cx="56" cy="157" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="76" cy="157" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="96" cy="157" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="116" cy="157" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="136" cy="157" r="5.5"/>
+
+    <!-- questão 4 — marcada na B -->
+    <rect x="26" y="219" width="12" height="2" rx="1"/>
+    <circle cx="56" cy="220" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="76" cy="220" r="5.5"/>
+    <circle cx="96" cy="220" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="116" cy="220" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="136" cy="220" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+
+    <!-- questão 5 — marcada na D -->
+    <rect x="26" y="282" width="12" height="2" rx="1"/>
+    <circle cx="56" cy="283" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="76" cy="283" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="96" cy="283" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+    <circle cx="116" cy="283" r="5.5"/>
+    <circle cx="136" cy="283" r="5.5" stroke="#000" stroke-width="1.6" fill="none"/>
+  </g>
+</svg>
