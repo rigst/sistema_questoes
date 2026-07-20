@@ -94,6 +94,27 @@ SCHEMA_TOPICOS_NOMES = {
     'additionalProperties': False,
 }
 
+# Passe 3: fusão de tópicos redundantes ou pequenos demais.
+SCHEMA_FUSOES = {
+    'type': 'object',
+    'properties': {
+        'fusoes': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'de': {'type': 'integer'},
+                    'para': {'type': 'integer'},
+                },
+                'required': ['de', 'para'],
+                'additionalProperties': False,
+            },
+        }
+    },
+    'required': ['fusoes'],
+    'additionalProperties': False,
+}
+
 # Passe 2: cada questão recebe o índice do tópico a que pertence.
 SCHEMA_ATRIBUICOES = {
     'type': 'object',
@@ -410,6 +431,10 @@ CLASSIFICACAO_CHARS_NOMES = 400
 # de tutela provisória). Em blocos pequenos a atribuição é confiável.
 CLASSIFICACAO_CHUNK = 50
 
+# Abaixo disso o tópico é candidato a ser fundido no vizinho temático no
+# passe 3 (não é regra absoluta: um tema autônomo pode continuar sozinho).
+CLASSIFICACAO_MIN_QUESTOES = 3
+
 PROMPT_SINTESE_TOPICO = """\
 Você receberá as questões de um mesmo tópico de estudo e as análises geradas \
 para cada uma. Escreva um TEXTO DE ESTUDO COESO sobre o tópico, em Markdown, \
@@ -562,10 +587,106 @@ def atribuir_questoes_aos_topicos(questoes, topicos, profile=None):
     return atribuicoes
 
 
+def _aplicar_fusoes(grupos, fusoes):
+    """Aplica `[{de, para}]` sobre os grupos, resolvendo cadeias (A→B→C) e
+    tolerando ciclos (A→B→A resolve para o primeiro visitado)."""
+    destino = {}
+    for f in fusoes:
+        de, para = f.get('de'), f.get('para')
+        if not (isinstance(de, int) and isinstance(para, int)):
+            continue
+        if not (0 <= de < len(grupos) and 0 <= para < len(grupos)) or de == para:
+            continue
+        destino[de] = para
+
+    def raiz(i):
+        vistos = set()
+        while i in destino and i not in vistos:
+            vistos.add(i)
+            i = destino[i]
+        return i
+
+    final, mapa = [], {}
+    for i, g in enumerate(grupos):
+        if raiz(i) == i:
+            mapa[i] = len(final)
+            final.append({**g, 'questoes': list(g['questoes'])})
+    for i, g in enumerate(grupos):
+        r = raiz(i)
+        if r != i:
+            final[mapa[r]]['questoes'].extend(g['questoes'])
+    return final
+
+
+def consolidar_topicos(grupos, profile=None):
+    """Passe 3: funde tópicos redundantes (dois recortes do mesmo instituto)
+    e acomoda os pequenos demais no vizinho temático.
+
+    Sem esta etapa a taxonomia fica granular demais: no reprocessamento de
+    Direito Processual Civil, 11 dos 55 tópicos ficaram com ≤2 questões e
+    havia pares como "Ação rescisória" / "Ação rescisória e coisa julgada
+    nas relações continuativas".
+    """
+    if len(grupos) < 2:
+        return grupos
+    catalogo = '\n'.join(
+        f'{i}. {g["nome"]} ({len(g["questoes"])} '
+        f'{"questão" if len(g["questoes"]) == 1 else "questões"})'
+        + (f' — {g["descricao"]}' if g.get('descricao') else '')
+        for i, g in enumerate(grupos)
+    )
+    instrucao = (
+        'Abaixo está a lista de tópicos de estudo de uma disciplina, com '
+        'quantas questões cada um recebeu. Indique quais tópicos são '
+        'REDUNDANTES e devem ser fundidos em outros.\n\n'
+        f'{catalogo}\n\n'
+        'CRITÉRIO ÚNICO — só funda A em B se o conteúdo de A já estiver '
+        'naturalmente coberto pelo NOME de B, isto é, se um estudante '
+        'procurasse o assunto de A e esperasse encontrá-lo dentro de B. '
+        'Na prática isso acontece quando A é um recorte, uma fase ou um '
+        'aspecto do MESMO instituto de B — por exemplo "X na execução" '
+        'dentro de "X", ou "estabilização de Y" dentro de "Y".\n\n'
+        'NUNCA funda apenas porque o tópico é pequeno. Um tópico com uma '
+        'única questão sobre um instituto autônomo deve permanecer sozinho. '
+        'Uma fusão errada é MUITO pior do que um tópico pequeno: ela esconde '
+        'o assunto num lugar onde ninguém vai procurar. Em caso de dúvida, '
+        'NÃO funda.\n\n'
+        'Antes de propor cada fusão, verifique explicitamente: os dois '
+        'tópicos tratam do mesmo instituto jurídico, ou A é uma etapa/fase '
+        'do procedimento tratado em B? Se são institutos autônomos — ainda '
+        'que da mesma área, ou ambos "procedimentos especiais", ou ambos '
+        'ligados a recursos —, NÃO funda.\n\n'
+        f'Só proponha fusões cuja ORIGEM tenha menos de '
+        f'{CLASSIFICACAO_MIN_QUESTOES} questões: tópicos maiores que isso já '
+        'se sustentam sozinhos e não devem ser absorvidos, mesmo que haja '
+        'algum parentesco temático.\n\n'
+        'Sempre funda o MENOR no MAIOR. Não encadeie fusões: se A vai para '
+        'B, B não pode ir para outro. Devolva lista vazia se nada precisar '
+        'ser fundido.'
+    )
+    data = _chamar_json(
+        get_client(),
+        'Você organiza taxonomias de tópicos de estudo, evitando redundância.',
+        instrucao, SCHEMA_FUSOES,
+        max_tokens=max(8000, 2000 + len(grupos) * 40),
+        profile=profile, etapa=' ao consolidar os tópicos',
+    )
+    # Guarda dura: por mais que o prompt peça, o modelo tende a absorver
+    # tópicos saudáveis e criar poucos tópicos gigantes (observado: fundir
+    # um de 13 questões em outro de 25). Só origens pequenas são fundidas.
+    fusoes = [
+        f for f in data.get('fusoes', [])
+        if isinstance(f.get('de'), int) and 0 <= f['de'] < len(grupos)
+        and len(grupos[f['de']]['questoes']) < CLASSIFICACAO_MIN_QUESTOES
+    ]
+    return _aplicar_fusoes(grupos, fusoes)
+
+
 def classificar_topicos_via_ia(questoes, profile=None):
-    """Agrupa as questões em tópicos de estudo em DOIS passes: primeiro
-    levanta os temas da disciplina, depois classifica as questões em blocos
-    pequenos. Retorna `[{nome, descricao, questoes: [ids]}, ...]`."""
+    """Agrupa as questões em tópicos de estudo em TRÊS passes: levanta os
+    temas da disciplina, classifica as questões em blocos pequenos e funde
+    os tópicos redundantes ou pequenos demais.
+    Retorna `[{nome, descricao, questoes: [ids]}, ...]`."""
     topicos = levantar_topicos_via_ia(questoes, profile=profile)
     if not topicos:
         raise IAError('A IA não retornou tópicos.')
@@ -578,7 +699,9 @@ def classificar_topicos_via_ia(questoes, profile=None):
     ]
     for qid, idx in atribuicoes.items():
         grupos[idx]['questoes'].append(qid)
-    return [g for g in grupos if g['questoes']]
+    grupos = [g for g in grupos if g['questoes']]
+
+    return consolidar_topicos(grupos, profile=profile)
 
 
 def montar_conteudo_topico(topico):

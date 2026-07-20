@@ -51,10 +51,15 @@ def _fakes_classificacao(topicos, n_blocos=1):
     ]
     # Cada bloco filtra os IDs que lhe pertencem, então devolver a lista
     # inteira em todos os blocos é inofensivo.
-    return [nomes] + [
+    blocos = [
         _resposta_fake(texto=json.dumps({'atribuicoes': atribuicoes}))
         for _ in range(n_blocos)
     ]
+    # Passe 3 (consolidação): por padrão nada a fundir — e, como no código
+    # real, só acontece quando sobra mais de um tópico.
+    if len(topicos) < 2:
+        return [nomes, *blocos]
+    return [nomes, *blocos, _resposta_fake(texto=json.dumps({'fusoes': []}))]
 
 
 def _mock_stream(get_client_mock, resposta_ou_lista):
@@ -399,7 +404,7 @@ class TopicosTests(BaseIATestCase):
         self.assertGreater(profile.tokens_usados_mes, 0)
 
     @patch('ai.services.get_client')
-    def test_classificacao_em_dois_passes_nao_perde_nenhum_id(self, get_client):
+    def test_classificacao_em_blocos_nao_perde_nenhum_id(self, get_client):
         """Regressão da auditoria: com uma chamada só, 48 de 452 IDs se
         perdiam. Em blocos, 300 questões saem 300 classificadas."""
         from django.test import override_settings
@@ -412,17 +417,94 @@ class TopicosTests(BaseIATestCase):
             respostas.append(_resposta_fake(texto=json.dumps({'atribuicoes': [
                 {'id': q.pk, 'topico': q.pk % 2} for q in questoes[ini:ini + 50]
             ]})))
+        respostas.append(_resposta_fake(texto=json.dumps({'fusoes': []})))
         _mock_stream(get_client, respostas)
 
         with override_settings(AI_MODEL='claude-sonnet-5', AI_EFFORT='low'):
             grupos = classificar_topicos_via_ia(questoes)
 
-        # 1 chamada de nomes + 6 blocos de 50
-        self.assertEqual(get_client.return_value.messages.stream.call_count, 7)
+        # 1 chamada de nomes + 6 blocos de 50 + 1 de consolidação
+        self.assertEqual(get_client.return_value.messages.stream.call_count, 8)
         self.assertEqual(sum(len(g['questoes']) for g in grupos), 300)
         kwargs = get_client.return_value.messages.stream.call_args.kwargs
         self.assertEqual(kwargs['thinking'], {'type': 'adaptive'})
         self.assertEqual(kwargs['output_config']['effort'], 'low')
+
+    def test_aplicar_fusoes_junta_questoes_e_remove_o_topico_de_origem(self):
+        from ai.services import _aplicar_fusoes
+        grupos = [
+            {'nome': 'Ação rescisória', 'descricao': '', 'questoes': [1, 2]},
+            {'nome': 'Rescisória e relações continuativas', 'descricao': '', 'questoes': [3]},
+            {'nome': 'Outro tema', 'descricao': '', 'questoes': [4]},
+        ]
+        final = _aplicar_fusoes(grupos, [{'de': 1, 'para': 0}])
+        self.assertEqual([g['nome'] for g in final], ['Ação rescisória', 'Outro tema'])
+        self.assertEqual(sorted(final[0]['questoes']), [1, 2, 3])
+
+    def test_aplicar_fusoes_resolve_cadeia_e_nao_trava_em_ciclo(self):
+        from ai.services import _aplicar_fusoes
+        grupos = [
+            {'nome': 'A', 'descricao': '', 'questoes': [1]},
+            {'nome': 'B', 'descricao': '', 'questoes': [2]},
+            {'nome': 'C', 'descricao': '', 'questoes': [3]},
+        ]
+        # cadeia C -> B -> A: tudo deve terminar em A
+        final = _aplicar_fusoes(grupos, [{'de': 2, 'para': 1}, {'de': 1, 'para': 0}])
+        self.assertEqual([g['nome'] for g in final], ['A'])
+        self.assertEqual(sorted(final[0]['questoes']), [1, 2, 3])
+        # ciclo A -> B -> A: não pode entrar em loop nem perder questões
+        final = _aplicar_fusoes(grupos, [{'de': 0, 'para': 1}, {'de': 1, 'para': 0}])
+        self.assertEqual(sorted(q for g in final for q in g['questoes']), [1, 2, 3])
+
+    def test_aplicar_fusoes_ignora_indices_invalidos(self):
+        from ai.services import _aplicar_fusoes
+        grupos = [{'nome': 'A', 'descricao': '', 'questoes': [1]},
+                  {'nome': 'B', 'descricao': '', 'questoes': [2]}]
+        final = _aplicar_fusoes(grupos, [
+            {'de': 0, 'para': 0},    # para si mesmo
+            {'de': 9, 'para': 0},    # origem inexistente
+            {'de': 1, 'para': 42},   # destino inexistente
+            {'de': None, 'para': 0},
+        ])
+        self.assertEqual(len(final), 2)
+        self.assertEqual(sorted(q for g in final for q in g['questoes']), [1, 2])
+
+    @patch('ai.services.get_client')
+    def test_consolidacao_recusa_absorver_topico_saudavel(self, get_client):
+        """Guarda dura: o modelo propôs fundir um tópico de 13 questões em
+        outro de 25, criando um tópico gigante que ninguém pediu."""
+        from ai.services import consolidar_topicos
+        grupos = [
+            {'nome': 'Jurisdição e competência', 'descricao': '', 'questoes': list(range(1, 26))},
+            {'nome': 'Competência da Justiça Federal', 'descricao': '', 'questoes': list(range(26, 39))},
+            {'nome': 'Recorte de X', 'descricao': '', 'questoes': [99]},
+        ]
+        _mock_stream(get_client, _resposta_fake(texto=json.dumps({'fusoes': [
+            {'de': 1, 'para': 0},   # origem com 13 questões -> deve ser recusada
+            {'de': 2, 'para': 0},   # origem com 1 questão -> permitida
+        ]})))
+        final = consolidar_topicos(grupos)
+        nomes = [g['nome'] for g in final]
+        self.assertIn('Competência da Justiça Federal', nomes)
+        self.assertNotIn('Recorte de X', nomes)
+
+    @patch('ai.services.get_client')
+    def test_classificacao_funde_topico_redundante_no_terceiro_passe(self, get_client):
+        questoes = [SimpleNamespace(pk=i, enunciado_md=f'E{i}') for i in range(1, 5)]
+        _mock_stream(get_client, [
+            _resposta_fake(texto=json.dumps({'topicos': [
+                {'nome': 'Ação rescisória', 'descricao': ''},
+                {'nome': 'Rescisória nas relações continuativas', 'descricao': ''},
+            ]})),
+            _resposta_fake(texto=json.dumps({'atribuicoes': [
+                {'id': 1, 'topico': 0}, {'id': 2, 'topico': 0},
+                {'id': 3, 'topico': 0}, {'id': 4, 'topico': 1},
+            ]})),
+            _resposta_fake(texto=json.dumps({'fusoes': [{'de': 1, 'para': 0}]})),
+        ])
+        grupos = classificar_topicos_via_ia(questoes)
+        self.assertEqual(len(grupos), 1)
+        self.assertEqual(sorted(grupos[0]['questoes']), [1, 2, 3, 4])
 
     @patch('ai.services.get_client')
     def test_ids_omitidos_ou_invalidos_viram_sobra_sem_quebrar(self, get_client):
