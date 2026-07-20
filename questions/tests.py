@@ -250,3 +250,36 @@ class TopicosErroVisivelTests(TestCase):
         resp = self.client.get(reverse('questions:disciplina', args=[disc.pk]))
         self.assertContains(resp, 'Teto de gastos atingido')
         self.assertContains(resp, 'disc-banner-error')
+
+
+class ProgressoComEtaTests(TestCase):
+    """A estimativa de tempo dos progressos de IA."""
+
+    def _eta(self, segundos_atras, feitos, restantes):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from .views import _progresso_com_eta
+        inicio = timezone.now() - timedelta(seconds=segundos_atras)
+        return _progresso_com_eta(inicio, feitos, restantes)
+
+    def test_sem_inicio_nao_estima(self):
+        from .views import _progresso_com_eta
+        self.assertEqual(_progresso_com_eta(None, 0, 0), {'decorrido': None, 'eta': None})
+
+    def test_estimativa_proporcional_ao_ritmo_observado(self):
+        # 10 feitos em 100s => 10s cada => 5 restantes ~ 50s
+        r = self._eta(100, 10, 5)
+        self.assertAlmostEqual(r['decorrido'], 100, delta=2)
+        self.assertAlmostEqual(r['eta'], 50, delta=3)
+
+    def test_nao_estima_antes_de_ter_amostra(self):
+        self.assertIsNone(self._eta(120, 0, 10)['eta'])   # nada concluído ainda
+        self.assertIsNone(self._eta(5, 1, 10)['eta'])     # cedo demais
+        self.assertIsNone(self._eta(120, 10, 0)['eta'])   # nada restante
+
+    def test_estimativa_tem_teto_para_nao_projetar_horas(self):
+        # 1 item levou 1h; 100 restantes projetariam ~100h
+        r = self._eta(3600, 1, 100)
+        self.assertEqual(r['eta'], 4 * 3600)

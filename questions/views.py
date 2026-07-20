@@ -2,17 +2,18 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef, Sum
+from django.db.models import Case, Exists, IntegerField, OuterRef, Sum, Value, When
 from django.db.models.functions import Length
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from exams.models import Disciplina
 from prompts.models import Prompt
 
 from .forms import ImportacaoForm, QuestaoForm
-from .models import ImportacaoPDF, Questao
+from .models import NOME_TOPICO_SOBRAS, ImportacaoPDF, Questao
 from .tasks import processar_importacao
 
 
@@ -69,10 +70,20 @@ def disciplina(request, pk):
         'ai_price_output': float(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)),
     }
 
+    # Do tópico mais cobrado ao menos cobrado, com o balaio de sobras sempre
+    # por último — é a ordem em que faz sentido estudar.
     topicos = (
         disc.topicos.select_related('texto')
         .prefetch_related('questoes')
-        .annotate(n_questoes=Count('questoes'))
+        .annotate(
+            n_questoes=Count('questoes'),
+            e_sobra=Case(
+                When(nome=NOME_TOPICO_SOBRAS, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+        )
+        .order_by('e_sobra', '-n_questoes', 'nome')
     )
     topicos_classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
     analisadas = list(disc.questoes.filter(Exists(
@@ -95,36 +106,100 @@ def disciplina(request, pk):
     return render(request, 'questions/disciplina.html', contexto)
 
 
+def _progresso_com_eta(inicio, feitos, restantes):
+    """Decorrido + estimativa de conclusão a partir da taxa observada.
+
+    A estimativa só aparece depois de algum item concluir e de alguns
+    segundos de operação — antes disso a taxa é ruído. Como é recalculada a
+    cada consulta, ela se corrige sozinha conforme o ritmo real muda (os
+    lotes da Batches API concluem em degraus, não continuamente).
+    """
+    if inicio is None:
+        return {'decorrido': None, 'eta': None}
+    decorrido = max(0, int((timezone.now() - inicio).total_seconds()))
+    eta = None
+    if feitos > 0 and restantes > 0 and decorrido >= 15:
+        eta = int(decorrido / feitos * restantes)
+        # Sem teto, uma primeira conclusão lenta projeta horas de espera.
+        eta = min(eta, 4 * 3600)
+    return {'decorrido': decorrido, 'eta': eta}
+
+
 @login_required
 def ia_status(request, pk):
+    from django.db.models import Min
+
+    from ai.models import ResultadoPrompt
+
     disc = _disciplina_do_user(request, pk)
     qs = disc.questoes
     total = qs.count()
     na_fila = qs.filter(status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]).count()
     concluidas = qs.filter(status=Questao.Status.CONCLUIDA).count()
+
+    # A rodada em andamento é o conjunto criado a partir do resultado
+    # pendente mais antigo — o total da disciplina não serve de denominador
+    # (gerar 7 análises numa disciplina de 452 mostraria 7/452).
+    pendentes = ResultadoPrompt.objects.filter(
+        questao__disciplina=disc,
+        status__in=[ResultadoPrompt.Status.PENDENTE, ResultadoPrompt.Status.PROCESSANDO],
+    )
+    inicio = pendentes.aggregate(m=Min('criado_em'))['m']
+    lote_total = lote_restantes = 0
+    if inicio is not None:
+        lote_total = ResultadoPrompt.objects.filter(
+            questao__disciplina=disc, criado_em__gte=inicio,
+        ).count()
+        lote_restantes = pendentes.count()
+
     return JsonResponse({
         'em_processamento': na_fila > 0,
         'total': total,
         'na_fila': na_fila,
         'concluidas': concluidas,
+        'lote_total': lote_total,
+        'lote_feitos': lote_total - lote_restantes,
+        **_progresso_com_eta(inicio, lote_total - lote_restantes, lote_restantes),
     })
 
 
 @login_required
 def topicos_status(request, pk):
     from django.core.cache import cache
+    from django.db.models import Min
 
     from ai.models import TextoTopico
-    from ai.tasks import chave_topicos_classificando, chave_topicos_erro
+    from ai.tasks import (
+        chave_topicos_classificando,
+        chave_topicos_erro,
+        chave_topicos_fase,
+    )
 
     disc = _disciplina_do_user(request, pk)
     classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
     erro_classificacao = cache.get(chave_topicos_erro(disc.pk)) or ''
+    fase = cache.get(chave_topicos_fase(disc.pk)) or {}
     textos = TextoTopico.objects.filter(topico__disciplina=disc)
     total = textos.count()
     concluidos = textos.filter(status=TextoTopico.Status.CONCLUIDO).count()
     erros = textos.filter(status=TextoTopico.Status.ERRO).count()
     pendentes = total - concluidos - erros
+
+    if classificando:
+        # Na classificação não há itens no banco para medir: a própria task
+        # publica o andamento dos blocos em cache.
+        inicio = fase.get('inicio')
+        if inicio:
+            inicio = timezone.datetime.fromisoformat(inicio)
+        progresso = _progresso_com_eta(
+            inicio, fase.get('feitos', 0) or 0, fase.get('restantes', 0) or 0,
+        )
+    else:
+        inicio = textos.exclude(
+            status=TextoTopico.Status.CONCLUIDO,
+        ).aggregate(m=Min('criado_em'))['m']
+        progresso = _progresso_com_eta(inicio, concluidos, pendentes)
+
     return JsonResponse({
         'classificando': classificando,
         'erro_classificacao': erro_classificacao,
@@ -132,6 +207,10 @@ def topicos_status(request, pk):
         'concluidos': concluidos,
         'erros': erros,
         'em_processamento': classificando or pendentes > 0,
+        'fase_rotulo': fase.get('rotulo', ''),
+        'fase_feitos': fase.get('feitos', 0) or 0,
+        'fase_total': (fase.get('feitos', 0) or 0) + (fase.get('restantes', 0) or 0),
+        **progresso,
     })
 
 

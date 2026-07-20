@@ -52,22 +52,124 @@
 .disc-questao-link { font-size: .82rem; color: var(--accent-text); text-decoration: none; }
 .disc-questao-link:hover { text-decoration: underline; }
 
+/* ---- abas: tópicos (estudo) x questões (matéria-prima) ---- */
+.disc-tabs {
+    display: flex; gap: .3rem; margin-bottom: 1.1rem;
+    border-bottom: 1px solid var(--border); padding-bottom: 0;
+}
+.disc-tab {
+    appearance: none; background: none; border: 0; cursor: pointer;
+    padding: .6rem .9rem; margin-bottom: -1px;
+    font-family: var(--font-display); font-size: 1.02rem; font-weight: 550;
+    color: var(--muted); border-bottom: 2px solid transparent;
+    display: inline-flex; align-items: center; gap: .45rem;
+    transition: color .15s ease, border-color .15s ease;
+}
+.disc-tab:hover { color: var(--text); }
+.disc-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent-strong); }
+.disc-tab-count {
+    font-family: var(--font-mono); font-size: .72rem; font-weight: 500;
+    background: var(--surface-2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: .05rem .45rem;
+}
+.disc-tab[aria-selected="true"] .disc-tab-count {
+    background: var(--accent-tint); color: var(--accent-text); border-color: transparent;
+}
+.disc-painel[hidden] { display: none; }
+
+/* ---- tópicos ---- */
 .topico-panel {
-    margin-bottom: .6rem; border-radius: 12px;
-    border: 1px solid var(--border-strong, #dfe3ea);
-    background: var(--ds-panel, #f7f9fc);
+    margin-bottom: .5rem; border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
 }
+.topico-panel[open] { border-color: var(--border-strong); box-shadow: var(--shadow-sheet); }
 .topico-panel summary {
-    cursor: pointer; padding: .7rem 1rem; list-style: none;
-    display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; font-weight: 600;
+    cursor: pointer; padding: .8rem 1rem; list-style: none;
+    display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
 }
+.topico-panel summary:hover { background: var(--surface-2); }
 .topico-panel summary::-webkit-details-marker { display: none; }
-.topico-panel summary::before { content: '▸'; color: var(--muted); transition: transform .15s ease; }
+.topico-panel summary::before {
+    content: '▸'; color: var(--muted); transition: transform .15s ease; flex: none;
+}
 .topico-panel[open] summary::before { transform: rotate(90deg); }
-.topico-body { padding: 0 1.1rem 1rem; }
-.topico-desc { color: var(--muted); font-size: .85rem; margin: 0 0 .6rem; }
-.topico-texto { font-size: .92rem; line-height: 1.7; }
-.topico-questoes { color: var(--muted); font-size: .8rem; margin-top: .8rem; margin-bottom: 0; }
+.topico-nome {
+    font-family: var(--font-display); font-weight: 550; font-size: 1.05rem;
+    color: var(--text); margin-right: auto;
+}
+/* O balaio de sobras não compete visualmente com os temas de verdade. */
+.topico-panel[data-sobras] .topico-nome { color: var(--muted); font-style: italic; }
+
+.topico-body { padding: .2rem 1.4rem 1.3rem; }
+.topico-desc {
+    color: var(--muted); font-size: .88rem; font-style: italic;
+    margin: 0 0 1.1rem; padding-bottom: .9rem; border-bottom: 1px solid var(--border);
+}
+.topico-questoes {
+    color: var(--muted); font-size: .78rem; margin: 1.6rem 0 0;
+    padding-top: .8rem; border-top: 1px solid var(--border);
+}
+
+/* ---- leitura longa do texto do tópico ---- */
+.topico-texto {
+    /* ~68 caracteres por linha: a medida confortável para leitura corrida */
+    max-width: 68ch;
+    font-size: 1.02rem;
+    line-height: 1.78;
+    color: var(--text-soft);
+}
+.topico-texto > *:first-child { margin-top: 0; }
+.topico-texto > *:last-child { margin-bottom: 0; }
+.topico-texto h1, .topico-texto h2, .topico-texto h3, .topico-texto h4 {
+    font-family: var(--font-display); color: var(--text);
+    line-height: 1.25; margin: 2.1rem 0 .7rem;
+}
+.topico-texto h1 { font-size: 1.32rem; }
+.topico-texto h2 {
+    font-size: 1.18rem; padding-bottom: .35rem;
+    border-bottom: 1px solid var(--border);
+}
+.topico-texto h3 { font-size: 1.04rem; color: var(--text); }
+.topico-texto h4 { font-size: .96rem; color: var(--text-soft); }
+.topico-texto p { margin: 0 0 1.1rem; }
+.topico-texto strong { color: var(--text); font-weight: 600; }
+.topico-texto em { color: var(--text); }
+.topico-texto ul, .topico-texto ol { margin: 0 0 1.2rem; padding-left: 1.35rem; }
+.topico-texto li { margin-bottom: .55rem; }
+.topico-texto li::marker { color: var(--accent-strong); }
+.topico-texto blockquote {
+    margin: 0 0 1.2rem; padding: .1rem 0 .1rem 1.1rem;
+    border-left: 3px solid var(--accent); color: var(--muted); font-style: italic;
+}
+.topico-texto code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: .08em .38em; border-radius: 5px; color: var(--accent-text);
+}
+.topico-texto pre {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: .9rem 1.1rem; overflow-x: auto; margin: 0 0 1.2rem;
+}
+.topico-texto pre code { background: none; border: 0; padding: 0; color: var(--text); }
+.topico-texto hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+.topico-texto table {
+    border-collapse: collapse; width: 100%; margin: 0 0 1.2rem; font-size: .9rem;
+}
+.topico-texto th, .topico-texto td {
+    border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+}
+.topico-texto th { background: var(--surface-2); font-weight: 600; color: var(--text); }
+/* Tabelas largas rolam sozinhas em vez de esticar a página */
+.topico-texto .table-scroll { overflow-x: auto; margin: 0 0 1.2rem; }
+.topico-texto .table-scroll table { margin: 0; }
+
+@media (max-width: 640px) {
+    .topico-body { padding: .2rem 1rem 1.1rem; }
+    .topico-texto { font-size: 1rem; }
+    .disc-tab { padding: .55rem .6rem; font-size: .95rem; }
+}
 </style>
 {% endblock %}
 
@@ -112,6 +214,98 @@
     </div>
 
     {% if questoes %}
+    {# ---- ABAS: o estudo acontece nos tópicos; as questões são a matéria-prima ---- #}
+    <div class="disc-tabs" role="tablist" aria-label="Conteúdo da disciplina">
+        <button type="button" class="disc-tab" role="tab" id="tab-topicos"
+                aria-controls="painel-topicos" aria-selected="true" data-tab="topicos">
+            Tópicos de estudo
+            {% if topicos %}<span class="disc-tab-count">{{ topicos|length }}</span>{% endif %}
+        </button>
+        <button type="button" class="disc-tab" role="tab" id="tab-questoes"
+                aria-controls="painel-questoes" aria-selected="false" data-tab="questoes">
+            Questões
+            <span class="disc-tab-count">{{ total_questoes }}</span>
+        </button>
+    </div>
+
+    {# ================= PAINEL: TÓPICOS ================= #}
+    <div id="painel-topicos" role="tabpanel" aria-labelledby="tab-topicos" class="disc-painel">
+        <div class="section-heading">
+            <h2 class="visually-hidden">Tópicos de estudo</h2>
+            <div class="inline-actions">
+                <form method="post" action="{% url 'ai:gerar_topicos' disciplina.pk %}"
+                      {% if topicos %}data-confirm="Regerar os tópicos apaga os tópicos e textos atuais. Continuar?"{% endif %}
+                      style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-primary btn-compact"
+                            {% if topicos_gerando or not total_analisadas %}disabled{% endif %}
+                            {% if not total_analisadas %}title="Gere as análises das questões primeiro"{% endif %}>
+                        {% if topicos %}Regerar tópicos{% else %}Gerar tópicos e textos{% endif %}
+                    </button>
+                </form>
+                {% if custo_estimado_topicos %}
+                <span class="disc-cost" id="custo-topicos">{{ total_analisadas }} quest{{ total_analisadas|pluralize:"ão,ões" }} · ~{{ custo_estimado_topicos }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <p class="muted" style="margin-top:-.25rem;margin-bottom:.9rem;font-size:.85rem;">
+            A IA agrupa por tema as questões <strong>que já têm análise</strong>
+            ({{ total_analisadas }} de {{ total_questoes }}) e escreve um texto de estudo por tópico,
+            reunindo sem repetição todas as informações das análises.
+        </p>
+
+        <div id="topicos-banner" class="disc-banner disc-banner-processing" {% if not topicos_gerando %}hidden{% endif %}>
+            <div class="disc-progress-track" style="flex:1;">
+                <div class="disc-progress-fill" id="topicos-bar"></div>
+            </div>
+            <span id="topicos-progress-label" style="white-space:nowrap;">
+                {% if topicos_classificando %}Classificando questões por tema…{% else %}Gerando textos…{% endif %}
+            </span>
+        </div>
+        {% if topicos_erro and not topicos_gerando %}
+        <div class="disc-banner disc-banner-error">{{ topicos_erro }}</div>
+        {% endif %}
+
+        {% for t in topicos %}
+        <details class="topico-panel" {% if t.nome == 'Outros temas' %}data-sobras="1"{% endif %}>
+            <summary>
+                <span class="topico-nome">{{ t.nome }}</span>
+                <span class="qchip qchip-vazio">{{ t.n_questoes }} quest{{ t.n_questoes|pluralize:"ão,ões" }}</span>
+                {% if t.texto.status == 'concluido' %}
+                    <span class="qchip qchip-completo">texto pronto</span>
+                {% elif t.texto.status == 'erro' %}
+                    <span class="qchip" style="background:var(--danger-soft);color:var(--danger);">erro</span>
+                {% else %}
+                    <span class="qchip qchip-gerando">gerando…</span>
+                {% endif %}
+            </summary>
+            <div class="topico-body">
+                {% if t.descricao %}<p class="topico-desc">{{ t.descricao }}</p>{% endif %}
+                {% if t.texto.status == 'concluido' %}
+                    <div class="md-content topico-texto js-md-topico">{{ t.texto.texto_md }}</div>
+                {% elif t.texto.status == 'erro' %}
+                    <p style="color:var(--danger);font-size:.85rem;">{{ t.texto.erro }}</p>
+                {% else %}
+                    <p class="muted" style="font-size:.85rem;">O texto deste tópico ainda está sendo gerado…</p>
+                {% endif %}
+                <p class="topico-questoes">Questões que deram origem a este tópico:
+                    {% for q in t.questoes.all %}<a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link">{{ q.numero }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                </p>
+            </div>
+        </details>
+        {% empty %}
+            {% if not topicos_gerando %}
+            <div class="empty-state"><p>
+                {% if total_analisadas %}Nenhum tópico ainda. Clique em "Gerar tópicos e textos" para agrupar as questões analisadas por tema.
+                {% else %}Nenhum tópico ainda. Gere as análises das questões primeiro, na aba <strong>Questões</strong> — os tópicos são construídos a partir delas.{% endif %}
+            </p></div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    {# ================= PAINEL: QUESTÕES ================= #}
+    <div id="painel-questoes" role="tabpanel" aria-labelledby="tab-questoes" class="disc-painel" hidden>
         {# ---- BARRA DE GERAÇÃO DE COMENTÁRIOS ---- #}
         <form method="post" action="{% url 'ai:gerar_comentarios' %}" id="lote-form" data-prompt-chars="{{ prompt_chars }}">
             {% csrf_token %}
@@ -183,80 +377,7 @@
             </div>
         </form>
         {% include "partials/pagination.html" %}
-
-        {# ---- TÓPICOS DE ESTUDO ---- #}
-        <div class="section-heading" style="margin-top:2.2rem;">
-            <h2>Tópicos de estudo</h2>
-            <div class="inline-actions">
-                <form method="post" action="{% url 'ai:gerar_topicos' disciplina.pk %}"
-                      {% if topicos %}data-confirm="Regerar os tópicos apaga os tópicos e textos atuais. Continuar?"{% endif %}
-                      style="margin:0;">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="btn btn-primary btn-compact"
-                            {% if topicos_gerando or not total_analisadas %}disabled{% endif %}
-                            {% if not total_analisadas %}title="Gere as análises das questões primeiro"{% endif %}>
-                        {% if topicos %}Regerar tópicos{% else %}Gerar tópicos e textos{% endif %}
-                    </button>
-                </form>
-                {% if custo_estimado_topicos %}
-                <span class="disc-cost" id="custo-topicos">{{ total_analisadas }} quest{{ total_analisadas|pluralize:"ão,ões" }} · ~{{ custo_estimado_topicos }}</span>
-                {% endif %}
-            </div>
-        </div>
-        <p class="muted" style="margin-top:-.5rem;margin-bottom:.75rem;font-size:.85rem;">
-            A IA agrupa por tema as questões <strong>que já têm análise</strong>
-            ({{ total_analisadas }} de {{ total_questoes }}) e escreve um texto de estudo por tópico,
-            reunindo sem repetição todas as informações das análises. Questões sem análise ficam de fora.
-        </p>
-
-        <div id="topicos-banner" class="disc-banner disc-banner-processing" {% if not topicos_gerando %}hidden{% endif %}>
-            <div class="disc-progress-track" style="flex:1;">
-                <div class="disc-progress-fill" id="topicos-bar"></div>
-            </div>
-            <span id="topicos-progress-label" style="white-space:nowrap;">
-                {% if topicos_classificando %}Classificando questões por tema…{% else %}Gerando textos…{% endif %}
-            </span>
-        </div>
-        {% if topicos_erro and not topicos_gerando %}
-        <div class="disc-banner disc-banner-error">{{ topicos_erro }}</div>
-        {% endif %}
-
-        {% for t in topicos %}
-        <details class="topico-panel">
-            <summary>
-                {{ t.nome }}
-                <span class="qchip qchip-vazio">{{ t.n_questoes }} quest{{ t.n_questoes|pluralize:"ão,ões" }}</span>
-                {% if t.texto.status == 'concluido' %}
-                    <span class="qchip qchip-completo">texto pronto</span>
-                {% elif t.texto.status == 'erro' %}
-                    <span class="qchip" style="background:var(--danger-soft);color:var(--danger);">erro</span>
-                {% else %}
-                    <span class="qchip qchip-gerando">gerando…</span>
-                {% endif %}
-            </summary>
-            <div class="topico-body">
-                {% if t.descricao %}<p class="topico-desc">{{ t.descricao }}</p>{% endif %}
-                {% if t.texto.status == 'concluido' %}
-                    <div class="md-content topico-texto js-md-topico">{{ t.texto.texto_md }}</div>
-                {% elif t.texto.status == 'erro' %}
-                    <p style="color:var(--danger);font-size:.85rem;">{{ t.texto.erro }}</p>
-                {% else %}
-                    <p class="muted" style="font-size:.85rem;">O texto deste tópico ainda está sendo gerado…</p>
-                {% endif %}
-                <p class="topico-questoes">Questões:
-                    {% for q in t.questoes.all %}<a href="{% url 'questions:questao_detalhe' q.pk %}" class="disc-questao-link">{{ q.numero }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
-                </p>
-            </div>
-        </details>
-        {% empty %}
-            {% if not topicos_gerando %}
-            <div class="empty-state"><p>
-                {% if total_analisadas %}Nenhum tópico ainda. Clique em "Gerar tópicos e textos" para agrupar as questões analisadas por tema.
-                {% else %}Nenhum tópico ainda. Gere as análises das questões primeiro — os tópicos e textos são construídos a partir delas.{% endif %}
-            </p></div>
-            {% endif %}
-        {% endfor %}
+    </div>
     {% else %}
         <div class="empty-state"><p>Nenhuma questão ainda. Importe um PDF para extrair.</p></div>
     {% endif %}
@@ -270,6 +391,27 @@ function toggleAplicarPrompt() {
   var nenhuma = !todasPaginas && document.querySelectorAll('.sel-questao:checked').length === 0;
   document.querySelectorAll('.precisa-selecao').forEach(function (btn) { btn.disabled = nenhuma; });
   if (typeof atualizarCusto === 'function') atualizarCusto();
+}
+
+// Duração legível: 45s, 3 min, 1 h 12 min.
+function formatarDuracao(seg) {
+  if (seg == null || seg < 0) return '';
+  if (seg < 60) return Math.round(seg) + 's';
+  var min = Math.round(seg / 60);
+  if (min < 60) return min + ' min';
+  var h = Math.floor(min / 60);
+  var resto = min % 60;
+  return h + ' h' + (resto ? ' ' + resto + ' min' : '');
+}
+
+// " · 2 min decorridos · ~5 min restantes" — a estimativa só entra quando o
+// servidor já tem amostra suficiente para calculá-la.
+function formatarTempos(decorrido, eta) {
+  var partes = [];
+  if (decorrido != null) partes.push(formatarDuracao(decorrido) + ' decorridos');
+  if (eta != null) partes.push('~' + formatarDuracao(eta) + ' restantes');
+  else if (decorrido != null) partes.push('calculando o tempo…');
+  return partes.length ? ' · ' + partes.join(' · ') : '';
 }
 
 (function () {
@@ -410,19 +552,18 @@ function toggleAplicarPrompt() {
     var iaBar    = document.getElementById('ia-bar');
     var iaCounts = document.getElementById('ia-progress-counts');
     var iaStatusUrl = '{% url "questions:ia_status" disciplina.pk %}';
-    // Progresso do lote em processamento: o denominador é o tamanho da fila
-    // desta rodada (maior valor visto de na_fila), não o total de questões
-    // da disciplina — senão gerar 7 análises numa disciplina de 556 mostra 7/556.
-    var loteTotal = 0;
+    // O denominador é o tamanho da rodada atual, calculado no servidor a
+    // partir do resultado pendente mais antigo — não o total da disciplina.
     var pollIA = setInterval(function () {
       fetch(iaStatusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          loteTotal = Math.max(loteTotal, data.na_fila);
-          if (loteTotal > 0 && iaBar) {
-            var feitas = loteTotal - data.na_fila;
-            iaBar.style.width = Math.round(feitas / loteTotal * 100) + '%';
-            if (iaCounts) iaCounts.textContent = feitas + '/' + loteTotal;
+          if (data.lote_total > 0 && iaBar) {
+            iaBar.style.width = Math.round(data.lote_feitos / data.lote_total * 100) + '%';
+            if (iaCounts) {
+              iaCounts.textContent = data.lote_feitos + '/' + data.lote_total
+                + formatarTempos(data.decorrido, data.eta);
+            }
           }
           if (!data.em_processamento) {
             clearInterval(pollIA);
@@ -510,6 +651,13 @@ function toggleAplicarPrompt() {
     marked.setOptions({ breaks: true, gfm: true });
     document.querySelectorAll('.js-md-topico').forEach(function (el) {
       el.innerHTML = marked.parse(el.textContent || '');
+      // Tabela larga rola dentro do próprio bloco em vez de esticar a página.
+      el.querySelectorAll('table').forEach(function (tb) {
+        var wrap = document.createElement('div');
+        wrap.className = 'table-scroll';
+        tb.parentNode.insertBefore(wrap, tb);
+        wrap.appendChild(tb);
+      });
     });
   }
 
@@ -535,16 +683,28 @@ function toggleAplicarPrompt() {
           if (lbl) lbl.textContent = 'Falha ao classificar: ' + data.erro_classificacao;
           return;
         }
+        var tempos = formatarTempos(data.decorrido, data.eta);
         if (data.classificando) {
-          if (bar) bar.classList.add('disc-progress-indeterminate');
-          if (lbl) lbl.textContent = 'Classificando questões por tema…';
+          // A classificação publica o andamento dos blocos; sem isso a barra
+          // fica indeterminada e sem estimativa.
+          var rotulo = data.fase_rotulo || 'Classificando questões por tema…';
+          if (data.fase_total > 1) {
+            if (bar) {
+              bar.classList.remove('disc-progress-indeterminate');
+              bar.style.width = Math.round(data.fase_feitos / data.fase_total * 100) + '%';
+            }
+            rotulo += ' (' + data.fase_feitos + '/' + data.fase_total + ')';
+          } else if (bar) {
+            bar.classList.add('disc-progress-indeterminate');
+          }
+          if (lbl) lbl.textContent = rotulo + tempos;
         } else if (data.total > 0) {
           var prontos = data.concluidos + data.erros;
           if (bar) {
             bar.classList.remove('disc-progress-indeterminate');
             bar.style.width = Math.round(prontos / data.total * 100) + '%';
           }
-          if (lbl) lbl.textContent = 'Textos: ' + prontos + '/' + data.total;
+          if (lbl) lbl.textContent = 'Textos: ' + prontos + '/' + data.total + tempos;
         }
         if (!data.em_processamento) {
           clearInterval(poll);
@@ -553,6 +713,40 @@ function toggleAplicarPrompt() {
       }).catch(function () {});
   }, 3000);
   {% endif %}
+})();
+
+// ---- Abas Tópicos / Questões ----
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.disc-tab'));
+  if (!tabs.length) return;
+  var CHAVE = 'questoes-disc-aba';
+  var TEM_TOPICOS = {{ topicos|length|default:0 }} > 0;
+
+  function mostrar(nome, memorizar) {
+    tabs.forEach(function (t) {
+      var ativa = t.dataset.tab === nome;
+      t.setAttribute('aria-selected', ativa ? 'true' : 'false');
+      var painel = document.getElementById('painel-' + t.dataset.tab);
+      if (painel) painel.hidden = !ativa;
+    });
+    if (memorizar) { try { localStorage.setItem(CHAVE, nome); } catch (e) {} }
+    if (history.replaceState) history.replaceState(null, '', '#' + nome);
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { mostrar(t.dataset.tab, true); });
+  });
+
+  // Paginar é navegar nas questões: a página volta já naquela aba.
+  var inicial;
+  if (/[?&]page=/.test(location.search)) inicial = 'questoes';
+  else if (location.hash === '#questoes' || location.hash === '#topicos') inicial = location.hash.slice(1);
+  else {
+    try { inicial = localStorage.getItem(CHAVE); } catch (e) {}
+    if (inicial !== 'questoes' && inicial !== 'topicos') inicial = null;
+  }
+  // Sem tópicos ainda, o caminho é gerar as análises na aba de questões.
+  mostrar(inicial || (TEM_TOPICOS ? 'topicos' : 'questoes'), false);
 })();
 </script>
 {% endblock %}

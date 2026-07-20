@@ -543,18 +543,24 @@ def levantar_topicos_via_ia(questoes, profile=None):
     ]
 
 
-def atribuir_questoes_aos_topicos(questoes, topicos, profile=None):
+def atribuir_questoes_aos_topicos(questoes, topicos, profile=None, progresso=None):
     """Passe 2 da classificação: distribui as questões entre os tópicos já
     definidos, em blocos de CLASSIFICACAO_CHUNK. Retorna `{questao_pk:
     indice_do_topico}` — IDs que a IA deixar de fora simplesmente não
-    aparecem no dicionário e viram sobra."""
+    aparecem no dicionário e viram sobra.
+
+    `progresso(feitos, total)` é chamado a cada bloco para alimentar a barra
+    de andamento da página."""
     client = get_client()
+    n_blocos = max(1, -(-len(questoes) // CLASSIFICACAO_CHUNK))
     catalogo = '\n'.join(
         f'{i}. {t["nome"]}' + (f' — {t.get("descricao", "")}' if t.get('descricao') else '')
         for i, t in enumerate(topicos)
     )
     atribuicoes = {}
-    for ini in range(0, len(questoes), CLASSIFICACAO_CHUNK):
+    for n, ini in enumerate(range(0, len(questoes), CLASSIFICACAO_CHUNK)):
+        if progresso is not None:
+            progresso(n, n_blocos)
         bloco = questoes[ini:ini + CLASSIFICACAO_CHUNK]
         linhas = [
             f'[ID {q.pk}] {(q.enunciado_md or "").strip()[:CLASSIFICACAO_CHARS_POR_QUESTAO]}'
@@ -584,6 +590,8 @@ def atribuir_questoes_aos_topicos(questoes, topicos, profile=None):
             qid, idx = a.get('id'), a.get('topico')
             if qid in validos and isinstance(idx, int) and 0 <= idx < len(topicos):
                 atribuicoes.setdefault(qid, idx)
+    if progresso is not None:
+        progresso(n_blocos, n_blocos)
     return atribuicoes
 
 
@@ -682,16 +690,28 @@ def consolidar_topicos(grupos, profile=None):
     return _aplicar_fusoes(grupos, fusoes)
 
 
-def classificar_topicos_via_ia(questoes, profile=None):
+def classificar_topicos_via_ia(questoes, profile=None, progresso=None):
     """Agrupa as questões em tópicos de estudo em TRÊS passes: levanta os
     temas da disciplina, classifica as questões em blocos pequenos e funde
     os tópicos redundantes ou pequenos demais.
-    Retorna `[{nome, descricao, questoes: [ids]}, ...]`."""
+    Retorna `[{nome, descricao, questoes: [ids]}, ...]`.
+
+    `progresso(rotulo, feitos, total)` acompanha as etapas para a UI."""
+    def _etapa(rotulo):
+        def _cb(feitos, total):
+            if progresso is not None:
+                progresso(rotulo, feitos, total)
+        return _cb
+
+    _etapa('Identificando os temas da disciplina…')(0, 1)
     topicos = levantar_topicos_via_ia(questoes, profile=profile)
     if not topicos:
         raise IAError('A IA não retornou tópicos.')
 
-    atribuicoes = atribuir_questoes_aos_topicos(questoes, topicos, profile=profile)
+    atribuicoes = atribuir_questoes_aos_topicos(
+        questoes, topicos, profile=profile,
+        progresso=_etapa('Classificando as questões por tema…'),
+    )
 
     grupos = [
         {'nome': t.get('nome') or 'Tópico', 'descricao': t.get('descricao') or '', 'questoes': []}
@@ -701,6 +721,7 @@ def classificar_topicos_via_ia(questoes, profile=None):
         grupos[idx]['questoes'].append(qid)
     grupos = [g for g in grupos if g['questoes']]
 
+    _etapa('Organizando os tópicos…')(0, 1)
     return consolidar_topicos(grupos, profile=profile)
 
 

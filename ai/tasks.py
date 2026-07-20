@@ -3,6 +3,7 @@ import logging
 from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
 
 from . import services
 from .models import ResultadoPrompt, TextoTopico
@@ -16,6 +17,24 @@ def chave_topicos_classificando(disciplina_id):
 
 def chave_topicos_erro(disciplina_id):
     return f'topicos_erro_{disciplina_id}'
+
+
+def chave_topicos_fase(disciplina_id):
+    return f'topicos_fase_{disciplina_id}'
+
+
+def publicar_fase(disciplina_id, rotulo, feitos, restantes, inicio):
+    """Publica o andamento da classificação para o polling da página.
+
+    Diferente da síntese, a classificação não tem itens no banco para o
+    status contar — sem isso a barra fica indeterminada e sem estimativa.
+    """
+    cache.set(chave_topicos_fase(disciplina_id), {
+        'rotulo': rotulo,
+        'feitos': feitos,
+        'restantes': restantes,
+        'inicio': inicio.isoformat(),
+    }, 7200)
 
 
 @shared_task
@@ -141,12 +160,13 @@ def gerar_topicos(disciplina_id, teto_tokens=None):
     erro — "Regerar tópicos" tenta de novo depois.
     """
     from exams.models import Disciplina
-    from questions.models import Topico
+    from questions.models import NOME_TOPICO_SOBRAS, Topico
 
     try:
         disc = Disciplina.objects.select_related('prova__user').get(pk=disciplina_id)
     except Disciplina.DoesNotExist:
         cache.delete(chave_topicos_classificando(disciplina_id))
+        cache.delete(chave_topicos_fase(disciplina_id))
         return 'disciplina inexistente'
 
     profile = getattr(disc.prova.user, 'profile', None)
@@ -160,13 +180,21 @@ def gerar_topicos(disciplina_id, teto_tokens=None):
     )))
     if not questoes:
         cache.delete(chave_topicos_classificando(disciplina_id))
+        cache.delete(chave_topicos_fase(disciplina_id))
         return 'sem questões analisadas'
 
     if teto_tokens is None:
         teto_tokens = int(services.estimar_tokens_topicos(questoes) * services.MARGEM_TETO_OPERACAO)
 
+    inicio = timezone.now()
+
+    def _progresso(rotulo, feitos, total):
+        publicar_fase(disciplina_id, rotulo, feitos, max(0, total - feitos), inicio)
+
     try:
-        grupos = services.classificar_topicos_via_ia(questoes, profile=profile)
+        grupos = services.classificar_topicos_via_ia(
+            questoes, profile=profile, progresso=_progresso,
+        )
         if not grupos:
             raise services.IAError('A IA não retornou tópicos.')
 
@@ -190,7 +218,7 @@ def gerar_topicos(disciplina_id, teto_tokens=None):
         sobras = [pk for pk in por_id if pk not in atribuidos]
         if sobras:
             topico = Topico.objects.create(
-                disciplina=disc, nome='Outros temas',
+                disciplina=disc, nome=NOME_TOPICO_SOBRAS,
                 descricao='Questões não classificadas nos demais tópicos.',
                 ordem=len(grupos),
             )
@@ -200,11 +228,13 @@ def gerar_topicos(disciplina_id, teto_tokens=None):
         logger.exception('Falha ao classificar tópicos (disciplina %s)', disciplina_id)
         cache.set(chave_topicos_erro(disciplina_id), str(exc)[:500], 86400)
         cache.delete(chave_topicos_classificando(disciplina_id))
+        cache.delete(chave_topicos_fase(disciplina_id))
         return 'erro na classificação'
 
     # Tópicos criados: o polling passa a acompanhar os TextoTopico.
     textos = [TextoTopico.objects.create(topico=t) for t in topicos]
     cache.delete(chave_topicos_classificando(disciplina_id))
+    cache.delete(chave_topicos_fase(disciplina_id))
 
     if len(textos) == 1:
         try:

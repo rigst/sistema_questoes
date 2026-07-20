@@ -36,6 +36,11 @@ class ImportacaoPDF(models.Model):
         return f'Importação #{self.pk} ({self.disciplina.nome})'
 
 
+# Tópico-balaio criado para as questões que a IA não classificou. Fica
+# sempre no fim da listagem, depois dos temas de verdade.
+NOME_TOPICO_SOBRAS = 'Outros temas'
+
+
 class Topico(models.Model):
     """Tema de estudo identificado pela IA dentro de uma disciplina."""
 

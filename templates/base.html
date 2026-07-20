@@ -26,11 +26,15 @@
         document.documentElement.classList.toggle("cards-mode", cards);
       } catch (e) {}
       try {
+        var TEMAS = ["light", "dark", "papel", "preto"];
         var theme = localStorage.getItem("questoes-theme");
-        if (theme !== "dark" && theme !== "light") {
+        if (TEMAS.indexOf(theme) === -1) {
           theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         }
         document.documentElement.setAttribute("data-theme", theme);
+        // Escala da fonte antes da 1ª pintura, senão o texto "pula".
+        var f = localStorage.getItem("questoes-fscale");
+        if (f) document.documentElement.style.setProperty("--fscale", f);
       } catch (e) {}
     })();
     </script>
@@ -91,6 +95,34 @@
 
         {% block content %}{% endblock %}
     </main>
+
+    {# ---- LEITURA: tamanho do texto + tema (padrão do app Trilhas) ---- #}
+    <div class="reader-fab" id="reader-fab">
+        <button class="reader-fab-btn js-reader-toggle" type="button" aria-expanded="false"
+                aria-controls="reader-panel" title="Aparência e leitura">
+            <span aria-hidden="true">Aa</span>
+            <span class="visually-hidden">Ajustar aparência e tamanho do texto</span>
+        </button>
+        <div class="reader-panel" id="reader-panel" role="dialog" aria-label="Aparência" hidden>
+            <div class="rp-block">
+                <span class="rp-title">Tamanho do texto</span>
+                <div class="rp-font" role="group" aria-label="Tamanho do texto">
+                    <button type="button" data-font="dec" aria-label="Diminuir">A−</button>
+                    <button type="button" data-font="reset" aria-label="Padrão">A</button>
+                    <button type="button" data-font="inc" aria-label="Aumentar">A+</button>
+                </div>
+            </div>
+            <div class="rp-block">
+                <span class="rp-title">Tema</span>
+                <div class="rp-themes" role="group" aria-label="Tema de cores">
+                    <button type="button" data-theme-set="light" class="rp-theme rp-theme--light">Folha</button>
+                    <button type="button" data-theme-set="dark" class="rp-theme rp-theme--dark">Madrugada</button>
+                    <button type="button" data-theme-set="papel" class="rp-theme rp-theme--papel">Papel</button>
+                    <button type="button" data-theme-set="preto" class="rp-theme rp-theme--preto">Preto</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="panel-modal" class="panel-modal" hidden>
         <div class="panel-modal-backdrop" data-close-panel-modal="1"></div>
@@ -383,17 +415,73 @@
         });
       };
 
+      // Tema e escala do texto ficam no mesmo lugar: o botão do cabeçalho
+      // alterna claro/escuro e o painel "Aa" dá acesso aos quatro temas.
+      const root = document.documentElement;
+      const TEMAS_CLAROS = ["light", "papel"];
+
+      const aplicarTema = (tema) => {
+        root.setAttribute("data-theme", tema);
+        try { localStorage.setItem("questoes-theme", tema); } catch (e) {}
+        document.querySelectorAll("[data-theme-set]").forEach((b) => {
+          b.setAttribute("aria-pressed", b.dataset.themeSet === tema ? "true" : "false");
+        });
+      };
+
       const bindThemeToggle = () => {
         document.querySelectorAll(".js-theme-toggle").forEach((btn) => {
           if (btn.dataset.themeBound === "1") return;
           btn.dataset.themeBound = "1";
           btn.addEventListener("click", () => {
-            const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-            const next = current === "dark" ? "light" : "dark";
-            document.documentElement.setAttribute("data-theme", next);
-            try { localStorage.setItem("questoes-theme", next); } catch (e) {}
+            const atual = root.getAttribute("data-theme") || "light";
+            // Volta para o par claro/escuro mais próximo do tema atual.
+            aplicarTema(TEMAS_CLAROS.indexOf(atual) !== -1 ? "dark" : "light");
           });
         });
+      };
+
+      const bindReader = () => {
+        const fab = document.getElementById("reader-fab");
+        if (!fab || fab.dataset.readerBound === "1") return;
+        fab.dataset.readerBound = "1";
+        const toggle = fab.querySelector(".js-reader-toggle");
+        const panel = document.getElementById("reader-panel");
+        const MIN = 0.85, MAX = 1.6, STEP = 0.075;
+        const escalaAtual = () =>
+          parseFloat(getComputedStyle(root).getPropertyValue("--fscale")) || 1;
+        const setEscala = (v) => {
+          v = Math.min(MAX, Math.max(MIN, Math.round(v * 1000) / 1000));
+          root.style.setProperty("--fscale", v);
+          try { localStorage.setItem("questoes-fscale", v); } catch (e) {}
+        };
+
+        toggle.addEventListener("click", () => {
+          const abrir = panel.hasAttribute("hidden");
+          panel.toggleAttribute("hidden", !abrir);
+          toggle.setAttribute("aria-expanded", abrir ? "true" : "false");
+        });
+        document.addEventListener("click", (e) => {
+          if (!fab.contains(e.target) && !panel.hasAttribute("hidden")) {
+            panel.setAttribute("hidden", "");
+            toggle.setAttribute("aria-expanded", "false");
+          }
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && !panel.hasAttribute("hidden")) {
+            panel.setAttribute("hidden", "");
+            toggle.setAttribute("aria-expanded", "false");
+            toggle.focus();
+          }
+        });
+        fab.querySelectorAll("[data-font]").forEach((b) => b.addEventListener("click", () => {
+          const acao = b.dataset.font;
+          if (acao === "inc") setEscala(escalaAtual() + STEP);
+          else if (acao === "dec") setEscala(escalaAtual() - STEP);
+          else setEscala(1);
+        }));
+        fab.querySelectorAll("[data-theme-set]").forEach((b) =>
+          b.addEventListener("click", () => aplicarTema(b.dataset.themeSet)));
+        aplicarTema(root.getAttribute("data-theme") || "light");
       };
 
       const bindSubmitLoading = () => {
@@ -462,6 +550,7 @@
       bindPtBrValidation();
       markFieldErrors();
       bindThemeToggle();
+      bindReader();
     })();
     </script>
     {% block extra_js %}{% endblock %}
