@@ -176,10 +176,16 @@ def estimar_tokens(questoes, prompt):
 MARGEM_TETO_OPERACAO = 1.5
 
 
-def custo_usd(input_tokens, output_tokens):
+# A Batches API cobra metade do preço; a usage devolvida vem em tokens
+# brutos, então o desconto precisa ser aplicado ao converter em dinheiro.
+DESCONTO_BATCH = Decimal('0.5')
+
+
+def custo_usd(input_tokens, output_tokens, lote=False):
     pin = Decimal(str(getattr(settings, 'AI_PRICE_INPUT_PER_MTOK', 3.0)))
     pout = Decimal(str(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)))
-    return (Decimal(input_tokens) / 1_000_000 * pin) + (Decimal(output_tokens) / 1_000_000 * pout)
+    bruto = (Decimal(input_tokens) / 1_000_000 * pin) + (Decimal(output_tokens) / 1_000_000 * pout)
+    return bruto * DESCONTO_BATCH if lote else bruto
 
 
 def formatar_custo_usd(valor):
@@ -365,7 +371,7 @@ def coletar_batch(batch_id):
             resultado.resultado_md = texto
             resultado.input_tokens = it
             resultado.output_tokens = ot
-            resultado.custo_estimado = custo_usd(it, ot)
+            resultado.custo_estimado = custo_usd(it, ot, lote=True)
             resultado.status = ResultadoPrompt.Status.CONCLUIDO
             resultado.save()
             profile = getattr(resultado.questao.disciplina.prova.user, 'profile', None)
@@ -711,7 +717,7 @@ def coletar_batch_textos(batch_id):
             texto.texto_md = corpo
             texto.input_tokens = it
             texto.output_tokens = ot
-            texto.custo_estimado = custo_usd(it, ot)
+            texto.custo_estimado = custo_usd(it, ot, lote=True)
             texto.status = TextoTopico.Status.CONCLUIDO
             texto.save()
             profile = getattr(texto.topico.disciplina.prova.user, 'profile', None)
@@ -722,6 +728,18 @@ def coletar_batch_textos(batch_id):
             texto.erro = f'Batch: {item.result.type}'
             texto.save(update_fields=['status', 'erro', 'atualizado_em'])
     return True
+
+
+def _estimar_n_topicos(n_questoes):
+    """Quantos tópicos a classificação deve produzir para `n_questoes`.
+
+    O teto antigo de 30 subestimava desde que a classificação passou a ser
+    em dois passes: 452 questões geraram 55 tópicos, e a estimativa (presa
+    em 30) ficou 1,44x abaixo do consumo real — a operação quase foi cortada
+    pelo teto de gastos. Sem o teto, n//8+1 dá 57 para esse caso, colando no
+    valor observado.
+    """
+    return max(3, n_questoes // 8 + 1)
 
 
 def _tokens_classificacao(questoes, n_topicos):
@@ -756,7 +774,7 @@ def estimar_tokens_topicos(questoes):
             status=ResultadoPrompt.Status.CONCLUIDO,
         ).values_list('resultado_md', flat=True)
     )
-    n_topicos = max(3, min(30, n // 8 + 1))
+    n_topicos = _estimar_n_topicos(n)
     classificacao = _tokens_classificacao(questoes, n_topicos)
     sintese_in = (chars_q + chars_analises) / CHARS_PER_TOKEN + n_topicos * 400
     sintese_out = n_topicos * OUTPUT_TOKENS_SINTESE
@@ -779,7 +797,7 @@ def estimar_custo_topicos(questoes):
             status=ResultadoPrompt.Status.CONCLUIDO,
         ).values_list('resultado_md', flat=True)
     )
-    n_topicos = max(3, min(30, n // 8 + 1))
+    n_topicos = _estimar_n_topicos(n)
 
     # A classificação mistura entrada e saída; como a saída dos dois passes é
     # pequena perto da entrada, cobra-se o todo como entrada mais a saída

@@ -624,6 +624,41 @@ class TopicosTests(BaseIATestCase):
         custo_grande = estimar_custo_topicos([self.questao, self.q2, q3])
         self.assertGreater(custo_grande, custo_pequeno)
 
+    def test_custo_de_lote_aplica_o_desconto_da_batches_api(self):
+        """Regressão: custo_estimado gravava preço cheio nos itens de lote,
+        inflando custo_acumulado em 2x (auditoria: $7,06 gravado vs $3,53
+        realmente cobrado nos 55 textos)."""
+        from ai.services import custo_usd
+        cheio = custo_usd(100_000, 50_000)
+        lote = custo_usd(100_000, 50_000, lote=True)
+        self.assertEqual(lote, cheio / 2)
+
+    def test_estimativa_de_topicos_acompanha_disciplinas_grandes(self):
+        """Regressão: o teto de 30 tópicos fazia a estimativa ficar 1,44x
+        abaixo do real em 452 questões (55 tópicos), e o teto de gastos
+        quase cortou a síntese."""
+        from ai.services import _estimar_n_topicos
+        self.assertGreaterEqual(_estimar_n_topicos(452), 50)
+        self.assertEqual(_estimar_n_topicos(0), 3)
+
+    def test_estimativa_de_tokens_cobre_o_consumo_real_de_452_questoes(self):
+        """Com 452 questões o consumo medido da síntese foi ~1,06M tokens;
+        a estimativa (base do teto de gastos) não pode ficar abaixo disso."""
+        enunciado = 'Enunciado de questão de concurso. ' * 40
+        questoes = [
+            Questao.objects.create(disciplina=self.disc, numero=1000 + i, enunciado_md=enunciado)
+            for i in range(60)
+        ]
+        for q in questoes:
+            ResultadoPrompt.objects.create(
+                questao=q, prompt=self.prompt, status=ResultadoPrompt.Status.CONCLUIDO,
+                resultado_md='Análise da questão. ' * 120,
+            )
+        estimado = estimar_tokens_topicos(questoes)
+        # material bruto que a síntese precisa reprocessar (entrada mínima)
+        material = sum(len(q.enunciado_md) for q in questoes) / 3.8 * 2
+        self.assertGreater(estimado, material)
+
     def test_formatar_custo_usd(self):
         from decimal import Decimal
         self.assertEqual(formatar_custo_usd(Decimal('0.0001')), '< $0.001')
