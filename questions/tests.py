@@ -473,3 +473,41 @@ class GabaritoGradeTests(TestCase):
         ]
         mapa = extraction._detectar_gabarito(paginas)
         self.assertEqual(sorted(mapa), [1, 2, 3, 4, 5, 6])
+
+
+class RuidoDeGradeTests(TestCase):
+    """A grade de respostas do caderno costuma vazar para o fim do último
+    enunciado. A linha final da grade é parcial quando o total não é múltiplo
+    da largura, e um par sozinho escapava do filtro."""
+
+    def test_linha_de_grade_com_um_par_so_e_removida(self):
+        from .forms import _normalizar_enunciado
+        texto = (
+            'Enunciado da última questão do caderno.\n'
+            'A) primeira\nB) segunda\nC) terceira\n'
+            'GABARITO\n'
+            '1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n'
+            '9 D\n'
+        )
+        out = _normalizar_enunciado(texto)
+        self.assertNotIn('GABARITO', out)
+        self.assertNotIn('9 D', out)
+        self.assertIn('Enunciado da última questão', out)
+        self.assertIn('C) terceira', out)
+
+    def test_palavra_gabarito_dentro_da_frase_permanece(self):
+        # Caso real: questão que fala sobre o gabarito de um concurso.
+        from .forms import _normalizar_enunciado
+        texto = (
+            'Antônio alegou que suas respostas estavam de acordo com o '
+            'gabarito fornecido pela comissão organizadora do concurso.\n'
+            'A) primeira\nB) segunda\n'
+        )
+        out = _normalizar_enunciado(texto)
+        self.assertIn('gabarito fornecido pela comissão', out)
+
+    def test_numero_e_letra_no_meio_do_texto_permanecem(self):
+        from .forms import _normalizar_enunciado
+        texto = 'O item 5 A da tabela citada é relevante para a resposta.\nA) sim\nB) não\n'
+        out = _normalizar_enunciado(texto)
+        self.assertIn('item 5 A da tabela', out)

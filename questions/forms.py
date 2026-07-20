@@ -15,10 +15,16 @@ RE_ALT_ESPACO = re.compile(r'^\s*([A-E])\s+(\S.*)$')
 RE_CERTO_ERRADO = re.compile(r'^\s*(?:\(\s*\)\s*)?(Certo|Errado)\s*\.?\s*$', re.IGNORECASE)
 
 # Ruído que costuma vazar para dentro do bloco da questão em PDFs compilados:
-# ids numéricos soltos, o cabeçalho "Respostas:" e a grade de gabarito.
+# ids numéricos soltos, os cabeçalhos "Respostas:"/"GABARITO" e a grade.
 RE_LINHA_ID = re.compile(r'^\s*\d{6,}\s*$')
 RE_RESPOSTAS = re.compile(r'^\s*Respostas\s*:?\s*$', re.IGNORECASE)
-RE_GRADE_GABARITO = re.compile(r'^\s*\d+\s+[A-E](?:\s+\d+\s+[A-E])+\s*$')
+# Linha inteira feita de pares "número letra". Um par só também conta: a
+# última linha da grade é parcial quando o total de questões não é múltiplo
+# da largura da linha, e antes ficava como lixo no fim do último enunciado.
+RE_GRADE_GABARITO = re.compile(r'^\s*\d+\s+[A-E](?:\s+\d+\s+[A-E])*\s*$')
+# Só a linha inteira: a palavra aparece legitimamente dentro de enunciados
+# ("suas respostas estavam de acordo com o gabarito fornecido pela banca").
+RE_CABECALHO_GABARITO = re.compile(r'^\s*GABARITO\s*:?\s*$', re.IGNORECASE)
 
 
 def _remover_ruido(linhas):
@@ -26,7 +32,8 @@ def _remover_ruido(linhas):
     for ln in linhas:
         if RE_RESPOSTAS.match(ln):
             break  # daqui em diante é a grade de respostas do caderno
-        if RE_LINHA_ID.match(ln) or RE_GRADE_GABARITO.match(ln):
+        if (RE_LINHA_ID.match(ln) or RE_GRADE_GABARITO.match(ln)
+                or RE_CABECALHO_GABARITO.match(ln)):
             continue
         limpas.append(ln)
     return limpas
