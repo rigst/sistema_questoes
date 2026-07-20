@@ -36,6 +36,27 @@ def _resposta_fake(texto='**Análise.**', input_tokens=200, output_tokens=100):
     )
 
 
+def _fakes_classificacao(topicos, n_blocos=1):
+    """Respostas dos DOIS passes da classificação: passe 1 devolve os nomes
+    dos tópicos, passe 2 (um por bloco) devolve as atribuições. Recebe o
+    formato consolidado `[{nome, descricao, questoes: [ids]}, ...]`."""
+    nomes = _resposta_fake(texto=json.dumps({
+        'topicos': [
+            {'nome': t['nome'], 'descricao': t.get('descricao', '')} for t in topicos
+        ],
+    }))
+    atribuicoes = [
+        {'id': qid, 'topico': i}
+        for i, t in enumerate(topicos) for qid in t.get('questoes', [])
+    ]
+    # Cada bloco filtra os IDs que lhe pertencem, então devolver a lista
+    # inteira em todos os blocos é inofensivo.
+    return [nomes] + [
+        _resposta_fake(texto=json.dumps({'atribuicoes': atribuicoes}))
+        for _ in range(n_blocos)
+    ]
+
+
 def _mock_stream(get_client_mock, resposta_ou_lista):
     """Configura get_client().messages.stream(...) — usado por _criar_mensagem
     no lugar de messages.create() — para devolver a(s) resposta(s) via
@@ -320,8 +341,7 @@ class TetoDeGastosTests(BaseIATestCase):
             )
             grupos.append({'nome': f'Tema {i}', 'descricao': '', 'questoes': [q.pk]})
 
-        classificacao = _resposta_fake(texto=json.dumps({'topicos': grupos}))
-        _mock_stream(get_client, classificacao)
+        _mock_stream(get_client, _fakes_classificacao(grupos))
         mock_estimar_sintese.side_effect = [4000, 1000]  # chunk1 (25 tópicos), chunk2 (2 tópicos)
         mock_submeter.return_value = 'batch_y'
 
@@ -351,8 +371,7 @@ class TopicosTests(BaseIATestCase):
             )
 
     def _classificacao_fake(self, topicos):
-        import json
-        return _resposta_fake(texto=json.dumps({'topicos': topicos}))
+        return _fakes_classificacao(topicos)
 
     @patch('ai.services.get_client')
     def test_fluxo_completo_com_um_topico_sintese_sincrona(self, get_client):
@@ -361,7 +380,7 @@ class TopicosTests(BaseIATestCase):
              'questoes': [self.questao.pk, self.q2.pk]},
         ])
         sintese = _resposta_fake(texto='## Texto do tópico', input_tokens=500, output_tokens=300)
-        _mock_stream(get_client, [classificacao, sintese])
+        _mock_stream(get_client, [*classificacao, sintese])
 
         resp = self.client.post(reverse('ai:gerar_topicos', args=[self.disc.pk]))
         self.assertEqual(resp.status_code, 302)
@@ -380,20 +399,45 @@ class TopicosTests(BaseIATestCase):
         self.assertGreater(profile.tokens_usados_mes, 0)
 
     @patch('ai.services.get_client')
-    def test_classificacao_usa_effort_e_max_tokens_maior_em_disciplina_grande(self, get_client):
+    def test_classificacao_em_dois_passes_nao_perde_nenhum_id(self, get_client):
+        """Regressão da auditoria: com uma chamada só, 48 de 452 IDs se
+        perdiam. Em blocos, 300 questões saem 300 classificadas."""
         from django.test import override_settings
 
-        _mock_stream(get_client, self._classificacao_fake(
-            [{'nome': 'Tema', 'descricao': 'x', 'questoes': list(range(1, 301))}]
-        ))
-        questoes_grandes = [SimpleNamespace(pk=i, enunciado_md=f'Enunciado {i}') for i in range(1, 301)]
-        with override_settings(AI_MODEL='claude-sonnet-5', AI_MAX_TOKENS=16000, AI_EFFORT='low'):
-            classificar_topicos_via_ia(questoes_grandes)
+        questoes = [SimpleNamespace(pk=i, enunciado_md=f'Enunciado {i}') for i in range(1, 301)]
+        respostas = [_resposta_fake(texto=json.dumps(
+            {'topicos': [{'nome': 'Tema A', 'descricao': 'x'}, {'nome': 'Tema B', 'descricao': 'y'}]}
+        ))]
+        for ini in range(0, 300, 50):
+            respostas.append(_resposta_fake(texto=json.dumps({'atribuicoes': [
+                {'id': q.pk, 'topico': q.pk % 2} for q in questoes[ini:ini + 50]
+            ]})))
+        _mock_stream(get_client, respostas)
 
+        with override_settings(AI_MODEL='claude-sonnet-5', AI_EFFORT='low'):
+            grupos = classificar_topicos_via_ia(questoes)
+
+        # 1 chamada de nomes + 6 blocos de 50
+        self.assertEqual(get_client.return_value.messages.stream.call_count, 7)
+        self.assertEqual(sum(len(g['questoes']) for g in grupos), 300)
         kwargs = get_client.return_value.messages.stream.call_args.kwargs
         self.assertEqual(kwargs['thinking'], {'type': 'adaptive'})
         self.assertEqual(kwargs['output_config']['effort'], 'low')
-        self.assertGreater(kwargs['max_tokens'], 16000)
+
+    @patch('ai.services.get_client')
+    def test_ids_omitidos_ou_invalidos_viram_sobra_sem_quebrar(self, get_client):
+        questoes = [SimpleNamespace(pk=i, enunciado_md=f'E{i}') for i in range(1, 6)]
+        _mock_stream(get_client, [
+            _resposta_fake(texto=json.dumps({'topicos': [{'nome': 'Tema', 'descricao': ''}]})),
+            _resposta_fake(texto=json.dumps({'atribuicoes': [
+                {'id': 1, 'topico': 0},
+                {'id': 2, 'topico': 99},    # índice inexistente -> ignorado
+                {'id': 999, 'topico': 0},   # ID de fora do bloco -> ignorado
+                # 3, 4 e 5 simplesmente omitidos pela IA
+            ]})),
+        ])
+        grupos = classificar_topicos_via_ia(questoes)
+        self.assertEqual(grupos, [{'nome': 'Tema', 'descricao': '', 'questoes': [1]}])
 
     @patch('ai.services.get_client')
     def test_classificacao_sem_texto_levanta_erro_claro(self, get_client):
@@ -407,11 +451,9 @@ class TopicosTests(BaseIATestCase):
 
     @patch('ai.services.get_client')
     def test_sobras_vao_para_outros_temas_e_lote_e_submetido(self, get_client):
-        _mock_stream(get_client, [
-            self._classificacao_fake([
-                {'nome': 'Tema A', 'descricao': '', 'questoes': [self.questao.pk]},
-            ]),
-        ])
+        _mock_stream(get_client, self._classificacao_fake([
+            {'nome': 'Tema A', 'descricao': '', 'questoes': [self.questao.pk]},
+        ]))
         get_client.return_value.messages.batches.create.return_value = SimpleNamespace(id='batch_teste')
         get_client.return_value.messages.batches.retrieve.return_value = SimpleNamespace(
             processing_status='in_progress',
@@ -438,7 +480,7 @@ class TopicosTests(BaseIATestCase):
         self.questao.save(update_fields=['topico'])
 
         _mock_stream(get_client, [
-            self._classificacao_fake([
+            *self._classificacao_fake([
                 {'nome': 'Novo', 'descricao': '',
                  'questoes': [self.questao.pk, self.q2.pk]},
             ]),
@@ -458,7 +500,7 @@ class TopicosTests(BaseIATestCase):
             disciplina=self.disc, numero=3, enunciado_md='Questão sem análise',
         )
         _mock_stream(get_client, [
-            self._classificacao_fake([
+            *self._classificacao_fake([
                 {'nome': 'Tema', 'descricao': '',
                  'questoes': [self.questao.pk, self.q2.pk]},
             ]),

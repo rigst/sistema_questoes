@@ -73,6 +73,48 @@ SCHEMA_TOPICOS = {
     'additionalProperties': False,
 }
 
+# Passe 1 da classificação: só os nomes dos tópicos, sem IDs.
+SCHEMA_TOPICOS_NOMES = {
+    'type': 'object',
+    'properties': {
+        'topicos': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'nome': {'type': 'string'},
+                    'descricao': {'type': 'string'},
+                },
+                'required': ['nome', 'descricao'],
+                'additionalProperties': False,
+            },
+        }
+    },
+    'required': ['topicos'],
+    'additionalProperties': False,
+}
+
+# Passe 2: cada questão recebe o índice do tópico a que pertence.
+SCHEMA_ATRIBUICOES = {
+    'type': 'object',
+    'properties': {
+        'atribuicoes': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'integer'},
+                    'topico': {'type': 'integer'},
+                },
+                'required': ['id', 'topico'],
+                'additionalProperties': False,
+            },
+        }
+    },
+    'required': ['atribuicoes'],
+    'additionalProperties': False,
+}
+
 
 class IAError(Exception):
     pass
@@ -352,6 +394,16 @@ OUTPUT_TOKENS_SINTESE = 2500
 # enunciado basta para identificar o tema; limita o custo em PDFs grandes).
 CLASSIFICACAO_CHARS_POR_QUESTAO = 1200
 
+# Passe 1 só precisa reconhecer os TEMAS presentes, não classificar cada
+# questão — um trecho curto de cada enunciado basta e reduz muito o custo.
+CLASSIFICACAO_CHARS_NOMES = 400
+
+# Questões por chamada no passe 2. Pedir a uma única chamada que
+# particione centenas de IDs faz o modelo perder ~10% deles pelo caminho
+# (auditoria: 48 de 452 caíram em "Outros temas", incluindo o tema inteiro
+# de tutela provisória). Em blocos pequenos a atribuição é confiável.
+CLASSIFICACAO_CHUNK = 50
+
 PROMPT_SINTESE_TOPICO = """\
 Você receberá as questões de um mesmo tópico de estudo e as análises geradas \
 para cada uma. Escreva um TEXTO DE ESTUDO COESO sobre o tópico, em Markdown, \
@@ -391,38 +443,14 @@ conhecimento seguro.
 """
 
 
-def classificar_topicos_via_ia(questoes, profile=None):
-    """Agrupa as questões em tópicos de estudo (uma única chamada, structured
-    outputs). Retorna a lista `[{nome, descricao, questoes: [ids]}, ...]`."""
-    client = get_client()
-    linhas = []
-    for q in questoes:
-        enunciado = (q.enunciado_md or '').strip()[:CLASSIFICACAO_CHARS_POR_QUESTAO]
-        linhas.append(f'[ID {q.pk}] {enunciado}')
-    instrucao = (
-        'Agrupe as questões de concurso abaixo em tópicos de estudo da mesma '
-        'disciplina. Para cada tópico, retorne um nome curto (2 a 6 palavras), '
-        'uma descrição de uma frase e a lista de IDs das questões que testam '
-        'aquele tema. Crie quantos tópicos forem necessários (tipicamente '
-        'entre 5 e 30): questões que testam o mesmo tema ficam juntas, e cada '
-        'ID deve aparecer em exatamente um tópico — nenhum ID pode ficar de '
-        'fora. O nome do tópico deve abranger TODAS as questões do grupo: se '
-        'agrupar institutos paralelos (ex.: intervenção federal e estadual), '
-        'use um nome que cubra ambos, sem privilegiar um deles. Ordene os '
-        'tópicos na sequência didática natural da disciplina.'
-        '\n\nQuestões:\n\n' + '\n\n'.join(linhas)
-    )
+def _chamar_json(client, system, instrucao, schema, max_tokens, profile=None, etapa=''):
+    """Faz uma chamada de structured output e devolve o JSON já decodificado."""
     modelo = getattr(settings, 'AI_MODEL', 'claude-sonnet-5')
-    # Disciplinas grandes (centenas de questões) precisam de espaço extra:
-    # a lista de IDs sozinha já consome tokens, e sem o "effort" abaixo os
-    # modelos da família adaptativa podem gastar o budget todo pensando e
-    # nunca chegar a emitir o JSON final.
-    max_tokens = max(getattr(settings, 'AI_MAX_TOKENS', 16000), 8000 + len(questoes) * 40)
-    output_config = {'format': {'type': 'json_schema', 'schema': SCHEMA_TOPICOS}}
+    output_config = {'format': {'type': 'json_schema', 'schema': schema}}
     params = {
         'model': modelo,
         'max_tokens': max_tokens,
-        'system': 'Você organiza questões de provas de concurso em tópicos de estudo.',
+        'system': system,
         'messages': [{'role': 'user', 'content': instrucao}],
         'output_config': output_config,
     }
@@ -433,15 +461,118 @@ def classificar_topicos_via_ia(questoes, profile=None):
     texto_json = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
     if not texto_json:
         raise IAError(
-            f'A IA não retornou texto na classificação (stop_reason={getattr(resp, "stop_reason", "?")}).'
+            f'A IA não retornou texto{etapa} '
+            f'(stop_reason={getattr(resp, "stop_reason", "?")}).'
         )
     if profile is not None:
         profile.registrar_uso(
             resp.usage.input_tokens, resp.usage.output_tokens,
             custo_usd(resp.usage.input_tokens, resp.usage.output_tokens),
         )
-    data = json.loads(texto_json)
-    return data.get('topicos', [])
+    return json.loads(texto_json)
+
+
+def levantar_topicos_via_ia(questoes, profile=None):
+    """Passe 1 da classificação: descobre os TEMAS presentes na disciplina,
+    sem atribuir questões. Retorna `[{nome, descricao}, ...]` em ordem
+    didática. Como não precisa emitir centenas de IDs, é confiável mesmo
+    com disciplinas grandes."""
+    linhas = [
+        f'- {(q.enunciado_md or "").strip()[:CLASSIFICACAO_CHARS_NOMES]}'
+        for q in questoes
+    ]
+    instrucao = (
+        'Abaixo estão as questões de concurso de uma mesma disciplina. '
+        'Identifique os TÓPICOS DE ESTUDO que elas cobrem e devolva a lista '
+        'de tópicos — apenas os tópicos, sem associar questões a eles.\n\n'
+        'Regras:\n'
+        '- Cada tópico tem um nome curto (2 a 6 palavras) e uma descrição de '
+        'uma frase.\n'
+        '- Crie tópicos que cubram TODO o conteúdo presente: se um tema '
+        'aparece em várias questões, ele merece tópico próprio. Tipicamente '
+        'entre 10 e 40 tópicos, conforme a variedade do material.\n'
+        '- Prefira tópicos da dogmática da disciplina (institutos, fases, '
+        'procedimentos) a rótulos genéricos. NÃO crie tópicos vagos como '
+        '"Temas diversos", "Outros assuntos" ou "Questões variadas".\n'
+        '- Se houver institutos paralelos que costumam ser confundidos, '
+        'trate-os no mesmo tópico com um nome que cubra ambos.\n'
+        '- Ordene na sequência didática natural da disciplina.\n\n'
+        'Questões:\n\n' + '\n'.join(linhas)
+    )
+    data = _chamar_json(
+        get_client(),
+        'Você organiza questões de provas de concurso em tópicos de estudo.',
+        instrucao, SCHEMA_TOPICOS_NOMES,
+        max_tokens=max(getattr(settings, 'AI_MAX_TOKENS', 16000), 12000),
+        profile=profile, etapa=' ao levantar os tópicos',
+    )
+    return [
+        t for t in data.get('topicos', [])
+        if (t.get('nome') or '').strip()
+    ]
+
+
+def atribuir_questoes_aos_topicos(questoes, topicos, profile=None):
+    """Passe 2 da classificação: distribui as questões entre os tópicos já
+    definidos, em blocos de CLASSIFICACAO_CHUNK. Retorna `{questao_pk:
+    indice_do_topico}` — IDs que a IA deixar de fora simplesmente não
+    aparecem no dicionário e viram sobra."""
+    client = get_client()
+    catalogo = '\n'.join(
+        f'{i}. {t["nome"]}' + (f' — {t.get("descricao", "")}' if t.get('descricao') else '')
+        for i, t in enumerate(topicos)
+    )
+    atribuicoes = {}
+    for ini in range(0, len(questoes), CLASSIFICACAO_CHUNK):
+        bloco = questoes[ini:ini + CLASSIFICACAO_CHUNK]
+        linhas = [
+            f'[ID {q.pk}] {(q.enunciado_md or "").strip()[:CLASSIFICACAO_CHARS_POR_QUESTAO]}'
+            for q in bloco
+        ]
+        instrucao = (
+            'Classifique cada questão abaixo no tópico de estudo mais '
+            'adequado, escolhendo pelo NÚMERO do tópico nesta lista:\n\n'
+            f'{catalogo}\n\n'
+            'Regras:\n'
+            f'- Devolva EXATAMENTE {len(bloco)} atribuições, uma para cada ID '
+            'listado. Nenhum ID pode ficar de fora e nenhum pode se repetir.\n'
+            '- Classifique pelo tema PRINCIPAL que a questão testa, não por '
+            'temas que ela apenas mencione de passagem.\n'
+            '- Use somente números de tópico que existam na lista acima.\n\n'
+            'Questões:\n\n' + '\n\n'.join(linhas)
+        )
+        data = _chamar_json(
+            client,
+            'Você classifica questões de provas de concurso em tópicos de estudo.',
+            instrucao, SCHEMA_ATRIBUICOES,
+            max_tokens=max(8000, 2000 + len(bloco) * 60),
+            profile=profile, etapa=' ao classificar as questões',
+        )
+        validos = {q.pk for q in bloco}
+        for a in data.get('atribuicoes', []):
+            qid, idx = a.get('id'), a.get('topico')
+            if qid in validos and isinstance(idx, int) and 0 <= idx < len(topicos):
+                atribuicoes.setdefault(qid, idx)
+    return atribuicoes
+
+
+def classificar_topicos_via_ia(questoes, profile=None):
+    """Agrupa as questões em tópicos de estudo em DOIS passes: primeiro
+    levanta os temas da disciplina, depois classifica as questões em blocos
+    pequenos. Retorna `[{nome, descricao, questoes: [ids]}, ...]`."""
+    topicos = levantar_topicos_via_ia(questoes, profile=profile)
+    if not topicos:
+        raise IAError('A IA não retornou tópicos.')
+
+    atribuicoes = atribuir_questoes_aos_topicos(questoes, topicos, profile=profile)
+
+    grupos = [
+        {'nome': t.get('nome') or 'Tópico', 'descricao': t.get('descricao') or '', 'questoes': []}
+        for t in topicos
+    ]
+    for qid, idx in atribuicoes.items():
+        grupos[idx]['questoes'].append(qid)
+    return [g for g in grupos if g['questoes']]
 
 
 def montar_conteudo_topico(topico):
@@ -593,6 +724,23 @@ def coletar_batch_textos(batch_id):
     return True
 
 
+def _tokens_classificacao(questoes, n_topicos):
+    """Tokens (entrada + saída) dos dois passes da classificação: passe 1
+    levanta os nomes dos tópicos; passe 2 atribui as questões em blocos,
+    repetindo o catálogo de tópicos a cada bloco."""
+    n = len(questoes)
+    chars_nomes = sum(
+        min(len(q.enunciado_md or ''), CLASSIFICACAO_CHARS_NOMES) for q in questoes
+    )
+    chars_class = sum(
+        min(len(q.enunciado_md or ''), CLASSIFICACAO_CHARS_POR_QUESTAO) for q in questoes
+    )
+    n_blocos = max(1, -(-n // CLASSIFICACAO_CHUNK))
+    passe1 = chars_nomes / CHARS_PER_TOKEN + OUTPUT_TOKENS_CLASSIFICACAO
+    passe2 = chars_class / CHARS_PER_TOKEN + n_blocos * n_topicos * 20 + n * 20
+    return passe1 + passe2
+
+
 def estimar_tokens_topicos(questoes):
     """Estimativa (entrada + saída) do fluxo completo de tópicos:
     classificação + síntese de todos os textos."""
@@ -602,9 +750,6 @@ def estimar_tokens_topicos(questoes):
     if not n:
         return 0
     chars_q = sum(len(q.enunciado_md or '') for q in questoes)
-    chars_class = sum(
-        min(len(q.enunciado_md or ''), CLASSIFICACAO_CHARS_POR_QUESTAO) for q in questoes
-    )
     chars_analises = sum(
         len(md) for md in ResultadoPrompt.objects.filter(
             questao__in=[q.pk for q in questoes],
@@ -612,7 +757,7 @@ def estimar_tokens_topicos(questoes):
         ).values_list('resultado_md', flat=True)
     )
     n_topicos = max(3, min(30, n // 8 + 1))
-    classificacao = chars_class / CHARS_PER_TOKEN + OUTPUT_TOKENS_CLASSIFICACAO
+    classificacao = _tokens_classificacao(questoes, n_topicos)
     sintese_in = (chars_q + chars_analises) / CHARS_PER_TOKEN + n_topicos * 400
     sintese_out = n_topicos * OUTPUT_TOKENS_SINTESE
     return int(classificacao + sintese_in + sintese_out)
@@ -620,7 +765,7 @@ def estimar_tokens_topicos(questoes):
 
 def estimar_custo_topicos(questoes):
     """Estimativa de custo (USD) do fluxo completo de tópicos: a classificação
-    é uma chamada síncrona (preço cheio); a síntese dos textos sai pela
+    são chamadas síncronas (preço cheio); a síntese dos textos sai pela
     Batches API (desconto de 50%) quando há mais de um tópico."""
     from .models import ResultadoPrompt
 
@@ -628,9 +773,6 @@ def estimar_custo_topicos(questoes):
     if not n:
         return Decimal('0')
     chars_q = sum(len(q.enunciado_md or '') for q in questoes)
-    chars_class = sum(
-        min(len(q.enunciado_md or ''), CLASSIFICACAO_CHARS_POR_QUESTAO) for q in questoes
-    )
     chars_analises = sum(
         len(md) for md in ResultadoPrompt.objects.filter(
             questao__in=[q.pk for q in questoes],
@@ -639,13 +781,16 @@ def estimar_custo_topicos(questoes):
     )
     n_topicos = max(3, min(30, n // 8 + 1))
 
-    class_in = chars_class / CHARS_PER_TOKEN
+    # A classificação mistura entrada e saída; como a saída dos dois passes é
+    # pequena perto da entrada, cobra-se o todo como entrada mais a saída
+    # nominal do passe 1.
+    class_tokens = _tokens_classificacao(questoes, n_topicos)
     sintese_in = (chars_q + chars_analises) / CHARS_PER_TOKEN + n_topicos * 400
     sintese_out = n_topicos * OUTPUT_TOKENS_SINTESE
 
     desconto_sintese = Decimal('0.5') if n_topicos > 1 else Decimal('1')
     return (
-        custo_usd(int(class_in), OUTPUT_TOKENS_CLASSIFICACAO)
+        custo_usd(int(class_tokens), OUTPUT_TOKENS_CLASSIFICACAO)
         + custo_usd(int(sintese_in), int(sintese_out)) * desconto_sintese
     )
 
