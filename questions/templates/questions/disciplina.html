@@ -376,14 +376,19 @@ function toggleAplicarPrompt() {
     var iaBar    = document.getElementById('ia-bar');
     var iaCounts = document.getElementById('ia-progress-counts');
     var iaStatusUrl = '{% url "questions:ia_status" disciplina.pk %}';
+    // Progresso do lote em processamento: o denominador é o tamanho da fila
+    // desta rodada (maior valor visto de na_fila), não o total de questões
+    // da disciplina — senão gerar 7 análises numa disciplina de 556 mostra 7/556.
+    var loteTotal = 0;
     var pollIA = setInterval(function () {
       fetch(iaStatusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.total > 0 && iaBar) {
-            var pct = Math.round(data.concluidas / data.total * 100);
-            iaBar.style.width = pct + '%';
-            if (iaCounts) iaCounts.textContent = data.concluidas + '/' + data.total;
+          loteTotal = Math.max(loteTotal, data.na_fila);
+          if (loteTotal > 0 && iaBar) {
+            var feitas = loteTotal - data.na_fila;
+            iaBar.style.width = Math.round(feitas / loteTotal * 100) + '%';
+            if (iaCounts) iaCounts.textContent = feitas + '/' + loteTotal;
           }
           if (!data.em_processamento) {
             clearInterval(pollIA);

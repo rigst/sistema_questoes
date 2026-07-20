@@ -334,9 +334,17 @@ Regras de cobertura (as mais importantes):
 regras, conceitos, bases normativas (artigos/súmulas), exceções, prazos, \
 competências, erros comuns e pegadinhas. Nenhum ponto que apareça em apenas \
 uma questão pode ficar de fora do texto.
+- Qualificadores normativos são informação relevante e devem ser preservados \
+com exatidão: exceções, formas alternativas de conduta (ex.: "dolosa OU por \
+grave omissão"), prazos, restrições setoriais e ressalvas.
+- Se as análises tratarem de institutos, regimes ou dispositivos DISTINTOS — \
+ainda que semelhantes ou paralelos, como as versões federal e estadual de um \
+mesmo instituto —, apresente cada um em seção própria, com seus atores e \
+dispositivos corretos, e destaque as diferenças. NUNCA funda institutos \
+diferentes num só, mesmo que o nome do tópico sugira apenas um deles.
 - Informação repetida em várias questões entra UMA única vez, sem redundância.
 - Antes de finalizar, confira questão por questão se algum ponto exclusivo \
-ficou de fora; se ficou, inclua-o.
+ficou de fora ou foi atribuído ao instituto errado; se sim, corrija.
 
 Estrutura:
 - Organize por subtemas com títulos "##"/"###" quando ajudar; comece pela \
@@ -370,7 +378,10 @@ def classificar_topicos_via_ia(questoes, profile=None):
         'aquele tema. Crie quantos tópicos forem necessários (tipicamente '
         'entre 5 e 30): questões que testam o mesmo tema ficam juntas, e cada '
         'ID deve aparecer em exatamente um tópico — nenhum ID pode ficar de '
-        'fora. Ordene os tópicos na sequência didática natural da disciplina.'
+        'fora. O nome do tópico deve abranger TODAS as questões do grupo: se '
+        'agrupar institutos paralelos (ex.: intervenção federal e estadual), '
+        'use um nome que cubra ambos, sem privilegiar um deles. Ordene os '
+        'tópicos na sequência didática natural da disciplina.'
         '\n\nQuestões:\n\n' + '\n\n'.join(linhas)
     )
     resp = client.messages.create(
