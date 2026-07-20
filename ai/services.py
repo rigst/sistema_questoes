@@ -121,6 +121,14 @@ def custo_usd(input_tokens, output_tokens):
     return (Decimal(input_tokens) / 1_000_000 * pin) + (Decimal(output_tokens) / 1_000_000 * pout)
 
 
+def formatar_custo_usd(valor):
+    """Formata um valor em USD no mesmo padrão usado nas prévias de custo da UI."""
+    if valor < Decimal('0.0005'):
+        return '< $0.001'
+    casas = 4 if valor < Decimal('0.01') else 3
+    return f'${valor:.{casas}f}'
+
+
 def _texto_questao(questao, prompt_texto=None):
     partes = []
     if prompt_texto:
@@ -565,4 +573,36 @@ def estimar_tokens_topicos(questoes):
     sintese_in = (chars_q + chars_analises) / CHARS_PER_TOKEN + n_topicos * 400
     sintese_out = n_topicos * OUTPUT_TOKENS_SINTESE
     return int(classificacao + sintese_in + sintese_out)
+
+
+def estimar_custo_topicos(questoes):
+    """Estimativa de custo (USD) do fluxo completo de tópicos: a classificação
+    é uma chamada síncrona (preço cheio); a síntese dos textos sai pela
+    Batches API (desconto de 50%) quando há mais de um tópico."""
+    from .models import ResultadoPrompt
+
+    n = len(questoes)
+    if not n:
+        return Decimal('0')
+    chars_q = sum(len(q.enunciado_md or '') for q in questoes)
+    chars_class = sum(
+        min(len(q.enunciado_md or ''), CLASSIFICACAO_CHARS_POR_QUESTAO) for q in questoes
+    )
+    chars_analises = sum(
+        len(md) for md in ResultadoPrompt.objects.filter(
+            questao__in=[q.pk for q in questoes],
+            status=ResultadoPrompt.Status.CONCLUIDO,
+        ).values_list('resultado_md', flat=True)
+    )
+    n_topicos = max(3, min(30, n // 8 + 1))
+
+    class_in = chars_class / CHARS_PER_TOKEN
+    sintese_in = (chars_q + chars_analises) / CHARS_PER_TOKEN + n_topicos * 400
+    sintese_out = n_topicos * OUTPUT_TOKENS_SINTESE
+
+    desconto_sintese = Decimal('0.5') if n_topicos > 1 else Decimal('1')
+    return (
+        custo_usd(int(class_in), OUTPUT_TOKENS_CLASSIFICACAO)
+        + custo_usd(int(sintese_in), int(sintese_out)) * desconto_sintese
+    )
 

@@ -13,8 +13,10 @@ from .models import ResultadoPrompt, TextoTopico
 from .services import (
     _params_mensagem,
     _params_sintese,
+    estimar_custo_topicos,
     estimar_tokens,
     estimar_tokens_topicos,
+    formatar_custo_usd,
     montar_conteudo_topico,
 )
 from .tasks import processar_lote
@@ -383,6 +385,30 @@ class TopicosTests(BaseIATestCase):
     def test_estimar_tokens_topicos_positivo(self):
         self.assertGreater(estimar_tokens_topicos([self.questao, self.q2]), 0)
         self.assertEqual(estimar_tokens_topicos([]), 0)
+
+    def test_estimar_custo_topicos_positivo_e_zero_sem_questoes(self):
+        from decimal import Decimal
+        custo = estimar_custo_topicos([self.questao, self.q2])
+        self.assertGreater(custo, Decimal('0'))
+        self.assertEqual(estimar_custo_topicos([]), Decimal('0'))
+
+    def test_estimar_custo_topicos_cresce_com_mais_conteudo(self):
+        q3 = Questao.objects.create(
+            disciplina=self.disc, numero=3, enunciado_md='Enunciado bem maior ' * 50, gabarito='C',
+        )
+        ResultadoPrompt.objects.create(
+            questao=q3, prompt=self.prompt, status=ResultadoPrompt.Status.CONCLUIDO,
+            resultado_md='Análise bem mais longa. ' * 50,
+        )
+        custo_pequeno = estimar_custo_topicos([self.questao, self.q2])
+        custo_grande = estimar_custo_topicos([self.questao, self.q2, q3])
+        self.assertGreater(custo_grande, custo_pequeno)
+
+    def test_formatar_custo_usd(self):
+        from decimal import Decimal
+        self.assertEqual(formatar_custo_usd(Decimal('0.0001')), '< $0.001')
+        self.assertEqual(formatar_custo_usd(Decimal('0.0032')), '$0.0032')
+        self.assertEqual(formatar_custo_usd(Decimal('0.123')), '$0.123')
 
     def test_status_endpoint(self):
         topico = Topico.objects.create(disciplina=self.disc, nome='Tema')

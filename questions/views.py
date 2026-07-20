@@ -30,6 +30,7 @@ def disciplina(request, pk):
     from django.db.models import Count
 
     from ai.models import ResultadoPrompt, TextoTopico
+    from ai.services import estimar_custo_topicos, formatar_custo_usd
     from ai.tasks import chave_topicos_classificando
 
     disc = _disciplina_do_user(request, pk)
@@ -74,13 +75,16 @@ def disciplina(request, pk):
         .annotate(n_questoes=Count('questoes'))
     )
     topicos_classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
+    analisadas = list(disc.questoes.filter(Exists(
+        ResultadoPrompt.objects.filter(
+            questao=OuterRef('pk'), status=ResultadoPrompt.Status.CONCLUIDO,
+        )
+    )))
+    custo_topicos = estimar_custo_topicos(analisadas) if analisadas else None
     contexto.update({
         'topicos': topicos,
-        'total_analisadas': disc.questoes.filter(Exists(
-            ResultadoPrompt.objects.filter(
-                questao=OuterRef('pk'), status=ResultadoPrompt.Status.CONCLUIDO,
-            )
-        )).count(),
+        'total_analisadas': len(analisadas),
+        'custo_estimado_topicos': formatar_custo_usd(custo_topicos) if custo_topicos is not None else None,
         'topicos_classificando': topicos_classificando,
         'topicos_gerando': topicos_classificando or TextoTopico.objects.filter(
             topico__disciplina=disc,

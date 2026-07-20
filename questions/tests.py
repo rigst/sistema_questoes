@@ -1,7 +1,16 @@
 import fitz
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
+
+from ai.models import ResultadoPrompt
+from exams.models import Disciplina, Prova
+from prompts.models import Prompt
 
 from . import extraction
+from .models import Questao
+
+User = get_user_model()
 
 PDF_TEXTO = """Prova
 
@@ -191,3 +200,29 @@ class NormalizarEnunciadoTests(TestCase):
         self.assertNotIn('4000823362', out)
         self.assertNotIn('9 B 10 D', out)
         self.assertEqual(len(out.split('\n\n')), 4)
+
+
+class DisciplinaCustoTopicosTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('ana', password='x')
+        self.prova = Prova.objects.create(user=self.user, nome='Concurso')
+        self.disc = Disciplina.objects.create(prova=self.prova, nome='Direito')
+        self.prompt = Prompt.objects.create(user=self.user, nome='Explicar', texto='Explique.')
+        self.client.force_login(self.user)
+
+    def test_sem_analise_nao_estima_custo(self):
+        Questao.objects.create(disciplina=self.disc, numero=1, enunciado_md='Enunciado sem análise')
+        resp = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
+        self.assertIsNone(resp.context['custo_estimado_topicos'])
+
+    def test_com_analise_mostra_custo_estimado_ao_lado_do_botao(self):
+        q = Questao.objects.create(disciplina=self.disc, numero=1, enunciado_md='Enunciado sobre X ' * 20)
+        ResultadoPrompt.objects.create(
+            questao=q, prompt=self.prompt, status=ResultadoPrompt.Status.CONCLUIDO,
+            resultado_md='Análise concluída sobre o tema.',
+        )
+        resp = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
+        custo = resp.context['custo_estimado_topicos']
+        self.assertIsNotNone(custo)
+        self.assertTrue(custo.startswith('$') or custo.startswith('< $'))
+        self.assertContains(resp, custo)

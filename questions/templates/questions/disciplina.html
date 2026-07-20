@@ -197,6 +197,9 @@
                         {% if topicos %}Regerar tópicos{% else %}Gerar tópicos e textos{% endif %}
                     </button>
                 </form>
+                {% if custo_estimado_topicos %}
+                <span class="disc-cost" id="custo-topicos">{{ total_analisadas }} quest{{ total_analisadas|pluralize:"ão,ões" }} · ~{{ custo_estimado_topicos }}</span>
+                {% endif %}
             </div>
         </div>
         <p class="muted" style="margin-top:-.5rem;margin-bottom:.75rem;font-size:.85rem;">
