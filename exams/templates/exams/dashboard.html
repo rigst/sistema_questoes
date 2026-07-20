@@ -173,7 +173,7 @@
 
 {% block content %}
 <section>
-    <div class="section-heading">
+    <div class="section-heading dashboard-conteudo">
         <div>
             <h2>Bons Estudos{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %} ✨</h2>
             <p class="muted" style="margin-top:.2rem;font-size:.9rem;">cada questão revisada é um passo a mais</p>
@@ -194,11 +194,11 @@
                 {% endif %}
             </article>
             {% if minutos_a_ler %}
-            {# Responde "dá para encaixar isso hoje?", que a contagem não responde. #}
+            {# Em dias a 1h/dia: vira um plano, em vez de um total que assusta. #}
             <article class="pe-card pe-card--tempo">
-                <span class="pe-label">Leitura restante</span>
-                <strong class="pe-valor">{{ tempo_a_ler }}</strong>
-                <span class="pe-rodape">{{ total_a_ler }} tópico{{ total_a_ler|pluralize }} por ler</span>
+                <span class="pe-label">No ritmo de 1h por dia</span>
+                <strong class="pe-valor">{{ dias_no_ritmo }}<span class="pe-un">dia{{ dias_no_ritmo|pluralize }}</span></strong>
+                <span class="pe-rodape">{{ total_a_ler }} tópico{{ total_a_ler|pluralize }} · {{ tempo_a_ler }} de leitura</span>
             </article>
             {% endif %}
         </div>
@@ -224,7 +224,7 @@
     {% endif %}
 
     {% csrf_token %}
-    <div class="provas-tree" id="provas-tree">
+    <div class="provas-tree dashboard-conteudo" id="provas-tree">
         <div class="provas-tree-left" id="provas-list">
             {% for prova in provas %}
             <div class="prova-item {% if forloop.first %}is-active{% endif %}"

@@ -102,9 +102,21 @@
     if (titulo === alvo || titulo.indexOf(alvo) === 0) primeiro.remove();
   }
 
+  // Marca-texto só onde ele ajuda: trecho com substância. Uma palavra solta
+  // ("não", "qual", "adota") em destaque a cada duas linhas deixava a página
+  // riscada de ponta a ponta e o traço perdia o sentido de "isto importa".
+  function marcarDestaques(raiz) {
+    raiz.querySelectorAll('strong').forEach(function (s) {
+      var txt = (s.textContent || '').trim();
+      var palavras = txt.split(/\s+/).filter(Boolean).length;
+      if (palavras >= 2 || txt.length >= 15) s.classList.add('tem-marca');
+    });
+  }
+
   global.formatarTextoDeEstudo = function (el) {
     removerTituloDuplicado(el, el.dataset.nome);
     agruparPegadinhas(el);
+    marcarDestaques(el);
     marcarReferencias(el);
     envolverTabelas(el);
   };

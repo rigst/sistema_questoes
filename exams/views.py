@@ -55,6 +55,11 @@ def dashboard(request):
         tempo_a_ler = f'{horas}h{resto:02d}' if resto else f'{horas}h'
     else:
         tempo_a_ler = f'{minutos_a_ler}min'
+
+    # "14h de leitura" assusta e não diz o que fazer hoje; a mesma conta em
+    # dias a uma hora por dia vira um plano.
+    META_DIARIA_MIN = 60
+    dias_no_ritmo = -(-minutos_a_ler // META_DIARIA_MIN) if minutos_a_ler else 0
     contexto = {
         'provas': provas,
         'total_provas': provas.count(),
@@ -68,6 +73,7 @@ def dashboard(request):
         'continuar': continuar,
         'minutos_a_ler': minutos_a_ler,
         'tempo_a_ler': tempo_a_ler,
+        'dias_no_ritmo': dias_no_ritmo,
         'na_fila': Questao.objects.filter(
             disciplina__prova__user=request.user,
             status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]

@@ -1550,7 +1550,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .topico-link { flex: 1; min-width: 0; text-decoration: none; color: inherit; }
-.topico-link:hover .topico-nome { color: var(--link); text-decoration: underline; }
+.topico-link:hover .topico-nome { color: var(--link); }
 .topico-nome {
     display: block; font-family: var(--font-display); font-weight: 550;
     font-size: 1.05rem; color: var(--text);
@@ -1597,14 +1597,16 @@ body.modal-open { overflow: hidden; }
 /* Marca-texto de altura cheia, como caneta passada por cima da palavra.
    Duas cores com significado: âmbar no texto corrido (a regra) e verde nas
    listas (requisitos, hipóteses, características — o que se enumera). */
-.topico-texto strong {
-  color: var(--text);
-  font-weight: 600;
+.topico-texto strong { color: var(--text); font-weight: 600; }
+
+/* Só os destaques com substância recebem o traço; marcar cada palavra
+   solta ("não", "qual") virava ruído. A classe vem do JS. */
+.topico-texto strong.tem-marca {
   background-color: var(--marca-amarelo);
   box-shadow: 0 0 0 0.14em var(--marca-amarelo);
   border-radius: 2px;
 }
-.topico-texto li strong {
+.topico-texto li strong.tem-marca {
   background-color: var(--marca-verde);
   box-shadow: 0 0 0 0.14em var(--marca-verde);
 }
@@ -1728,8 +1730,10 @@ body.modal-open { overflow: hidden; }
 
 /* Sem sublinhado: o item inteiro reage, com um filete de marca-texto na
    borda e um leve avanço — o mesmo gesto de correr o dedo pela lista. */
-.topico-link:hover .topico-nome,
-.topico-link:focus-visible .topico-nome { color: var(--text); text-decoration: none; }
+.topico-link,
+.topico-link:hover,
+.topico-link:focus-visible { text-decoration: none; }
+.topico-link:hover .topico-nome { color: var(--text); }
 
 .topico-item {
   border-left: 4px solid transparent;
@@ -1947,3 +1951,38 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 560px) {
   .leitura-prog-track { width: 74px; }
 }
+
+/* ---- dashboard na mesma medida das demais páginas ----------------------- */
+/* A dashboard nasceu ocupando os 1320px do container e destoava do resto do
+   app, que lê em 940px. */
+.painel-estudo,
+.dashboard-conteudo { max-width: var(--max-width-lista); margin-left: auto; margin-right: auto; }
+
+/* ---- navegação entre tópicos no topo da leitura ------------------------- */
+.leitura-nav-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.lnt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.lnt-btn:hover,
+.lnt-btn:focus-visible {
+  color: var(--link);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.lnt-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+.lnt-espaco { flex: 1; }

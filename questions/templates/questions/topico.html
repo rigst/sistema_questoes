@@ -13,6 +13,23 @@
         <span class="breadcrumb-current">Tópico {{ posicao }} de {{ total_topicos }}</span>
     </nav>
 
+    {# Mesma navegação do rodapé, discreta, para quem já leu e quer seguir. #}
+    <nav class="leitura-nav-topo" aria-label="Tópico anterior e próximo">
+        {% if anterior %}
+        <a class="lnt-btn" href="{% url 'questions:topico_detalhe' anterior.pk %}"
+           title="{{ anterior.nome }}"><span aria-hidden="true">←</span> Anterior</a>
+        {% else %}
+        <span class="lnt-btn" aria-disabled="true"><span aria-hidden="true">←</span> Anterior</span>
+        {% endif %}
+        <span class="lnt-espaco"></span>
+        {% if proximo %}
+        <a class="lnt-btn" href="{% url 'questions:topico_detalhe' proximo.pk %}"
+           title="{{ proximo.nome }}">Próximo <span aria-hidden="true">→</span></a>
+        {% else %}
+        <span class="lnt-btn" aria-disabled="true">Próximo <span aria-hidden="true">→</span></span>
+        {% endif %}
+    </nav>
+
     <header class="leitura-head">
         <h1>{{ topico.nome }}</h1>
         {% if topico.descricao %}<p class="leitura-desc">{{ topico.descricao }}</p>{% endif %}
