@@ -11,8 +11,10 @@ from questions.models import Questao, Topico
 
 from .models import ResultadoPrompt, TextoTopico
 from .services import (
+    IAError,
     _params_mensagem,
     _params_sintese,
+    classificar_topicos_via_ia,
     estimar_custo_topicos,
     estimar_tokens,
     estimar_tokens_topicos,
@@ -265,6 +267,32 @@ class TopicosTests(BaseIATestCase):
         profile = self.user.profile
         profile.refresh_from_db()
         self.assertGreater(profile.tokens_usados_mes, 0)
+
+    @patch('ai.services.get_client')
+    def test_classificacao_usa_effort_e_max_tokens_maior_em_disciplina_grande(self, get_client):
+        from django.test import override_settings
+
+        get_client.return_value.messages.create.return_value = self._classificacao_fake(
+            [{'nome': 'Tema', 'descricao': 'x', 'questoes': list(range(1, 301))}]
+        )
+        questoes_grandes = [SimpleNamespace(pk=i, enunciado_md=f'Enunciado {i}') for i in range(1, 301)]
+        with override_settings(AI_MODEL='claude-sonnet-5', AI_MAX_TOKENS=16000, AI_EFFORT='low'):
+            classificar_topicos_via_ia(questoes_grandes)
+
+        kwargs = get_client.return_value.messages.create.call_args.kwargs
+        self.assertEqual(kwargs['thinking'], {'type': 'adaptive'})
+        self.assertEqual(kwargs['output_config']['effort'], 'low')
+        self.assertGreater(kwargs['max_tokens'], 16000)
+
+    @patch('ai.services.get_client')
+    def test_classificacao_sem_texto_levanta_erro_claro(self, get_client):
+        resposta_vazia = SimpleNamespace(
+            content=[], usage=SimpleNamespace(input_tokens=100, output_tokens=0), stop_reason='max_tokens',
+        )
+        get_client.return_value.messages.create.return_value = resposta_vazia
+        with self.assertRaises(IAError) as ctx:
+            classificar_topicos_via_ia([self.questao, self.q2])
+        self.assertIn('max_tokens', str(ctx.exception))
 
     @patch('ai.services.get_client')
     def test_sobras_vao_para_outros_temas_e_lote_e_submetido(self, get_client):

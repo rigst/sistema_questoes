@@ -392,14 +392,29 @@ def classificar_topicos_via_ia(questoes, profile=None):
         'tópicos na sequência didática natural da disciplina.'
         '\n\nQuestões:\n\n' + '\n\n'.join(linhas)
     )
-    resp = client.messages.create(
-        model=getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
-        max_tokens=getattr(settings, 'AI_MAX_TOKENS', 16000),
-        system='Você organiza questões de provas de concurso em tópicos de estudo.',
-        messages=[{'role': 'user', 'content': instrucao}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA_TOPICOS}},
-    )
+    modelo = getattr(settings, 'AI_MODEL', 'claude-sonnet-5')
+    # Disciplinas grandes (centenas de questões) precisam de espaço extra:
+    # a lista de IDs sozinha já consome tokens, e sem o "effort" abaixo os
+    # modelos da família adaptativa podem gastar o budget todo pensando e
+    # nunca chegar a emitir o JSON final.
+    max_tokens = max(getattr(settings, 'AI_MAX_TOKENS', 16000), 8000 + len(questoes) * 40)
+    output_config = {'format': {'type': 'json_schema', 'schema': SCHEMA_TOPICOS}}
+    params = {
+        'model': modelo,
+        'max_tokens': max_tokens,
+        'system': 'Você organiza questões de provas de concurso em tópicos de estudo.',
+        'messages': [{'role': 'user', 'content': instrucao}],
+        'output_config': output_config,
+    }
+    if _suporta_adaptive(modelo):
+        params['thinking'] = {'type': 'adaptive'}
+        output_config['effort'] = getattr(settings, 'AI_EFFORT', 'medium')
+    resp = client.messages.create(**params)
     texto_json = ''.join(b.text for b in resp.content if getattr(b, 'type', '') == 'text')
+    if not texto_json:
+        raise IAError(
+            f'A IA não retornou texto na classificação (stop_reason={getattr(resp, "stop_reason", "?")}).'
+        )
     if profile is not None:
         profile.registrar_uso(
             resp.usage.input_tokens, resp.usage.output_tokens,
