@@ -206,6 +206,9 @@
                 <a class="topico-link" href="{% url 'questions:topico_detalhe' t.pk %}">
                     <span class="topico-nome">{{ t.nome }}</span>
                     {% if t.descricao %}<span class="topico-resumo">{{ t.descricao }}</span>{% endif %}
+                    {# quanto o tema foi cobrado, em relação ao mais cobrado da disciplina #}
+                    <span class="topico-peso" style="width: {% widthratio t.n_questoes maior_topico 100 %}%"
+                          title="{{ t.n_questoes }} de {{ total_questoes }} questões da disciplina"></span>
                 </a>
                 <span class="topico-tags">
                     <span class="qchip qchip-vazio">{{ t.n_questoes }} quest{{ t.n_questoes|pluralize:"ão,ões" }}</span>

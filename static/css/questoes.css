@@ -64,6 +64,9 @@
   /* A leitura corrida tem medida própria: alargar a página não pode alargar
      a linha de texto além do confortável. */
   --max-width-leitura: 900px;
+  /* Listas longas leem melhor estreitas; a página segue larga
+     para as laterais aparecerem. */
+  --max-width-lista: 940px;
   --shadow-sheet: 0 1px 2px rgba(29, 37, 52, 0.05), 0 10px 30px rgba(29, 37, 52, 0.07);
   --shadow-pop: 0 24px 60px rgba(29, 37, 52, 0.22);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -409,6 +412,9 @@ main.container {
   opacity: 0.85;
   transform: skewX(-8deg);
 }
+
+.header-user-meta[hidden],
+.nav-bottom[hidden] { display: none !important; }
 
 .header-user-meta {
   display: flex;
@@ -1557,4 +1563,130 @@ body.modal-open { overflow: hidden; }
   .topico-check { grid-area: 1 / 1; }
   .topico-link { grid-area: 1 / 2; }
   .topico-tags { grid-area: 2 / 2; }
+}
+
+/* =========================================================================
+   Leitura: medida das listas + marcação do conteúdo de estudo
+   ========================================================================= */
+
+/* Listas longas ficam na medida de leitura, centradas: a página segue larga
+   (as laterais aparecem), o texto não. */
+.topico-lista,
+.leitura-progresso,
+#painel-questoes > form,
+#painel-questoes .pagination { max-width: var(--max-width-lista); margin-left: auto; margin-right: auto; }
+
+/* ---- marcação do texto de estudo ---------------------------------------- */
+
+/* Marca-texto: o motivo da marca aplicado ao que a IA destacou como decisivo.
+   Traço curto e assimétrico, como caneta sobre papel — não um retângulo. */
+.topico-texto strong {
+  color: var(--text);
+  font-weight: 600;
+  background-image: linear-gradient(180deg, transparent 58%, var(--accent-tint-strong) 58%);
+  background-repeat: no-repeat;
+  padding: 0 0.12em 0.04em;
+  border-radius: 2px;
+}
+
+/* Citação normativa (art., súmula, lei): a informação que sustenta o estudo,
+   destacada para ser encontrada de relance. */
+.ref-legal {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: var(--link);
+  white-space: nowrap;
+  border-bottom: 1px dotted currentColor;
+}
+
+/* Regra transcrita: o bloco de citação vira uma "ficha" com filete âmbar. */
+.topico-texto blockquote {
+  position: relative;
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.3rem;
+  font-style: normal;
+  color: var(--text-soft);
+}
+
+/* Seção final "Erros comuns e pegadinhas": é o único trecho do texto com
+   função distinta — as armadilhas de prova. Ganha painel próprio. */
+.bloco-pegadinhas {
+  margin-top: 2.4rem;
+  padding: 1.3rem 1.5rem 0.4rem;
+  border: 1px solid var(--danger-border);
+  border-radius: 14px;
+  background: var(--danger-soft);
+}
+.bloco-pegadinhas > h2,
+.bloco-pegadinhas > h3 {
+  margin-top: 0;
+  border: 0;
+  padding: 0;
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bloco-pegadinhas > h2::before,
+.bloco-pegadinhas > h3::before {
+  content: "!";
+  flex: none;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.bloco-pegadinhas li::marker { color: var(--danger); }
+.bloco-pegadinhas strong { background-image: none; color: var(--danger); }
+
+/* Peso do tópico: barra fina sob o nome, proporcional a quantas questões o
+   tema teve na prova — a mesma informação que define a ordem da lista. */
+.topico-peso {
+  display: block;
+  height: 3px;
+  margin-top: 0.5rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  opacity: 0.75;
+}
+.topico-item.is-lido .topico-peso { background: var(--success); opacity: 0.55; }
+.topico-item.is-sobras .topico-peso { background: var(--border-strong); }
+
+/* ---- cards de questão no mobile ----------------------------------------- */
+@media (max-width: 760px) {
+  /* A largura de célula de tabela vazava para o grid e abria um buraco entre
+     o checkbox e o número. */
+  html.cards-mode .questoes-table .col-check { width: auto; padding: 0 !important; }
+  html.cards-mode .questoes-table tbody tr {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "check num  gab"
+      "enun  enun enun"
+      "chips chips chips";
+    gap: 0.5rem 0.6rem;
+    padding: 0.85rem 0.95rem;
+  }
+  html.cards-mode .questoes-table .col-num {
+    font-size: 0.95rem;
+    color: var(--text);
+    justify-self: start;
+  }
+  html.cards-mode .questoes-table .questao-enunciado { font-size: 0.88rem; line-height: 1.55; }
+  html.cards-mode .questoes-table .col-chips { padding-top: 0.15rem; }
+
+  /* A barra de ação empilha em vez de espremer o botão contra o rótulo. */
+  .disc-prompt-bar { flex-direction: column; align-items: stretch; gap: 0.55rem; }
+  .disc-prompt-bar .btn { width: 100%; }
+  .disc-cost { margin-left: 0; }
+  /* inline-flex centraliza dentro da coluna esticada; ancora à esquerda */
+  html.cards-mode .sel-todas-cards { align-self: flex-start; }
 }

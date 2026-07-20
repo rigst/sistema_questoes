@@ -74,31 +74,14 @@
 </article>
 
 <script src="{% static 'js/marked.min.js' %}"></script>
+<script src="{% static 'js/estudo-texto.js' %}"></script>
 <script>
 (function () {
   if (typeof marked !== 'undefined') {
     marked.setOptions({ breaks: true, gfm: true });
     document.querySelectorAll('.js-md-topico').forEach(function (el) {
       el.innerHTML = marked.parse(el.textContent || '');
-      // A IA costuma abrir o texto repetindo o nome do tópico como título;
-      // aqui ele já é o <h1> da página, então o duplicado sai.
-      var primeiro = el.firstElementChild;
-      if (primeiro && /^H[12]$/.test(primeiro.tagName)) {
-        var norm = function (s) {
-          return (s || '').toLowerCase()
-            .normalize('NFD').replace(/[̀-ͯ]/g, '')
-            .replace(/[^a-z0-9]+/g, ' ').trim();
-        };
-        var titulo = norm(primeiro.textContent);
-        var nome = norm(el.dataset.nome);
-        if (nome && (titulo === nome || titulo.indexOf(nome) === 0)) primeiro.remove();
-      }
-      el.querySelectorAll('table').forEach(function (tb) {
-        var wrap = document.createElement('div');
-        wrap.className = 'table-scroll';
-        tb.parentNode.insertBefore(wrap, tb);
-        wrap.appendChild(tb);
-      });
+      formatarTextoDeEstudo(el);
     });
   }
 

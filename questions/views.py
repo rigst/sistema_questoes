@@ -89,6 +89,8 @@ def disciplina(request, pk):
         'topicos': topicos,
         'total_topicos': len(topicos),
         'total_lidos': len(lidos),
+        # denominador da barra de peso: o tema mais cobrado da disciplina
+        'maior_topico': max((t.n_questoes for t in topicos), default=1) or 1,
         'total_analisadas': len(analisadas),
         'custo_estimado_topicos': formatar_custo_usd(custo_topicos) if custo_topicos is not None else None,
         'topicos_classificando': topicos_classificando,
