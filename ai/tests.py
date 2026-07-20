@@ -186,6 +186,40 @@ class AnaliseUnicaTests(BaseIATestCase):
         msgs = montar_mensagens(self.questao, 'instrução')
         self.assertEqual([b['type'] for b in msgs[0]['content']], ['text'])
 
+    @patch('ai.tasks.processar_lote.delay')
+    def test_todas_paginas_abrange_disciplina_inteira_sem_questao_ids(self, processar_lote_delay):
+        outra = Questao.objects.create(
+            disciplina=self.disc, numero=2, enunciado_md='Outra questão', gabarito='B',
+        )
+        resp = self.client.post(reverse('ai:gerar_comentarios'), {
+            'usar_lote': '1', 'todas_paginas': '1', 'disciplina_id': self.disc.pk,
+        })
+        self.assertEqual(resp.status_code, 302)
+        padrao = Prompt.objects.filter(user__isnull=True).first()
+        self.assertEqual(
+            ResultadoPrompt.objects.filter(prompt=padrao, questao__in=[self.questao, outra]).count(), 2,
+        )
+        processar_lote_delay.assert_called_once()
+
+    @patch('ai.tasks.processar_lote.delay')
+    def test_todas_paginas_pula_questoes_de_outra_disciplina(self, processar_lote_delay):
+        outra_disc = Disciplina.objects.create(prova=self.prova, nome='Português')
+        Questao.objects.create(disciplina=outra_disc, numero=1, enunciado_md='Outra disciplina')
+
+        self.client.post(reverse('ai:gerar_comentarios'), {
+            'usar_lote': '1', 'todas_paginas': '1', 'disciplina_id': self.disc.pk,
+        })
+        padrao = Prompt.objects.filter(user__isnull=True).first()
+        self.assertEqual(ResultadoPrompt.objects.filter(prompt=padrao).count(), 1)
+        self.assertEqual(ResultadoPrompt.objects.get(prompt=padrao).questao, self.questao)
+
+    def test_todas_paginas_sem_disciplina_id_exige_selecao(self):
+        resp = self.client.post(
+            reverse('ai:gerar_comentarios'), {'usar_lote': '1', 'todas_paginas': '1'}, follow=True,
+        )
+        mensagens = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('Selecione ao menos uma questão' in m for m in mensagens))
+
 
 class TopicosTests(BaseIATestCase):
     def setUp(self):

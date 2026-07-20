@@ -117,6 +117,8 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <input type="hidden" name="usar_lote" value="1">
+            <input type="hidden" name="disciplina_id" value="{{ disciplina.pk }}">
+            <input type="hidden" name="todas_paginas" id="todas-paginas-input" value="0">
             <div class="disc-prompt-bar">
                 <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
                 <button type="submit" class="btn btn-primary btn-compact precisa-selecao" id="lote-btn" disabled>Gerar análise</button>
@@ -125,6 +127,13 @@
                     <span id="cost-summary"></span>
                 </span>
             </div>
+            {% if questoes.paginator.num_pages > 1 %}
+            <p class="disc-prompt-hint" id="aviso-selecao-paginas" hidden style="margin:-.4rem 0 .6rem;">
+                <span id="aviso-selecao-texto"></span>
+                <a href="#" id="link-selecionar-todas-paginas">Selecionar as {{ total_questoes }} questões de todas as páginas</a>
+                <a href="#" id="link-limpar-selecao" hidden>Limpar seleção</a>
+            </p>
+            {% endif %}
 
             {# ---- IA EM PROCESSAMENTO ---- #}
             <div id="ia-processando-banner" class="disc-banner disc-banner-processing" {% if not ia_em_processamento %}hidden{% endif %}>
@@ -248,7 +257,9 @@
 
 <script>
 function toggleAplicarPrompt() {
-  var nenhuma = document.querySelectorAll('.sel-questao:checked').length === 0;
+  var flagInput = document.getElementById('todas-paginas-input');
+  var todasPaginas = flagInput && flagInput.value === '1';
+  var nenhuma = !todasPaginas && document.querySelectorAll('.sel-questao:checked').length === 0;
   document.querySelectorAll('.precisa-selecao').forEach(function (btn) { btn.disabled = nenhuma; });
   if (typeof atualizarCusto === 'function') atualizarCusto();
 }
@@ -266,9 +277,26 @@ function toggleAplicarPrompt() {
   var costSummary = document.getElementById('cost-summary');
   var loteForm = document.getElementById('lote-form');
   var promptChars = loteForm ? parseInt(loteForm.dataset.promptChars || '0', 10) : 0;
+  var TOTAL_PENDENTES = {{ total_pendentes|default:0 }};
+  var TOTAL_CHARS_PENDENTES = {{ total_chars_pendentes|default:0 }};
+
+  function custoFormatado(totalInputTokens, totalOutputTokens) {
+    var custo = (totalInputTokens / 1e6 * PRICE_IN + totalOutputTokens / 1e6 * PRICE_OUT) * BATCH_DISCOUNT;
+    return custo < 0.0005 ? '< $0.001' : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
+  }
 
   window.atualizarCusto = function () {
     if (!costPreview) return;
+    var flagInput = document.getElementById('todas-paginas-input');
+    if (flagInput && flagInput.value === '1') {
+      if (TOTAL_PENDENTES === 0) { costPreview.hidden = true; return; }
+      var totalInputTokensP = TOTAL_PENDENTES * (SYSTEM_OVERHEAD + Math.ceil(promptChars / CHARS_PER_TOKEN) + 10)
+        + Math.ceil(TOTAL_CHARS_PENDENTES / CHARS_PER_TOKEN);
+      var totalOutputTokensP = TOTAL_PENDENTES * OUTPUT_ANALISE;
+      costSummary.textContent = TOTAL_PENDENTES + ' questões (todas as páginas) · ~' + custoFormatado(totalInputTokensP, totalOutputTokensP);
+      costPreview.hidden = false;
+      return;
+    }
     var selecionadas = document.querySelectorAll('.sel-questao:checked');
     var n = selecionadas.length;
     if (n === 0) { costPreview.hidden = true; return; }
@@ -278,9 +306,7 @@ function toggleAplicarPrompt() {
       totalInputTokens += SYSTEM_OVERHEAD + Math.ceil(promptChars / CHARS_PER_TOKEN) + 10 + Math.ceil(qChars / CHARS_PER_TOKEN);
     });
     var totalOutputTokens = n * OUTPUT_ANALISE;
-    var custo = (totalInputTokens / 1e6 * PRICE_IN + totalOutputTokens / 1e6 * PRICE_OUT) * BATCH_DISCOUNT;
-    var custoStr = custo < 0.0005 ? '< $0.001' : '$' + custo.toFixed(custo < 0.01 ? 4 : 3);
-    costSummary.textContent = (n > 1 ? n + ' questões' : '1 questão') + ' · ~' + custoStr;
+    costSummary.textContent = (n > 1 ? n + ' questões' : '1 questão') + ' · ~' + custoFormatado(totalInputTokens, totalOutputTokens);
     costPreview.hidden = false;
   };
 
@@ -401,20 +427,70 @@ function toggleAplicarPrompt() {
   // ---- Checkboxes (o toggle "todas" existe na thead e na barra, p/ modo cards) ----
   var selTodosEls = [document.getElementById('sel-todos'), document.getElementById('sel-todos-cards')].filter(Boolean);
   var selAll = document.querySelectorAll('.sel-questao');
+  var todasPaginasInput = document.getElementById('todas-paginas-input');
+  var avisoPaginas = document.getElementById('aviso-selecao-paginas');
+  var avisoTexto = document.getElementById('aviso-selecao-texto');
+  var linkTodasPaginas = document.getElementById('link-selecionar-todas-paginas');
+  var linkLimparSelecao = document.getElementById('link-limpar-selecao');
+  var TOTAL_QUESTOES = {{ total_questoes|default:0 }};
+
+  function atualizarAvisoPaginas() {
+    if (!avisoPaginas) return;
+    if (todasPaginasInput.value === '1') {
+      avisoPaginas.hidden = false;
+      avisoTexto.textContent = 'Todas as ' + TOTAL_QUESTOES + ' questões desta disciplina estão selecionadas.';
+      linkTodasPaginas.hidden = true;
+      linkLimparSelecao.hidden = false;
+      return;
+    }
+    var marcadas = document.querySelectorAll('.sel-questao:checked').length;
+    var todasNaPagina = selAll.length > 0 && marcadas === selAll.length;
+    if (todasNaPagina) {
+      avisoPaginas.hidden = false;
+      avisoTexto.textContent = 'As ' + selAll.length + ' questões desta página estão selecionadas.';
+      linkTodasPaginas.hidden = false;
+      linkLimparSelecao.hidden = true;
+    } else {
+      avisoPaginas.hidden = true;
+    }
+  }
+
   selTodosEls.forEach(function (toggle) {
     toggle.addEventListener('change', function () {
+      todasPaginasInput.value = '0';
       selAll.forEach(function (cb) { cb.checked = toggle.checked; });
       selTodosEls.forEach(function (outro) { outro.checked = toggle.checked; });
+      atualizarAvisoPaginas();
       toggleAplicarPrompt();
     });
   });
   selAll.forEach(function (cb) {
     cb.addEventListener('change', function () {
+      todasPaginasInput.value = '0';
       var todas = selAll.length > 0 && document.querySelectorAll('.sel-questao:checked').length === selAll.length;
       selTodosEls.forEach(function (t) { t.checked = todas; });
+      atualizarAvisoPaginas();
       toggleAplicarPrompt();
     });
   });
+  if (linkTodasPaginas) {
+    linkTodasPaginas.addEventListener('click', function (e) {
+      e.preventDefault();
+      todasPaginasInput.value = '1';
+      atualizarAvisoPaginas();
+      toggleAplicarPrompt();
+    });
+  }
+  if (linkLimparSelecao) {
+    linkLimparSelecao.addEventListener('click', function (e) {
+      e.preventDefault();
+      todasPaginasInput.value = '0';
+      selAll.forEach(function (cb) { cb.checked = false; });
+      selTodosEls.forEach(function (t) { t.checked = false; });
+      atualizarAvisoPaginas();
+      toggleAplicarPrompt();
+    });
+  }
 })();
 </script>
 

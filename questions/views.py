@@ -2,7 +2,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Sum
+from django.db.models.functions import Length
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -43,12 +44,15 @@ def disciplina(request, pk):
     paginator = Paginator(base, 50)
     questoes = paginator.get_page(request.GET.get('page'))
     importacoes = disc.importacoes.all()[:10]
+    pendentes = base.filter(tem_analise=False)
     contexto = {
         'disciplina': disc,
         'questoes': questoes,
         'page_obj': questoes,
         'total_questoes': paginator.count,
         'total_com_analise': base.filter(tem_analise=True).count(),
+        'total_pendentes': pendentes.count(),
+        'total_chars_pendentes': pendentes.aggregate(s=Sum(Length('enunciado_md')))['s'] or 0,
         'importacoes': importacoes,
         'importacao_form': ImportacaoForm(),
         'prompts': Prompt.visiveis_para(request.user),

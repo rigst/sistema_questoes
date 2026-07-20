@@ -94,9 +94,21 @@ def gerar_comentarios(request):
     Um único prompt padrão do sistema; questões que já têm análise concluída
     são puladas para não pagar duas vezes.
     """
-    ids = request.POST.getlist('questao_ids')
     usar_lote = request.POST.get('usar_lote') == '1'
-    if not ids:
+    todas_paginas = request.POST.get('todas_paginas') == '1'
+    disciplina_id = request.POST.get('disciplina_id')
+
+    if todas_paginas and disciplina_id:
+        disciplina = get_object_or_404(Disciplina, pk=disciplina_id, prova__user=request.user)
+        questoes = list(disciplina.questoes.all())
+    else:
+        ids = request.POST.getlist('questao_ids')
+        if not ids:
+            messages.error(request, 'Selecione ao menos uma questão.')
+            return _redir(request)
+        questoes = list(Questao.objects.filter(pk__in=ids, disciplina__prova__user=request.user))
+
+    if not questoes:
         messages.error(request, 'Selecione ao menos uma questão.')
         return _redir(request)
 
@@ -105,7 +117,6 @@ def gerar_comentarios(request):
         messages.error(request, 'Prompt padrão do sistema não encontrado.')
         return _redir(request)
 
-    questoes = list(Questao.objects.filter(pk__in=ids, disciplina__prova__user=request.user))
     pendentes = [
         q for q in questoes
         if not q.resultados.filter(prompt=padrao, status=ResultadoPrompt.Status.CONCLUIDO).exists()
