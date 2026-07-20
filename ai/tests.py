@@ -22,6 +22,7 @@ from .services import (
     estimar_tokens_topicos,
     formatar_custo_usd,
     montar_conteudo_topico,
+    submeter_batch,
 )
 from .tasks import chave_topicos_erro, gerar_topicos, processar_lote
 
@@ -523,6 +524,45 @@ class TopicosTests(BaseIATestCase):
     def test_estimar_tokens_topicos_positivo(self):
         self.assertGreater(estimar_tokens_topicos([self.questao, self.q2]), 0)
         self.assertEqual(estimar_tokens_topicos([]), 0)
+
+    def test_sintese_de_topico_grande_ganha_max_tokens_maior(self):
+        """Regressão: com teto fixo, o texto de tópicos grandes era cortado no
+        meio da frase (auditoria: 'Mandado de segurança', 18 questões)."""
+        from django.test import override_settings
+
+        topico = Topico.objects.create(disciplina=self.disc, nome='Tema grande')
+        self.disc.questoes.update(topico=topico)
+        # Análise longa o bastante para o material do tópico passar do teto fixo.
+        ResultadoPrompt.objects.create(
+            questao=self.questao, prompt=self.prompt,
+            status=ResultadoPrompt.Status.CONCLUIDO, resultado_md='Conteúdo extenso. ' * 6000,
+        )
+        with override_settings(AI_MAX_TOKENS=16000):
+            params = _params_sintese(topico)
+        self.assertGreater(params['max_tokens'], 16000)
+        self.assertLessEqual(params['max_tokens'], 32000)
+
+    def test_sintese_de_topico_pequeno_mantem_o_teto_padrao(self):
+        from django.test import override_settings
+
+        topico = Topico.objects.create(disciplina=self.disc, nome='Tema pequeno')
+        self.disc.questoes.update(topico=topico)
+        with override_settings(AI_MAX_TOKENS=16000):
+            params = _params_sintese(topico)
+        self.assertEqual(params['max_tokens'], 16000)
+
+    @patch('ai.services.get_client')
+    def test_submeter_batch_de_analises_grava_o_modelo(self, get_client):
+        """Regressão: as 452 análises da auditoria ficaram com modelo=''
+        porque só o batch de textos gravava o campo."""
+        from django.test import override_settings
+
+        get_client.return_value.messages.batches.create.return_value = SimpleNamespace(id='b1')
+        r = ResultadoPrompt.objects.create(questao=self.questao, prompt=self.prompt)
+        with override_settings(AI_MODEL='claude-sonnet-5'):
+            submeter_batch([r])
+        r.refresh_from_db()
+        self.assertEqual(r.modelo, 'claude-sonnet-5')
 
     def test_estimar_custo_topicos_positivo_e_zero_sem_questoes(self):
         from decimal import Decimal

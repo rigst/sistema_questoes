@@ -292,6 +292,7 @@ def submeter_batch(resultados):
     batch = client.messages.batches.create(requests=requests)
     ResultadoPrompt.objects.filter(pk__in=[r.pk for r in resultados]).update(
         status=ResultadoPrompt.Status.PROCESSANDO, batch_id=batch.id,
+        modelo=getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
     )
     return batch.id
 
@@ -483,9 +484,17 @@ def _params_sintese(topico, cache_prompt=False):
     else:
         system = SYSTEM_PROMPT
         messages = [{'role': 'user', 'content': PROMPT_SINTESE_TOPICO + '\n\n' + conteudo}]
+    # Tópicos grandes precisam de mais espaço de saída: com o teto fixo, o
+    # texto era cortado no meio da frase (ex.: "Mandado de segurança", 18
+    # questões, bateu exatamente os 16k). O budget também é consumido pelo
+    # thinking adaptativo, então escala com o tamanho do material de entrada.
+    max_tokens = min(32000, max(
+        getattr(settings, 'AI_MAX_TOKENS', 16000),
+        int(len(conteudo) / CHARS_PER_TOKEN * 0.9) + 8000,
+    ))
     return {
         'model': getattr(settings, 'AI_MODEL', 'claude-sonnet-5'),
-        'max_tokens': getattr(settings, 'AI_MAX_TOKENS', 16000),
+        'max_tokens': max_tokens,
         'system': system,
         'messages': messages,
     }
