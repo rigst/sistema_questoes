@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ topico.nome }} · {{ disciplina.nome }}{% endblock %}
+
+{% block content %}
+<article class="leitura">
+    <nav class="breadcrumb" aria-label="Navegação">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="{% url 'questions:disciplina' disciplina.pk %}">{{ disciplina.nome }}</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <span class="breadcrumb-current">Tópico {{ posicao }} de {{ total_topicos }}</span>
+    </nav>
+
+    <header class="leitura-head">
+        <h1>{{ topico.nome }}</h1>
+        {% if topico.descricao %}<p class="leitura-desc">{{ topico.descricao }}</p>{% endif %}
+        <p class="leitura-meta">
+            <span class="qchip qchip-vazio">{{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }}</span>
+            <span class="leitura-pos">Tópico {{ posicao }} de {{ total_topicos }}</span>
+        </p>
+    </header>
+
+    {% if topico.texto.status == 'concluido' %}
+        <div class="md-content topico-texto js-md-topico">{{ topico.texto.texto_md }}</div>
+
+        <div class="leitura-marcar">
+            <button type="button" id="btn-lido" class="btn {% if lido %}btn-secondary{% else %}btn-primary{% endif %}"
+                    data-url="{% url 'questions:topico_leitura' topico.pk %}"
+                    data-lido="{{ lido|yesno:"1,0" }}">
+                <span class="btn-lido-icone" aria-hidden="true">{% if lido %}✓{% else %}○{% endif %}</span>
+                <span class="btn-lido-texto">{% if lido %}Lido{% else %}Marcar como lido{% endif %}</span>
+            </button>
+            <span class="leitura-contador" id="leitura-contador">{{ total_lidos }} de {{ total_topicos }} lidos</span>
+        </div>
+    {% elif topico.texto.status == 'erro' %}
+        <div class="disc-banner disc-banner-error">{{ topico.texto.erro }}</div>
+    {% else %}
+        <div class="disc-banner disc-banner-processing">
+            <span>O texto deste tópico ainda está sendo gerado…</span>
+        </div>
+    {% endif %}
+
+    <section class="leitura-questoes">
+        <h2>Questões que deram origem a este tópico</h2>
+        <ul class="leitura-questoes-lista">
+            {% for q in questoes %}
+            <li>
+                <a href="{% url 'questions:questao_detalhe' q.pk %}">
+                    <span class="lq-num">{{ q.numero }}</span>
+                    <span class="lq-txt">{{ q.enunciado_md|truncatechars:140 }}</span>
+                    {% if q.gabarito %}<span class="gab-letter">{{ q.gabarito }}</span>{% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <nav class="leitura-nav" aria-label="Navegação entre tópicos">
+        {% if anterior %}
+        <a class="leitura-nav-item leitura-nav-prev" href="{% url 'questions:topico_detalhe' anterior.pk %}">
+            <span class="lnav-dir">← Anterior</span>
+            <span class="lnav-nome">{{ anterior.nome }}</span>
+        </a>
+        {% else %}<span></span>{% endif %}
+        {% if proximo %}
+        <a class="leitura-nav-item leitura-nav-next" href="{% url 'questions:topico_detalhe' proximo.pk %}">
+            <span class="lnav-dir">Próximo →</span>
+            <span class="lnav-nome">{{ proximo.nome }}</span>
+        </a>
+        {% endif %}
+    </nav>
+</article>
+
+<script src="{% static 'js/marked.min.js' %}"></script>
+<script>
+(function () {
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+    document.querySelectorAll('.js-md-topico').forEach(function (el) {
+      el.innerHTML = marked.parse(el.textContent || '');
+      el.querySelectorAll('table').forEach(function (tb) {
+        var wrap = document.createElement('div');
+        wrap.className = 'table-scroll';
+        tb.parentNode.insertBefore(wrap, tb);
+        wrap.appendChild(tb);
+      });
+    });
+  }
+
+  var btn = document.getElementById('btn-lido');
+  if (!btn) return;
+  var contador = document.getElementById('leitura-contador');
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+
+  btn.addEventListener('click', function () {
+    var lido = btn.dataset.lido === '1';
+    var body = new URLSearchParams({ lido: lido ? '0' : '1' });
+    btn.disabled = true;
+    fetch(btn.dataset.url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': (csrf && csrf.value) || '{{ csrf_token }}',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body,
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      btn.dataset.lido = data.lido ? '1' : '0';
+      btn.classList.toggle('btn-primary', !data.lido);
+      btn.classList.toggle('btn-secondary', data.lido);
+      btn.querySelector('.btn-lido-icone').textContent = data.lido ? '✓' : '○';
+      btn.querySelector('.btn-lido-texto').textContent = data.lido ? 'Lido' : 'Marcar como lido';
+      if (contador) contador.textContent = data.total_lidos + ' de ' + data.total + ' lidos';
+    }).catch(function () {}).finally(function () { btn.disabled = false; });
+  });
+})();
+</script>
+{% endblock %}

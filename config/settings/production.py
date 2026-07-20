@@ -63,6 +63,19 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
 
+# O nginx serve /static/ com expires 30d. Sem hash no nome do arquivo, toda
+# mudança de CSS/JS ficava invisível por 30 dias para quem já tinha visitado
+# o site — foi o que aconteceu com o painel "Aa". Com o manifest, o nome muda
+# junto com o conteúdo e o cache longo passa a ser seguro.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+    },
+}
+
 CSRF_TRUSTED_ORIGINS = [
     'https://' + h for h in ALLOWED_HOSTS if h
 ]

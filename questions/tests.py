@@ -11,7 +11,7 @@ from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 
 from . import extraction
-from .models import Questao
+from .models import LeituraTopico, Questao, Topico
 
 User = get_user_model()
 
@@ -283,3 +283,89 @@ class ProgressoComEtaTests(TestCase):
         # 1 item levou 1h; 100 restantes projetariam ~100h
         r = self._eta(3600, 1, 100)
         self.assertEqual(r['eta'], 4 * 3600)
+
+
+class LeituraTopicoTests(TestCase):
+    """Marcação de tópicos lidos e sua contagem."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('leitor', password='x')
+        prova = Prova.objects.create(user=self.user, nome='Concurso')
+        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
+        self.t1 = Topico.objects.create(disciplina=self.disc, nome='Tema A', ordem=0)
+        self.t2 = Topico.objects.create(disciplina=self.disc, nome='Tema B', ordem=1)
+        self.client.force_login(self.user)
+
+    def test_marca_e_desmarca_como_lido(self):
+        url = reverse('questions:topico_leitura', args=[self.t1.pk])
+        r = self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
+        self.assertEqual(r.json()['lido'], True)
+        self.assertEqual(r.json()['total_lidos'], 1)
+        self.assertTrue(LeituraTopico.objects.filter(user=self.user, topico=self.t1).exists())
+
+        r = self.client.post(url, {'lido': '0'}, headers={'x-requested-with': 'XMLHttpRequest'})
+        self.assertEqual(r.json()['lido'], False)
+        self.assertEqual(r.json()['total_lidos'], 0)
+        self.assertFalse(LeituraTopico.objects.filter(user=self.user, topico=self.t1).exists())
+
+    def test_marcar_duas_vezes_nao_duplica(self):
+        url = reverse('questions:topico_leitura', args=[self.t1.pk])
+        self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
+        self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
+        self.assertEqual(LeituraTopico.objects.filter(topico=self.t1).count(), 1)
+
+    def test_leitura_e_por_usuario(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.t1)
+        outro = User.objects.create_user('outro', password='x')
+        self.client.force_login(outro)
+        # o tópico é de outro usuário: nem acessível
+        r = self.client.post(reverse('questions:topico_leitura', args=[self.t1.pk]))
+        self.assertEqual(r.status_code, 404)
+
+    def test_nao_marca_topico_de_outro_usuario(self):
+        outra_prova = Prova.objects.create(user=User.objects.create_user('bia', password='x'), nome='P')
+        outra_disc = Disciplina.objects.create(prova=outra_prova, nome='D')
+        alheio = Topico.objects.create(disciplina=outra_disc, nome='Alheio')
+        r = self.client.post(reverse('questions:topico_leitura', args=[alheio.pk]))
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(LeituraTopico.objects.exists())
+
+    def test_regerar_topicos_apaga_as_marcacoes(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.t1)
+        self.disc.topicos.all().delete()
+        self.assertFalse(LeituraTopico.objects.exists())
+
+    def test_pagina_do_topico_traz_navegacao_e_estado(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.t1)
+        r = self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context['lido'])
+        self.assertEqual(r.context['total_lidos'], 1)
+        self.assertEqual(r.context['total_topicos'], 2)
+        self.assertIsNone(r.context['anterior'])
+        self.assertEqual(r.context['proximo'], self.t2)
+
+    def test_disciplina_marca_quais_topicos_estao_lidos(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.t2)
+        r = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
+        lidos = {t.nome: t.lido for t in r.context['topicos']}
+        self.assertEqual(lidos, {'Tema A': False, 'Tema B': True})
+        self.assertEqual(r.context['total_lidos'], 1)
+
+
+class OrdemTopicosTests(TestCase):
+    def test_mais_questoes_primeiro_e_sobras_por_ultimo(self):
+        user = User.objects.create_user('ana3', password='x')
+        prova = Prova.objects.create(user=user, nome='P')
+        disc = Disciplina.objects.create(prova=prova, nome='D')
+        from .models import NOME_TOPICO_SOBRAS
+        sobras = Topico.objects.create(disciplina=disc, nome=NOME_TOPICO_SOBRAS)
+        pequeno = Topico.objects.create(disciplina=disc, nome='Pequeno')
+        grande = Topico.objects.create(disciplina=disc, nome='Grande')
+        for i, t in enumerate([sobras] * 9 + [pequeno] * 2 + [grande] * 5):
+            Questao.objects.create(disciplina=disc, numero=i + 1, topico=t)
+
+        from .views import _topicos_ordenados
+        nomes = [t.nome for t in _topicos_ordenados(disc)]
+        # sobras tem MAIS questões que todos, mas vai para o fim mesmo assim
+        self.assertEqual(nomes, ['Grande', 'Pequeno', NOME_TOPICO_SOBRAS])

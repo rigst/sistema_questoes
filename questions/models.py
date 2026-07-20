@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from exams.models import Disciplina
@@ -56,6 +57,10 @@ class Topico(models.Model):
         verbose_name = 'tópico'
         verbose_name_plural = 'tópicos'
         ordering = ['ordem', 'id']
+
+    @property
+    def e_sobras(self):
+        return self.nome == NOME_TOPICO_SOBRAS
 
     def __str__(self):
         return f'{self.nome} ({self.disciplina.nome})'
@@ -124,3 +129,30 @@ class QuestaoImagem(models.Model):
 
     def __str__(self):
         return f'Imagem {self.ordem} da questão {self.questao_id}'
+
+
+class LeituraTopico(models.Model):
+    """Marca que um usuário terminou de ler o texto de um tópico.
+
+    A leitura é por usuário: a mesma prova pode ser estudada por pessoas
+    diferentes, e regerar os tópicos apaga as marcações junto (cascade),
+    porque o texto lido deixou de existir.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='leituras'
+    )
+    topico = models.ForeignKey(
+        Topico, on_delete=models.CASCADE, related_name='leituras'
+    )
+    lido_em = models.DateTimeField('lido em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'leitura de tópico'
+        verbose_name_plural = 'leituras de tópicos'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'topico'], name='leitura_unica_por_topico'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} leu {self.topico.nome}'

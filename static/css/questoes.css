@@ -1329,3 +1329,137 @@ body.modal-open { overflow: hidden; }
 }
 
 @media print { .reader-fab { display: none; } }
+
+/* ---- leitura longa do texto do tópico ---- */
+.topico-texto {
+    /* ~68 caracteres por linha: a medida confortável para leitura corrida */
+    max-width: 68ch;
+    font-size: 1.02rem;
+    line-height: 1.78;
+    color: var(--text-soft);
+}
+.topico-texto > *:first-child { margin-top: 0; }
+.topico-texto > *:last-child { margin-bottom: 0; }
+.topico-texto h1, .topico-texto h2, .topico-texto h3, .topico-texto h4 {
+    font-family: var(--font-display); color: var(--text);
+    line-height: 1.25; margin: 2.1rem 0 .7rem;
+}
+.topico-texto h1 { font-size: 1.32rem; }
+.topico-texto h2 {
+    font-size: 1.18rem; padding-bottom: .35rem;
+    border-bottom: 1px solid var(--border);
+}
+.topico-texto h3 { font-size: 1.04rem; color: var(--text); }
+.topico-texto h4 { font-size: .96rem; color: var(--text-soft); }
+.topico-texto p { margin: 0 0 1.1rem; }
+.topico-texto strong { color: var(--text); font-weight: 600; }
+.topico-texto em { color: var(--text); }
+.topico-texto ul, .topico-texto ol { margin: 0 0 1.2rem; padding-left: 1.35rem; }
+.topico-texto li { margin-bottom: .55rem; }
+.topico-texto li::marker { color: var(--accent-strong); }
+.topico-texto blockquote {
+    margin: 0 0 1.2rem; padding: .1rem 0 .1rem 1.1rem;
+    border-left: 3px solid var(--accent); color: var(--muted); font-style: italic;
+}
+.topico-texto code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: .08em .38em; border-radius: 5px; color: var(--accent-text);
+}
+.topico-texto pre {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: .9rem 1.1rem; overflow-x: auto; margin: 0 0 1.2rem;
+}
+.topico-texto pre code { background: none; border: 0; padding: 0; color: var(--text); }
+.topico-texto hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+.topico-texto table {
+    border-collapse: collapse; width: 100%; margin: 0 0 1.2rem; font-size: .9rem;
+}
+.topico-texto th, .topico-texto td {
+    border: 1px solid var(--border); padding: .5rem .7rem; text-align: left;
+}
+.topico-texto th { background: var(--surface-2); font-weight: 600; color: var(--text); }
+/* Tabelas largas rolam sozinhas em vez de esticar a página */
+.topico-texto .table-scroll { overflow-x: auto; margin: 0 0 1.2rem; }
+.topico-texto .table-scroll table { margin: 0; }
+
+
+/* ---- página de leitura do tópico ---- */
+.leitura { max-width: 780px; margin: 0 auto; }
+.leitura-head { margin-bottom: 1.8rem; }
+.leitura-head h1 { font-size: 1.9rem; margin: 0 0 .5rem; }
+.leitura-desc { color: var(--muted); font-size: .95rem; font-style: italic; margin: 0 0 .7rem; }
+.leitura-meta { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 0; }
+.leitura-pos { color: var(--muted); font-size: .8rem; font-family: var(--font-mono); }
+
+.leitura .topico-texto { max-width: none; }
+
+.leitura-marcar {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  margin: 2.4rem 0 0; padding-top: 1.4rem; border-top: 1px solid var(--border);
+}
+.btn-lido-icone { margin-right: .4rem; }
+.leitura-contador { color: var(--muted); font-size: .85rem; font-family: var(--font-mono); }
+
+.leitura-questoes { margin-top: 2.6rem; }
+.leitura-questoes h2 { font-size: 1.05rem; color: var(--muted); margin-bottom: .8rem; }
+.leitura-questoes-lista { list-style: none; margin: 0; padding: 0; }
+.leitura-questoes-lista li { margin-bottom: .4rem; }
+.leitura-questoes-lista a {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: inherit; text-decoration: none;
+}
+.leitura-questoes-lista a:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.lq-num {
+  flex: none; font-family: var(--font-mono); font-size: .82rem;
+  color: var(--muted); min-width: 2.2rem;
+}
+.lq-txt {
+  flex: 1; min-width: 0; font-size: .86rem; color: var(--text-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.leitura-nav {
+  display: flex; justify-content: space-between; gap: 1rem;
+  margin-top: 2.6rem; padding-top: 1.4rem; border-top: 1px solid var(--border);
+}
+.leitura-nav-item {
+  flex: 1; max-width: 48%; padding: .8rem 1rem;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); text-decoration: none; color: inherit;
+}
+.leitura-nav-item:hover { border-color: var(--border-strong); background: var(--surface-2); text-decoration: none; }
+.leitura-nav-next { text-align: right; }
+.lnav-dir { display: block; font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.lnav-nome {
+  display: block; font-family: var(--font-display); font-weight: 550;
+  font-size: .95rem; color: var(--text); margin-top: .2rem;
+}
+
+@media (max-width: 640px) {
+  .leitura-head h1 { font-size: 1.5rem; }
+  .leitura-nav { flex-direction: column; }
+  .leitura-nav-item { max-width: none; }
+  .leitura-nav-next { text-align: left; }
+}
+
+/* ---- progresso de leitura ---- */
+.leitura-progresso {
+    display: flex; align-items: center; gap: .8rem; margin-bottom: 1rem;
+}
+.leitura-progresso-track {
+    flex: 1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+}
+.leitura-progresso-fill {
+    height: 100%; border-radius: 3px; background: var(--success);
+    width: 0%; transition: width .3s ease;
+}
+.leitura-progresso-label {
+    font-size: .8rem; color: var(--muted); white-space: nowrap;
+    font-family: var(--font-mono);
+}
+
+
+/* denominador discreto no cartão "Tópicos lidos" */
+.stat-card .value-de { color: var(--muted); font-size: .62em; font-weight: 500; }

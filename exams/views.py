@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
-from questions.models import Questao
+from questions.models import LeituraTopico, Questao, Topico
 
 from .models import Disciplina, Prova
 
@@ -22,12 +22,21 @@ def dashboard(request):
     total_concluidas = Questao.objects.filter(
         disciplina__prova__user=request.user, status=Questao.Status.CONCLUIDA
     ).count()
+    total_topicos = Topico.objects.filter(
+        disciplina__prova__user=request.user
+    ).count()
+    total_lidos = LeituraTopico.objects.filter(
+        user=request.user, topico__disciplina__prova__user=request.user
+    ).count()
     contexto = {
         'provas': provas,
         'total_provas': provas.count(),
         'total_disciplinas': Disciplina.objects.filter(prova__user=request.user).count(),
         'total_questoes': total_questoes,
         'total_concluidas': total_concluidas,
+        'total_topicos': total_topicos,
+        'total_lidos': total_lidos,
+        'pct_lidos': round(total_lidos / total_topicos * 100) if total_topicos else 0,
         'na_fila': Questao.objects.filter(
             disciplina__prova__user=request.user,
             status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]

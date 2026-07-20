@@ -8,12 +8,13 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from exams.models import Disciplina
 from prompts.models import Prompt
 
 from .forms import ImportacaoForm, QuestaoForm
-from .models import NOME_TOPICO_SOBRAS, ImportacaoPDF, Questao
+from .models import NOME_TOPICO_SOBRAS, ImportacaoPDF, LeituraTopico, Questao, Topico
 from .tasks import processar_importacao
 
 
@@ -70,21 +71,13 @@ def disciplina(request, pk):
         'ai_price_output': float(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)),
     }
 
-    # Do tópico mais cobrado ao menos cobrado, com o balaio de sobras sempre
-    # por último — é a ordem em que faz sentido estudar.
-    topicos = (
-        disc.topicos.select_related('texto')
-        .prefetch_related('questoes')
-        .annotate(
-            n_questoes=Count('questoes'),
-            e_sobra=Case(
-                When(nome=NOME_TOPICO_SOBRAS, then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField(),
-            ),
-        )
-        .order_by('e_sobra', '-n_questoes', 'nome')
+    lidos = set(
+        LeituraTopico.objects.filter(user=request.user, topico__disciplina=disc)
+        .values_list('topico_id', flat=True)
     )
+    topicos = list(_topicos_ordenados(disc))
+    for t in topicos:
+        t.lido = t.pk in lidos
     topicos_classificando = bool(cache.get(chave_topicos_classificando(disc.pk)))
     analisadas = list(disc.questoes.filter(Exists(
         ResultadoPrompt.objects.filter(
@@ -94,6 +87,8 @@ def disciplina(request, pk):
     custo_topicos = estimar_custo_topicos(analisadas) if analisadas else None
     contexto.update({
         'topicos': topicos,
+        'total_topicos': len(topicos),
+        'total_lidos': len(lidos),
         'total_analisadas': len(analisadas),
         'custo_estimado_topicos': formatar_custo_usd(custo_topicos) if custo_topicos is not None else None,
         'topicos_classificando': topicos_classificando,
@@ -104,6 +99,77 @@ def disciplina(request, pk):
         'topicos_erro': cache.get(chave_topicos_erro(disc.pk)) or '',
     })
     return render(request, 'questions/disciplina.html', contexto)
+
+
+def _topicos_ordenados(disc):
+    """Do tópico mais cobrado ao menos cobrado, com o balaio de sobras sempre
+    por último — é a ordem em que faz sentido estudar."""
+    from django.db.models import Count
+
+    return (
+        disc.topicos.select_related('texto')
+        .annotate(
+            n_questoes=Count('questoes'),
+            e_sobra=Case(
+                When(nome=NOME_TOPICO_SOBRAS, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+        )
+        .order_by('e_sobra', '-n_questoes', 'nome')
+    )
+
+
+@login_required
+def topico_detalhe(request, pk):
+    """Página de leitura de um tópico, com navegação para o anterior/próximo."""
+    topico = get_object_or_404(
+        Topico.objects.select_related('texto', 'disciplina__prova'),
+        pk=pk, disciplina__prova__user=request.user,
+    )
+    disc = topico.disciplina
+    ordenados = list(_topicos_ordenados(disc))
+    ids = [t.pk for t in ordenados]
+    i = ids.index(topico.pk) if topico.pk in ids else 0
+    lidos = set(
+        LeituraTopico.objects.filter(user=request.user, topico__disciplina=disc)
+        .values_list('topico_id', flat=True)
+    )
+    return render(request, 'questions/topico.html', {
+        'disciplina': disc,
+        'topico': topico,
+        'questoes': topico.questoes.order_by('numero'),
+        'lido': topico.pk in lidos,
+        'posicao': i + 1,
+        'total_topicos': len(ordenados),
+        'anterior': ordenados[i - 1] if i > 0 else None,
+        'proximo': ordenados[i + 1] if i + 1 < len(ordenados) else None,
+        'total_lidos': len(lidos),
+    })
+
+
+@login_required
+@require_POST
+def topico_leitura(request, pk):
+    """Marca/desmarca o tópico como lido. Responde JSON no fetch da página."""
+    topico = get_object_or_404(Topico, pk=pk, disciplina__prova__user=request.user)
+    if request.POST.get('lido') == '0':
+        LeituraTopico.objects.filter(user=request.user, topico=topico).delete()
+        lido = False
+    else:
+        LeituraTopico.objects.get_or_create(user=request.user, topico=topico)
+        lido = True
+
+    total_lidos = LeituraTopico.objects.filter(
+        user=request.user, topico__disciplina=topico.disciplina,
+    ).count()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'lido': lido,
+            'total_lidos': total_lidos,
+            'total': topico.disciplina.topicos.count(),
+        })
+    return redirect(request.POST.get('next') or 'questions:topico_detalhe', pk=topico.pk)
 
 
 def _progresso_com_eta(inicio, feitos, restantes):

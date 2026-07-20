@@ -193,11 +193,28 @@
             <span class="label">Analisadas</span>
             <strong class="value">{{ total_concluidas }}</strong>
         </article>
+        <article class="stat-card">
+            <span class="label">Tópicos de estudo</span>
+            <strong class="value">{{ total_topicos }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="label">Tópicos lidos</span>
+            <strong class="value">{{ total_lidos }}{% if total_topicos %}<span class="value-de">/{{ total_topicos }}</span>{% endif %}</strong>
+        </article>
         <article class="stat-card {% if na_fila > 0 %}stat-card--processing{% endif %}">
             <span class="label">Na fila de IA</span>
             <strong class="value">{{ na_fila }}</strong>
         </article>
     </div>
+
+    {% if total_topicos %}
+    <div class="leitura-progresso" style="margin-bottom:1.5rem;">
+        <div class="leitura-progresso-track">
+            <div class="leitura-progresso-fill" style="width: {{ pct_lidos }}%"></div>
+        </div>
+        <span class="leitura-progresso-label">{{ pct_lidos }}% dos tópicos lidos</span>
+    </div>
+    {% endif %}
 
     {% if na_fila > 0 %}
     <div class="flash-message" style="margin-bottom:1.25rem;">
