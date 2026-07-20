@@ -95,7 +95,12 @@
   if (!raw) return;
   var texto = raw.textContent || '';
 
-  var altRegex = /^([A-E])\s*[).:\s]/im;
+  // Só o parêntese marca alternativa. Antes a classe aceitava espaço, e
+  // "A inobservância..." (artigo + substantivo) virava a alternativa A —
+  // 124 das 1008 questões abriam sem enunciado por causa disso. O ponto
+  // também saiu: "A. celebrou acordo..." é nome de parte, não marcador.
+  // Todos os enunciados são gravados normalizados como "A) ".
+  var altRegex = /^([A-E])\s*[)]/im;
   var lines = texto.split('\n');
   var enunciadoLines = [];
   var alternativas = [];
@@ -103,7 +108,7 @@
 
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
-    var match = line.match(/^([A-E])\s*[).:\s]\s*(.*)/i);
+    var match = line.match(/^([A-E])\s*[)]\s*(.*)/i);
     if (match) {
       if (currentAlt) alternativas.push(currentAlt);
       currentAlt = { letter: match[1].toUpperCase(), text: match[2].trim() };
@@ -116,16 +121,16 @@
   if (currentAlt) alternativas.push(currentAlt);
 
   if (alternativas.length === 0) {
-    var inlineMatch = texto.match(/^([\s\S]*?)\s*(A\s*[).:\s])/i);
+    var inlineMatch = texto.match(/^([\s\S]*?)\s*(A\s*[)])/i);
     if (inlineMatch) {
       var enuncPart = inlineMatch[1];
       var altPart = texto.slice(enuncPart.length);
       enunciadoLines = [enuncPart.trim()];
-      var altMatches = altPart.match(/([A-E])\s*[).:\s]\s*[^A-E]*/gi);
+      var altMatches = altPart.match(/([A-E])\s*[)]\s*[^A-E]*/gi);
       if (altMatches) {
         alternativas = [];
         altMatches.forEach(function (a) {
-          var m = a.match(/^([A-E])\s*[).:\s]\s*(.*)/i);
+          var m = a.match(/^([A-E])\s*[)]\s*(.*)/i);
           if (m) alternativas.push({ letter: m[1].toUpperCase(), text: m[2].trim() });
         });
       }

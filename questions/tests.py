@@ -414,3 +414,25 @@ class ContinuarLendoTests(TestCase):
         self.assertEqual(r.context['total_lidos'], 1)
         self.assertEqual(r.context['total_a_ler'], 1)
         self.assertEqual(r.context['pct_lidos'], 50)
+
+
+class ParserAlternativasTests(TestCase):
+    """O separador de alternativas da página da questão vive em JS no
+    template. Este teste roda o arquivo Node que extrai o regex de lá e o
+    exercita — cobre o caso que quebrou 124 das 1008 questões, em que uma
+    linha de enunciado ("A inobservância...") virava a alternativa A."""
+
+    def test_regex_de_alternativa_nao_pega_enunciado(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('node não disponível')
+        base = Path(__file__).resolve().parent.parent
+        r = subprocess.run(
+            [node, 'questions/tests_parser_alternativas.js'],
+            cwd=base, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(r.returncode, 0, msg=r.stdout + r.stderr)
