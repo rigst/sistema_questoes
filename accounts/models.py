@@ -50,11 +50,21 @@ class Profile(models.Model):
             self.save(update_fields=['tokens_usados_mes', 'quota_ref', 'atualizado_em'])
 
     @property
+    def ilimitado(self):
+        """Admin/staff não têm teto de quota de IA (o uso ainda é contabilizado)."""
+        user = getattr(self, 'user', None)
+        return bool(user and (user.is_staff or user.is_superuser))
+
+    @property
     def tokens_restantes(self):
         self._rollover_se_novo_mes()
+        if self.ilimitado:
+            return self.quota_tokens_mes
         return max(self.quota_tokens_mes - self.tokens_usados_mes, 0)
 
     def tem_quota(self, tokens_estimados=0):
+        if self.ilimitado:
+            return True
         return self.tokens_restantes >= tokens_estimados
 
     def registrar_uso(self, input_tokens, output_tokens, custo_usd):
