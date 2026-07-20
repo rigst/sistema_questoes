@@ -28,6 +28,15 @@ def dashboard(request):
     total_lidos = LeituraTopico.objects.filter(
         user=request.user, topico__disciplina__prova__user=request.user
     ).count()
+
+    # Atalho "continuar lendo": o último tópico aberto, desde que ainda
+    # exista e ainda não tenha sido marcado como lido.
+    perfil = getattr(request.user, 'profile', None)
+    continuar = getattr(perfil, 'ultimo_topico', None) if perfil else None
+    if continuar is not None and LeituraTopico.objects.filter(
+        user=request.user, topico=continuar,
+    ).exists():
+        continuar = None
     contexto = {
         'provas': provas,
         'total_provas': provas.count(),
@@ -36,7 +45,9 @@ def dashboard(request):
         'total_concluidas': total_concluidas,
         'total_topicos': total_topicos,
         'total_lidos': total_lidos,
+        'total_a_ler': total_topicos - total_lidos,
         'pct_lidos': round(total_lidos / total_topicos * 100) if total_topicos else 0,
+        'continuar': continuar,
         'na_fila': Questao.objects.filter(
             disciplina__prova__user=request.user,
             status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]

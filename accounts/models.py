@@ -23,6 +23,14 @@ class Profile(models.Model):
         'custo acumulado (USD)', max_digits=12, decimal_places=4, default=0
     )
 
+    # Último tópico aberto para leitura, para o atalho "continuar lendo".
+    # SET_NULL: regerar os tópicos não pode derrubar o perfil.
+    ultimo_topico = models.ForeignKey(
+        'questions.Topico', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name='último tópico lido',
+    )
+
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

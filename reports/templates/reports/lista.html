@@ -50,22 +50,39 @@
 
     <div class="section-heading"><h2>Relatórios gerados</h2></div>
     {% if relatorios %}
-        <div class="table-wrap">
+        {# data-no-toggle: esta lista é sempre tabela, sem o modo cards #}
+        <div class="table-wrap tabela-relatorios" data-no-toggle data-sempre-tabela>
             <table>
-                <thead><tr><th>Título</th><th>Tipo</th><th>Itens</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th class="rel-extra">Tipo</th>
+                        <th class="rel-extra">Itens</th>
+                        <th class="rel-extra">Data</th>
+                        <th class="actions-col">Ações</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for r in relatorios %}
                         <tr>
-                            <td>{{ r.titulo }}</td>
-                            <td>{% if r.tipo == 'topicos' %}<span class="qchip qchip-vazio">tópicos</span>{% else %}<span class="qchip qchip-vazio">comentários</span>{% endif %}</td>
-                            <td>{{ r.num_questoes }} {% if r.tipo == 'topicos' %}{% if r.num_questoes == 1 %}tópico{% else %}tópicos{% endif %}{% else %}{% if r.num_questoes == 1 %}questão{% else %}questões{% endif %}{% endif %}</td>
-                            <td>{{ r.criado_em|date:"d/m/Y H:i" }}</td>
+                            <td class="rel-titulo">
+                                {{ r.titulo }}
+                                {# no mobile as colunas laterais somem e viram esta linha #}
+                                <span class="rel-meta">
+                                    {% if r.tipo == 'topicos' %}tópicos{% else %}comentários{% endif %}
+                                    · {{ r.num_questoes }}
+                                    · {{ r.criado_em|date:"d/m/y H:i" }}
+                                </span>
+                            </td>
+                            <td class="rel-extra">{% if r.tipo == 'topicos' %}<span class="qchip qchip-vazio">tópicos</span>{% else %}<span class="qchip qchip-vazio">comentários</span>{% endif %}</td>
+                            <td class="rel-extra">{{ r.num_questoes }} {% if r.tipo == 'topicos' %}{% if r.num_questoes == 1 %}tópico{% else %}tópicos{% endif %}{% else %}{% if r.num_questoes == 1 %}questão{% else %}questões{% endif %}{% endif %}</td>
+                            <td class="rel-extra">{{ r.criado_em|date:"d/m/Y H:i" }}</td>
                             <td class="actions-col">
-                                {% if r.arquivo_md %}<a class="btn btn-secondary btn-compact" href="{{ r.arquivo_md.url }}" download>Baixar .md</a>{% endif %}
-                                {% if r.arquivo_pdf %}<a class="btn btn-primary btn-compact" href="{{ r.arquivo_pdf.url }}" target="_blank">Abrir PDF</a>{% endif %}
+                                {% if r.arquivo_md %}<a class="btn btn-secondary btn-compact" href="{{ r.arquivo_md.url }}" download>.md</a>{% endif %}
+                                {% if r.arquivo_pdf %}<a class="btn btn-primary btn-compact" href="{{ r.arquivo_pdf.url }}" target="_blank">PDF</a>{% endif %}
                                 <form method="post" action="{% url 'reports:excluir' r.pk %}" data-confirm="Remover este relatório?" style="display:inline;">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-danger btn-compact">Excluir</button>
+                                    <button type="submit" class="btn btn-danger btn-compact" aria-label="Excluir relatório">✕</button>
                                 </form>
                             </td>
                         </tr>

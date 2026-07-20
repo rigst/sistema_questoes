@@ -180,41 +180,46 @@
         </div>
     </div>
 
-    <div class="stats-grid" style="margin-bottom:1.5rem;">
-        <article class="stat-card">
-            <span class="label">Provas</span>
-            <strong class="value">{{ total_provas }}</strong>
-        </article>
-        <article class="stat-card">
-            <span class="label">Questões</span>
-            <strong class="value">{{ total_questoes }}</strong>
-        </article>
-        <article class="stat-card">
-            <span class="label">Analisadas</span>
-            <strong class="value">{{ total_concluidas }}</strong>
-        </article>
-        <article class="stat-card">
-            <span class="label">Tópicos de estudo</span>
-            <strong class="value">{{ total_topicos }}</strong>
-        </article>
-        <article class="stat-card">
-            <span class="label">Tópicos lidos</span>
-            <strong class="value">{{ total_lidos }}{% if total_topicos %}<span class="value-de">/{{ total_topicos }}</span>{% endif %}</strong>
-        </article>
-        <article class="stat-card {% if na_fila > 0 %}stat-card--processing{% endif %}">
-            <span class="label">Na fila de IA</span>
-            <strong class="value">{{ na_fila }}</strong>
-        </article>
-    </div>
-
-    {% if total_topicos %}
-    <div class="leitura-progresso" style="margin-bottom:1.5rem;">
-        <div class="leitura-progresso-track">
-            <div class="leitura-progresso-fill" style="width: {{ pct_lidos }}%"></div>
+    {# O estudo acontece nos tópicos: são eles que o painel mede. #}
+    <div class="painel-estudo">
+        <div class="pe-numeros">
+            <article class="pe-card pe-card--topicos">
+                <span class="pe-label">Tópicos de estudo</span>
+                <strong class="pe-valor">{{ total_topicos }}</strong>
+            </article>
+            <article class="pe-card pe-card--lidos">
+                <span class="pe-label">Lidos</span>
+                <strong class="pe-valor">{{ total_lidos }}<span class="pe-de">/{{ total_topicos }}</span></strong>
+            </article>
+            <article class="pe-card pe-card--restantes">
+                <span class="pe-label">A ler</span>
+                <strong class="pe-valor">{{ total_a_ler }}</strong>
+            </article>
+            {% if na_fila > 0 %}
+            <article class="pe-card pe-card--fila">
+                <span class="pe-label">Na fila de IA</span>
+                <strong class="pe-valor">{{ na_fila }}</strong>
+            </article>
+            {% endif %}
         </div>
-        <span class="leitura-progresso-label">{{ pct_lidos }}% dos tópicos lidos</span>
+
+        {% if total_topicos %}
+        <div class="pe-barra">
+            <div class="pe-barra-track">
+                <div class="pe-barra-fill" style="width: {{ pct_lidos }}%"></div>
+            </div>
+            <span class="pe-barra-label">{{ pct_lidos }}% lidos</span>
+        </div>
+        {% endif %}
+
+        {% if continuar %}
+        <a class="pe-continuar" href="{% url 'questions:topico_detalhe' continuar.pk %}">
+            <span class="pe-continuar-rotulo">Continuar lendo</span>
+            <span class="pe-continuar-nome">{{ continuar.nome }}</span>
+            <span class="pe-continuar-disc">{{ continuar.disciplina.nome }}</span>
+        </a>
+        {% endif %}
     </div>
-    {% endif %}
 
     {% if na_fila > 0 %}
     <div class="flash-message" style="margin-bottom:1.25rem;">

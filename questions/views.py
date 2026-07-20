@@ -137,6 +137,13 @@ def topico_detalhe(request, pk):
         LeituraTopico.objects.filter(user=request.user, topico__disciplina=disc)
         .values_list('topico_id', flat=True)
     )
+    # Abrir o tópico é o sinal de "estou lendo isto": alimenta o atalho de
+    # continuar leitura na dashboard.
+    perfil = getattr(request.user, 'profile', None)
+    if perfil is not None and perfil.ultimo_topico_id != topico.pk:
+        perfil.ultimo_topico = topico
+        perfil.save(update_fields=['ultimo_topico', 'atualizado_em'])
+
     return render(request, 'questions/topico.html', {
         'disciplina': disc,
         'topico': topico,

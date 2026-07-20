@@ -369,3 +369,48 @@ class OrdemTopicosTests(TestCase):
         nomes = [t.nome for t in _topicos_ordenados(disc)]
         # sobras tem MAIS questões que todos, mas vai para o fim mesmo assim
         self.assertEqual(nomes, ['Grande', 'Pequeno', NOME_TOPICO_SOBRAS])
+
+
+class ContinuarLendoTests(TestCase):
+    """Atalho da dashboard para o último tópico aberto."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('leitor2', password='x')
+        prova = Prova.objects.create(user=self.user, nome='Concurso')
+        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
+        self.t1 = Topico.objects.create(disciplina=self.disc, nome='Tema A', ordem=0)
+        self.t2 = Topico.objects.create(disciplina=self.disc, nome='Tema B', ordem=1)
+        self.client.force_login(self.user)
+
+    def test_abrir_topico_registra_como_ultimo(self):
+        self.client.get(reverse('questions:topico_detalhe', args=[self.t2.pk]))
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.ultimo_topico, self.t2)
+
+    def test_dashboard_oferece_continuar_de_onde_parou(self):
+        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.context['continuar'], self.t1)
+
+    def test_topico_ja_lido_nao_e_oferecido(self):
+        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        LeituraTopico.objects.create(user=self.user, topico=self.t1)
+        r = self.client.get(reverse('dashboard'))
+        self.assertIsNone(r.context['continuar'])
+
+    def test_regerar_topicos_nao_quebra_o_atalho(self):
+        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        self.disc.topicos.all().delete()
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.ultimo_topico)
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.context['continuar'])
+
+    def test_dashboard_conta_topicos_lidos_e_a_ler(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.t1)
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.context['total_topicos'], 2)
+        self.assertEqual(r.context['total_lidos'], 1)
+        self.assertEqual(r.context['total_a_ler'], 1)
+        self.assertEqual(r.context['pct_lidos'], 50)

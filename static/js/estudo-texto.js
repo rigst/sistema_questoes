@@ -6,16 +6,32 @@
 (function (global) {
   'use strict';
 
-  // "art. 64", "arts. 133 a 137", "art. 5º, LXXVIII", "Súmula 123",
-  // "Súmula Vinculante 10", "Lei 9.868/99". Conservador de propósito:
-  // só pega o que começa por uma dessas palavras.
-  var RE_REF = /\b(arts?\.?\s*\d+[\dºª\-A-Z]*(?:\s*(?:a|e)\s*\d+[\dºª\-A-Z]*)?|súmulas?\s+(?:vinculante\s+)?n?[º°]?\s*\d+|lei\s+n?[º°]?\s*[\d.]+\s*\/\s*\d{2,4}|lei\s+n?[º°]?\s*[\d.]{4,})/gi;
+  // Citação normativa inteira, não só o começo. Montado por partes porque a
+  // forma varia muito: "artigos 67 a 69", "arts. 98 e seguintes",
+  // "art. 5º, LXXVIII", "art. 489, §1º, IV", "art. 1.015-A", "Súmula
+  // Vinculante 10", "Lei nº 12.016/2009", "CF/88".
+  var NUM = '\\d+(?:\\.\\d+)*[ºª]?(?:[-–][A-Z])?';
+  // incisos em romano vão até 8 caracteres (LXXVIII); mais que isso já é
+  // sigla de lei ("LINDB"), que não deve entrar.
+  var QUALIF = '(?:\\s*,\\s*(?:§+\\s*\\d+[ºª]?|incisos?\\s+[IVXLC]+|[IVXLC]{1,8}\\b' +
+               '|al[íi]nea\\s*["\'“]?[a-z]["\'”]?|["\'“][a-z]["\'”]))*';
+  var INTERV = '(?:\\s*(?:a|e|até)\\s*' + NUM + ')?';
+  var SEGS = '(?:\\s*e\\s+(?:seguintes|ss\\.?))?';
+  var ARTIGO = '(?:arts?\\.|artigos?|§§?)\\s*' + NUM + INTERV + QUALIF + SEGS;
+  var SUMULA = 's[úu]mulas?(?:\\s+vinculante)?(?:\\s*n?[º°.]?)?\\s*\\d+';
+  var LEI = '(?:lei\\s+complementar|lei|decreto(?:-lei)?|emenda\\s+constitucional)' +
+            '\\s*(?:n?[º°.]?)?\\s*[\\d.]+(?:\\s*\\/\\s*\\d{2,4})?';
+  var CODIGO = '(?:CPC|CF|CC|CLT|CDC|CTN|CPP)\\s*\\/\\s*\\d{2,4}';
+  var RE_REF = new RegExp('(' + ARTIGO + '|' + SUMULA + '|' + LEI + '|' + CODIGO + ')', 'gi');
 
   function marcarReferencias(raiz) {
     var and = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         // não mexe dentro de código nem do que já foi marcado
         if (n.parentElement.closest('code, pre, a, .ref-legal')) return NodeFilter.FILTER_REJECT;
+        // regex global guarda lastIndex entre chamadas: sem zerar, nós
+        // seguintes eram pulados na varredura.
+        RE_REF.lastIndex = 0;
         return RE_REF.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
     });

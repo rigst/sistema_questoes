@@ -50,6 +50,10 @@
   --info-soft: rgba(43, 87, 180, 0.08);
   --info-border: rgba(43, 87, 180, 0.26);
 
+  /* marca-texto do conteúdo: âmbar no corrido, verde nas enumerações */
+  --marca-amarelo: rgba(247, 205, 90, 0.55);
+  --marca-verde: rgba(126, 214, 150, 0.45);
+
   /* tipografia */
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
@@ -115,6 +119,9 @@
   --warning-border: rgba(220, 166, 68, 0.32);
   --info-soft: rgba(134, 169, 234, 0.1);
   --info-border: rgba(134, 169, 234, 0.3);
+
+  --marca-amarelo: rgba(233, 172, 51, 0.30);
+  --marca-verde: rgba(82, 178, 126, 0.30);
 
   --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.35);
   --shadow-pop: 0 26px 64px rgba(0, 0, 0, 0.55);
@@ -189,6 +196,8 @@
   --warning-border: rgba(220, 166, 68, 0.32);
   --info-soft: rgba(134, 169, 234, 0.1);
   --info-border: rgba(134, 169, 234, 0.3);
+  --marca-amarelo: rgba(233, 172, 51, 0.26);
+  --marca-verde: rgba(82, 178, 126, 0.26);
   --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 26px 64px rgba(0, 0, 0, 0.7);
 }
@@ -205,6 +214,8 @@
   --warning-border: rgba(125, 82, 9, 0.3);
   --info-soft: rgba(44, 90, 158, 0.08);
   --info-border: rgba(44, 90, 158, 0.28);
+  --marca-amarelo: rgba(226, 178, 64, 0.50);
+  --marca-verde: rgba(122, 178, 128, 0.42);
   --shadow-sheet: 0 1px 2px rgba(90, 70, 30, 0.1), 0 10px 26px rgba(90, 70, 30, 0.08);
   --shadow-pop: 0 26px 64px rgba(90, 70, 30, 0.2);
 }
@@ -289,8 +300,11 @@ a:hover { text-decoration: underline; }
 
 img { max-width: 100%; }
 
+/* Foco em tinta azul: o âmbar do marca-texto é cor de destaque de
+   conteúdo; usá-lo também no foco deixava a navegação por teclado
+   estridente sobre a lista de questões. */
 :focus-visible {
-  outline: 2px solid var(--accent-strong);
+  outline: 2px solid var(--link);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -891,7 +905,7 @@ tbody tr:hover { background: var(--accent-tint); }
 .prompt-preview { color: var(--muted); }
 
 .row-link { color: inherit; font-weight: 500; }
-.row-link:hover, .row-link:focus-visible { color: var(--accent-text); text-decoration: underline; }
+.row-link:hover, .row-link:focus-visible { color: var(--link); text-decoration: underline; }
 
 .questoes-table .col-num { font-family: var(--font-mono); font-size: 0.85rem; }
 .questao-enunciado { color: var(--text-soft); line-height: 1.45; }
@@ -904,7 +918,7 @@ tbody tr:hover { background: var(--accent-tint); }
   overflow: hidden;
 }
 
-.questao-abrir:hover, .questao-abrir:focus-visible { color: var(--accent-text); text-decoration: none; }
+.questao-abrir:hover, .questao-abrir:focus-visible { color: var(--link); text-decoration: none; }
 
 /* chips de estado dos comentários (bolhas da marca) */
 .qchips { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
@@ -1019,11 +1033,11 @@ html.cards-mode .sel-todas-cards { display: inline-flex; }
 }
 
 /* cards-mode: cada linha vira uma fichinha */
-html.cards-mode .table-wrap { background: none; border: 0; box-shadow: none; overflow: visible; }
-html.cards-mode .table-wrap thead { display: none; }
-html.cards-mode .table-wrap table, html.cards-mode .table-wrap tbody { display: block; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) { background: none; border: 0; box-shadow: none; overflow: visible; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) thead { display: none; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) table, html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody { display: block; }
 
-html.cards-mode .table-wrap tbody tr {
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody tr {
   display: block;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1033,9 +1047,9 @@ html.cards-mode .table-wrap tbody tr {
   margin-bottom: 0.6rem;
 }
 
-html.cards-mode .table-wrap tbody tr:hover { background: var(--surface); }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody tr:hover { background: var(--surface); }
 
-html.cards-mode .table-wrap tbody td {
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -1044,7 +1058,7 @@ html.cards-mode .table-wrap tbody td {
   padding: 0.28rem 0;
 }
 
-html.cards-mode .table-wrap tbody td::before {
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td::before {
   content: attr(data-label);
   font-size: 0.72rem;
   font-weight: 600;
@@ -1054,11 +1068,11 @@ html.cards-mode .table-wrap tbody td::before {
   flex: none;
 }
 
-html.cards-mode .table-wrap tbody td:first-child { font-weight: 500; }
-html.cards-mode .table-wrap tbody td:first-child::before { display: none; }
-html.cards-mode .table-wrap tbody td.card-hide { display: none; }
-html.cards-mode .table-wrap tbody td.actions-col { justify-content: flex-end; }
-html.cards-mode .table-wrap tbody td.actions-col::before { display: none; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td:first-child { font-weight: 500; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td:first-child::before { display: none; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td.card-hide { display: none; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td.actions-col { justify-content: flex-end; }
+html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td.actions-col::before { display: none; }
 
 /* lista de questões no modo cards: cada card é um item de cartão-resposta —
    checkbox + número + gabarito em cima, enunciado no meio, chips embaixo */
@@ -1580,23 +1594,33 @@ body.modal-open { overflow: hidden; }
 
 /* Marca-texto: o motivo da marca aplicado ao que a IA destacou como decisivo.
    Traço curto e assimétrico, como caneta sobre papel — não um retângulo. */
+/* Marca-texto de altura cheia, como caneta passada por cima da palavra.
+   Duas cores com significado: âmbar no texto corrido (a regra) e verde nas
+   listas (requisitos, hipóteses, características — o que se enumera). */
 .topico-texto strong {
   color: var(--text);
   font-weight: 600;
-  background-image: linear-gradient(180deg, transparent 58%, var(--accent-tint-strong) 58%);
-  background-repeat: no-repeat;
-  padding: 0 0.12em 0.04em;
+  background-color: var(--marca-amarelo);
+  box-shadow: 0 0 0 0.14em var(--marca-amarelo);
   border-radius: 2px;
+}
+.topico-texto li strong {
+  background-color: var(--marca-verde);
+  box-shadow: 0 0 0 0.14em var(--marca-verde);
 }
 
 /* Citação normativa (art., súmula, lei): a informação que sustenta o estudo,
    destacada para ser encontrada de relance. */
+/* Citação normativa: etiqueta, não link — sem sublinhado, para não sugerir
+   que abre a lei. */
 .ref-legal {
   font-family: var(--font-mono);
-  font-size: 0.86em;
+  font-size: 0.84em;
   color: var(--link);
+  background: var(--info-soft);
+  border-radius: 4px;
+  padding: 0.05em 0.32em;
   white-space: nowrap;
-  border-bottom: 1px dotted currentColor;
 }
 
 /* Regra transcrita: o bloco de citação vira uma "ficha" com filete âmbar. */
@@ -1689,4 +1713,160 @@ body.modal-open { overflow: hidden; }
   .disc-cost { margin-left: 0; }
   /* inline-flex centraliza dentro da coluna esticada; ancora à esquerda */
   html.cards-mode .sel-todas-cards { align-self: flex-start; }
+}
+
+/* ---- foco e hover do índice de tópicos ---------------------------------- */
+
+/* Sem sublinhado: o item inteiro reage, com um filete de marca-texto na
+   borda e um leve avanço — o mesmo gesto de correr o dedo pela lista. */
+.topico-link:hover .topico-nome,
+.topico-link:focus-visible .topico-nome { color: var(--text); text-decoration: none; }
+
+.topico-item {
+  border-left: 3px solid transparent;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.topico-item:hover,
+.topico-item:focus-within {
+  border-left-color: var(--accent);
+  transform: translateX(2px);
+}
+.topico-item.is-lido:hover,
+.topico-item.is-lido:focus-within { border-left-color: var(--success); }
+
+/* O anel de foco fica no item, não no texto do link. */
+.topico-link:focus-visible { outline: none; }
+.topico-item:focus-within { box-shadow: 0 0 0 3px var(--info-border); }
+
+@media (prefers-reduced-motion: reduce) {
+  .topico-item { transition: none; }
+  .topico-item:hover, .topico-item:focus-within { transform: none; }
+}
+
+/* ---- lista de relatórios: sempre tabela ---------------------------------- */
+
+/* A linha meta só existe para o mobile, onde as colunas laterais somem. */
+.rel-meta { display: none; }
+
+@media (max-width: 700px) {
+  /* O modo cards não se aplica aqui (data-no-toggle); em vez disso a tabela
+     encolhe para duas colunas e cabe sem rolagem lateral. */
+  .tabela-relatorios .rel-extra { display: none; }
+  .tabela-relatorios table { table-layout: fixed; width: 100%; }
+  .tabela-relatorios .rel-titulo { width: auto; font-size: 0.9rem; line-height: 1.4; }
+  .tabela-relatorios .rel-meta {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+  }
+  /* Com table-layout:fixed a largura precisa ser explícita: em % a célula
+     colapsava para 3px e os botões vazavam para fora da tela. */
+  .tabela-relatorios .actions-col {
+    width: 126px;
+    padding-left: 0.35rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .tabela-relatorios .actions-col > * { display: inline-flex; vertical-align: middle; }
+  .tabela-relatorios .actions-col .btn {
+    padding: 0.3rem 0.42rem;
+    font-size: 0.74rem;
+    margin: 0 0.1rem 0 0;
+  }
+  .tabela-relatorios td, .tabela-relatorios th { padding: 0.6rem 0.5rem; }
+}
+
+/* ---- painel de estudo da dashboard -------------------------------------- */
+
+.painel-estudo { margin-bottom: 1.8rem; }
+
+.pe-numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+
+/* Cada número tem cor própria: o total é a tinta da marca, o lido é o verde
+   do progresso, o que falta é o âmbar do marca-texto. */
+.pe-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.pe-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--pe-cor, var(--border-strong));
+}
+.pe-label {
+  display: block;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.pe-valor {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: 2.1rem;
+  line-height: 1;
+  color: var(--pe-cor, var(--text));
+}
+.pe-de { color: var(--muted); font-size: 0.5em; font-weight: 500; }
+
+.pe-card--topicos   { --pe-cor: var(--link); }
+.pe-card--lidos     { --pe-cor: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+.pe-card--restantes { --pe-cor: var(--accent-text); }
+.pe-card--fila      { --pe-cor: var(--warning); background: var(--warning-soft); border-color: var(--warning-border); }
+
+.pe-barra { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.9rem; }
+.pe-barra-track {
+  flex: 1; height: 8px; border-radius: 4px;
+  background: var(--border); overflow: hidden;
+}
+.pe-barra-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--success), var(--accent));
+  transition: width 0.4s var(--ease);
+}
+.pe-barra-label {
+  font-family: var(--font-mono); font-size: 0.78rem;
+  color: var(--muted); white-space: nowrap;
+}
+
+/* Atalho para retomar a leitura de onde parou. */
+.pe-continuar {
+  display: block;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--accent-tint-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-tint);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.pe-continuar:hover { background: var(--accent-tint-strong); transform: translateX(2px); text-decoration: none; }
+.pe-continuar-rotulo {
+  display: block; font-size: 0.72rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent-text); font-weight: 600;
+}
+.pe-continuar-nome {
+  display: block; font-family: var(--font-display); font-weight: 550;
+  font-size: 1.08rem; color: var(--text); margin-top: 0.15rem;
+}
+.pe-continuar-disc { display: block; font-size: 0.8rem; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pe-continuar:hover { transform: none; }
+  .pe-barra-fill { transition: none; }
 }
