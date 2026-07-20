@@ -9,7 +9,7 @@ from prompts.models import Prompt
 from questions.models import Questao
 
 from .models import ResultadoPrompt
-from .services import estimar_tokens, estimar_tokens_topicos
+from .services import MARGEM_TETO_OPERACAO, estimar_tokens, estimar_tokens_topicos
 from .tasks import (
     aplicar_resultado,
     chave_topicos_classificando,
@@ -178,7 +178,8 @@ def gerar_topicos(request, disciplina_pk):
     disc.topicos.all().delete()
     cache.delete(chave_topicos_erro(disc.pk))
     cache.set(chave_topicos_classificando(disc.pk), 1, 3600)
-    gerar_topicos_task.delay(disc.pk)
+    teto_tokens = int(estimados * MARGEM_TETO_OPERACAO)
+    gerar_topicos_task.delay(disc.pk, teto_tokens=teto_tokens)
 
     fora = total - len(analisadas)
     aviso = f' {fora} questão(ões) sem análise ficaram de fora.' if fora else ''

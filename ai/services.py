@@ -115,6 +115,13 @@ def estimar_tokens(questoes, prompt):
     return int(total)
 
 
+# Teto de gastos de uma operação (análise em lote, tópicos): a previsão
+# mostrada ao usuário antes de confirmar, com 50% de margem. Ultrapassado
+# isso, o processamento para e entrega o que já foi concluído — os itens
+# restantes ficam marcados como erro (e não presos "gerando…" para sempre).
+MARGEM_TETO_OPERACAO = 1.5
+
+
 def custo_usd(input_tokens, output_tokens):
     pin = Decimal(str(getattr(settings, 'AI_PRICE_INPUT_PER_MTOK', 3.0)))
     pout = Decimal(str(getattr(settings, 'AI_PRICE_OUTPUT_PER_MTOK', 15.0)))
@@ -620,4 +627,14 @@ def estimar_custo_topicos(questoes):
         custo_usd(int(class_in), OUTPUT_TOKENS_CLASSIFICACAO)
         + custo_usd(int(sintese_in), int(sintese_out)) * desconto_sintese
     )
+
+
+def estimar_tokens_sintese(topicos):
+    """Estimativa (entrada + saída) de sintetizar o texto de UM lote de
+    tópicos já classificados — usada para o teto de gastos por lote."""
+    total = 0
+    for topico in topicos:
+        chars = len(montar_conteudo_topico(topico))
+        total += chars / CHARS_PER_TOKEN + 400 + OUTPUT_TOKENS_SINTESE
+    return int(total)
 

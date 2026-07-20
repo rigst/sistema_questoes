@@ -3,7 +3,10 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from django.core.cache import cache
+
 from ai.models import ResultadoPrompt
+from ai.tasks import chave_topicos_erro
 from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 
@@ -226,3 +229,24 @@ class DisciplinaCustoTopicosTests(TestCase):
         self.assertIsNotNone(custo)
         self.assertTrue(custo.startswith('$') or custo.startswith('< $'))
         self.assertContains(resp, custo)
+
+
+class TopicosErroVisivelTests(TestCase):
+    """Uma falha (ou o teto de gastos) na geração de tópicos precisa
+    continuar visível numa visita normal à página, não só enquanto o
+    polling ao vivo está rodando — senão o usuário só vê silêncio."""
+
+    def test_erro_persistido_aparece_no_carregamento_normal_da_pagina(self):
+        user = User.objects.create_user('ana2', password='x')
+        prova = Prova.objects.create(user=user, nome='Concurso')
+        disc = Disciplina.objects.create(prova=prova, nome='Direito Processual Civil')
+        Questao.objects.create(disciplina=disc, numero=1, enunciado_md='Enunciado')
+        cache.set(
+            chave_topicos_erro(disc.pk),
+            'Teto de gastos atingido: 3 de 8 tópico(s) não foram sintetizados.',
+            86400,
+        )
+        self.client.force_login(user)
+        resp = self.client.get(reverse('questions:disciplina', args=[disc.pk]))
+        self.assertContains(resp, 'Teto de gastos atingido')
+        self.assertContains(resp, 'disc-banner-error')

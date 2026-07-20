@@ -31,7 +31,7 @@ def disciplina(request, pk):
 
     from ai.models import ResultadoPrompt, TextoTopico
     from ai.services import estimar_custo_topicos, formatar_custo_usd
-    from ai.tasks import chave_topicos_classificando
+    from ai.tasks import chave_topicos_classificando, chave_topicos_erro
 
     disc = _disciplina_do_user(request, pk)
     padrao = Prompt.objects.filter(user__isnull=True).first()
@@ -90,6 +90,7 @@ def disciplina(request, pk):
             topico__disciplina=disc,
             status__in=[TextoTopico.Status.PENDENTE, TextoTopico.Status.PROCESSANDO],
         ).exists(),
+        'topicos_erro': cache.get(chave_topicos_erro(disc.pk)) or '',
     })
     return render(request, 'questions/disciplina.html', contexto)
 

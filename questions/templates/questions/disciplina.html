@@ -166,6 +166,8 @@
                                 <span class="qchips">
                                     {% if q.status == 'na_fila' or q.status == 'processando' %}
                                         <span class="qchip qchip-gerando">gerando…</span>
+                                    {% elif q.status == 'erro' %}
+                                        <span class="qchip" style="background:var(--danger-soft);color:var(--danger);" title="Falha ao gerar análise — abra a questão para ver o motivo">falhou</span>
                                     {% else %}
                                         {% if q.tem_analise %}<span class="qchip qchip-completo" title="Análise gerada">análise</span>
                                         {% else %}<span class="qchip qchip-vazio" title="Sem análise gerada">—</span>{% endif %}
@@ -216,6 +218,9 @@
                 {% if topicos_classificando %}Classificando questões por tema…{% else %}Gerando textos…{% endif %}
             </span>
         </div>
+        {% if topicos_erro and not topicos_gerando %}
+        <div class="disc-banner disc-banner-error">{{ topicos_erro }}</div>
+        {% endif %}
 
         {% for t in topicos %}
         <details class="topico-panel">

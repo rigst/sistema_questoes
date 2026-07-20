@@ -1,7 +1,9 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
@@ -21,7 +23,7 @@ from .services import (
     formatar_custo_usd,
     montar_conteudo_topico,
 )
-from .tasks import processar_lote
+from .tasks import chave_topicos_erro, gerar_topicos, processar_lote
 
 User = get_user_model()
 
@@ -223,6 +225,95 @@ class AnaliseUnicaTests(BaseIATestCase):
         )
         mensagens = [str(m) for m in resp.context['messages']]
         self.assertTrue(any('Selecione ao menos uma questão' in m for m in mensagens))
+
+
+class TetoDeGastosTests(BaseIATestCase):
+    """Teto de gastos por operação (previsão + 50% de margem): itens além
+    do teto não são enviados à IA e ficam marcados como erro."""
+
+    @patch('ai.services.get_client')
+    def test_sequencial_para_apos_estourar_o_teto(self, get_client):
+        q2 = Questao.objects.create(disciplina=self.disc, numero=2, enunciado_md='Outra questão')
+        q3 = Questao.objects.create(disciplina=self.disc, numero=3, enunciado_md='Mais uma questão')
+        r1 = ResultadoPrompt.objects.create(questao=self.questao, prompt=self.prompt)
+        r2 = ResultadoPrompt.objects.create(questao=q2, prompt=self.prompt)
+        r3 = ResultadoPrompt.objects.create(questao=q3, prompt=self.prompt)
+
+        # Resposta muito maior que qualquer estimativa razoável para questões
+        # curtas — o gasto real já estoura o teto logo no primeiro item.
+        get_client.return_value.messages.create.return_value = _resposta_fake(
+            texto='Resposta.', input_tokens=100, output_tokens=50000,
+        )
+
+        resultado_msg = processar_lote([r1.pk, r2.pk, r3.pk], usar_lote=False)
+
+        r1.refresh_from_db()
+        r2.refresh_from_db()
+        r3.refresh_from_db()
+        self.assertEqual(r1.status, ResultadoPrompt.Status.CONCLUIDO)
+        self.assertEqual(r2.status, ResultadoPrompt.Status.ERRO)
+        self.assertIn('teto de gastos', r2.erro)
+        self.assertEqual(r3.status, ResultadoPrompt.Status.ERRO)
+        self.assertEqual(get_client.return_value.messages.create.call_count, 1)
+        self.assertIn('pulado', resultado_msg)
+
+        q2.refresh_from_db()
+        self.assertEqual(q2.status, Questao.Status.ERRO)
+
+    @patch('ai.tasks.coletar_batch.apply_async')
+    @patch('ai.services.submeter_batch')
+    @patch('ai.services.estimar_tokens')
+    def test_lote_via_batch_para_de_submeter_chunks_apos_estourar_o_teto(
+        self, mock_estimar, mock_submeter, mock_apply_async,
+    ):
+        mock_estimar.side_effect = [3000, 4000, 1000]  # teto (x1.5=4500), chunk1, chunk2
+        mock_submeter.return_value = 'batch_x'
+
+        ids = []
+        for i in range(30):
+            q = Questao.objects.create(disciplina=self.disc, numero=100 + i, enunciado_md=f'Q{i}')
+            r = ResultadoPrompt.objects.create(questao=q, prompt=self.prompt)
+            ids.append(r.pk)
+
+        resultado_msg = processar_lote(ids, usar_lote=True)
+
+        self.assertEqual(mock_submeter.call_count, 1)
+        pulados = ResultadoPrompt.objects.filter(status=ResultadoPrompt.Status.ERRO)
+        self.assertEqual(pulados.count(), 5)  # segundo chunk (30 - 25) não submetido
+        for r in pulados:
+            self.assertIn('teto de gastos', r.erro)
+        self.assertIn('pulado', resultado_msg)
+
+    @patch('ai.tasks.coletar_batch_textos.apply_async')
+    @patch('ai.services.submeter_batch_textos')
+    @patch('ai.services.estimar_tokens_sintese')
+    @patch('ai.services.get_client')
+    def test_sintese_de_topicos_via_batch_para_apos_estourar_o_teto(
+        self, get_client, mock_estimar_sintese, mock_submeter, mock_apply_async,
+    ):
+        grupos = []
+        for i in range(26):
+            q = Questao.objects.create(disciplina=self.disc, numero=200 + i, enunciado_md=f'Questão extra {i}')
+            ResultadoPrompt.objects.create(
+                questao=q, prompt=self.prompt, status=ResultadoPrompt.Status.CONCLUIDO,
+                resultado_md=f'Análise {i}.',
+            )
+            grupos.append({'nome': f'Tema {i}', 'descricao': '', 'questoes': [q.pk]})
+
+        classificacao = _resposta_fake(texto=json.dumps({'topicos': grupos}))
+        get_client.return_value.messages.create.return_value = classificacao
+        mock_estimar_sintese.side_effect = [4000, 1000]  # chunk1 (25 tópicos), chunk2 (2 tópicos)
+        mock_submeter.return_value = 'batch_y'
+
+        resultado_msg = gerar_topicos(self.disc.pk, teto_tokens=4500)
+
+        self.assertEqual(mock_submeter.call_count, 1)
+        pulados = TextoTopico.objects.filter(status=TextoTopico.Status.ERRO)
+        self.assertGreater(pulados.count(), 0)
+        for t in pulados:
+            self.assertIn('teto de gastos', t.erro)
+        self.assertIn('pulado', resultado_msg)
+        self.assertIn('Teto de gastos atingido', cache.get(chave_topicos_erro(self.disc.pk)))
 
 
 class TopicosTests(BaseIATestCase):

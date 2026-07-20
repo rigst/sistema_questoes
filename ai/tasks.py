@@ -32,39 +32,81 @@ def aplicar_resultado(resultado_id):
     return f'resultado {resultado_id} concluído'
 
 
+def _marcar_teto_atingido(resultados, teto):
+    """Marca resultados/questões pulados por terem estourado o teto de
+    gastos da operação — ficam visíveis como erro em vez de presos
+    'gerando…' para sempre; um novo envio os pega de novo."""
+    mensagem = f'Não processada: teto de gastos da operação atingido (~{teto:,} tokens).'.replace(',', '.')
+    for r in resultados:
+        r.status = ResultadoPrompt.Status.ERRO
+        r.erro = mensagem
+        r.save(update_fields=['status', 'erro', 'atualizado_em'])
+        r.questao.status = r.questao.Status.ERRO
+        r.questao.save(update_fields=['status', 'atualizado_em'])
+
+
 @shared_task
 def processar_lote(resultado_ids, usar_lote=True):
-    """Processa vários resultados — via Batches API em chunks de 25, ou em sequência."""
+    """Processa vários resultados — via Batches API em chunks de 25, ou em sequência.
+
+    Respeita um teto de gastos da operação (previsão inicial + 50% de
+    margem — services.MARGEM_TETO_OPERACAO). Ultrapassado o teto, os itens
+    restantes não são enviados à IA e ficam marcados como erro — o
+    primeiro item/lote sempre é processado, mesmo que sozinho já beire o
+    teto, para a operação nunca terminar sem entregar nada.
+    """
     resultados = list(
         ResultadoPrompt.objects.select_related(
             'questao', 'prompt', 'questao__disciplina__prova__user'
-        ).filter(pk__in=resultado_ids)
+        ).filter(pk__in=resultado_ids).order_by('questao__numero')
     )
     if not resultados:
         return 'nenhum resultado'
+
+    teto = int(
+        services.estimar_tokens([r.questao for r in resultados], resultados[0].prompt)
+        * services.MARGEM_TETO_OPERACAO
+    )
 
     if usar_lote and len(resultados) > 1:
         # Divide em batches de 25 questões (otimizado para 30-45 min)
         batch_size = 25
         total_batches = 0
+        gasto_estimado = 0
+        pulados = 0
 
         for i in range(0, len(resultados), batch_size):
             chunk = resultados[i:i + batch_size]
+            estimativa_chunk = services.estimar_tokens([r.questao for r in chunk], chunk[0].prompt)
+            if total_batches > 0 and gasto_estimado + estimativa_chunk > teto:
+                _marcar_teto_atingido(chunk, teto)
+                pulados += len(chunk)
+                continue
+            gasto_estimado += estimativa_chunk
             batch_id = services.submeter_batch(chunk)
             coletar_batch.apply_async(args=[batch_id], countdown=30)
             total_batches += 1
 
-        return f'{total_batches} batch(es) submetido(s) com total de {len(resultados)} itens'
+        aviso = f'; {pulados} pulado(s) por teto de gastos' if pulados else ''
+        return f'{total_batches} batch(es) submetido(s) com total de {len(resultados) - pulados} itens{aviso}'
 
-    for r in resultados:
+    gasto = 0
+    pulados = 0
+    for idx, r in enumerate(resultados):
+        if idx > 0 and gasto >= teto:
+            _marcar_teto_atingido([r], teto)
+            pulados += 1
+            continue
         profile = getattr(r.questao.disciplina.prova.user, 'profile', None)
         try:
-            services.aplicar_resultado_sincrono(r, profile=profile)
+            resultado = services.aplicar_resultado_sincrono(r, profile=profile)
+            gasto += resultado.input_tokens + resultado.output_tokens
         except Exception:
             # O resultado e a questão já foram marcados como ERRO no service.
             logger.exception('Falha ao aplicar prompt (resultado %s)', r.pk)
             continue
-    return f'{len(resultados)} resultado(s) processado(s)'
+    aviso = f'; {pulados} pulado(s) por teto de gastos' if pulados else ''
+    return f'{len(resultados) - pulados} resultado(s) processado(s){aviso}'
 
 
 @shared_task(bind=True, max_retries=240)
@@ -76,14 +118,27 @@ def coletar_batch(self, batch_id):
     return f'batch {batch_id}: {"ok" if finalizado else "pendente"}'
 
 
+def _marcar_textos_teto_atingido(textos, teto):
+    mensagem = f'Não sintetizado: teto de gastos da operação atingido (~{teto:,} tokens).'.replace(',', '.')
+    for t in textos:
+        t.status = TextoTopico.Status.ERRO
+        t.erro = mensagem
+        t.save(update_fields=['status', 'erro', 'atualizado_em'])
+
+
 @shared_task
-def gerar_topicos(disciplina_id):
+def gerar_topicos(disciplina_id, teto_tokens=None):
     """Classifica as questões analisadas da disciplina em tópicos e submete as sínteses.
 
     1. Uma chamada de classificação (structured outputs) agrupa as questões.
     2. Cria os Topico e associa as questões; sobras vão para "Outros temas".
     3. Cria um TextoTopico por tópico e submete as sínteses via Batches API
        (chunks de 25), ou sincronamente quando há um único tópico.
+
+    `teto_tokens` é o teto de gastos da operação inteira (previsão + 50% de
+    margem, calculado no disparo). Ultrapassado ao submeter lotes de
+    síntese, os tópicos restantes não são enviados e ficam marcados como
+    erro — "Regerar tópicos" tenta de novo depois.
     """
     from exams.models import Disciplina
     from questions.models import Topico
@@ -106,6 +161,9 @@ def gerar_topicos(disciplina_id):
     if not questoes:
         cache.delete(chave_topicos_classificando(disciplina_id))
         return 'sem questões analisadas'
+
+    if teto_tokens is None:
+        teto_tokens = int(services.estimar_tokens_topicos(questoes) * services.MARGEM_TETO_OPERACAO)
 
     try:
         grupos = services.classificar_topicos_via_ia(questoes, profile=profile)
@@ -140,7 +198,7 @@ def gerar_topicos(disciplina_id):
             topicos.append(topico)
     except Exception as exc:  # noqa: BLE001
         logger.exception('Falha ao classificar tópicos (disciplina %s)', disciplina_id)
-        cache.set(chave_topicos_erro(disciplina_id), str(exc)[:500], 600)
+        cache.set(chave_topicos_erro(disciplina_id), str(exc)[:500], 86400)
         cache.delete(chave_topicos_classificando(disciplina_id))
         return 'erro na classificação'
 
@@ -157,12 +215,30 @@ def gerar_topicos(disciplina_id):
 
     batch_size = 25
     total_batches = 0
+    gasto_estimado = 0
+    pulados = 0
     for i in range(0, len(textos), batch_size):
         chunk = textos[i:i + batch_size]
+        estimativa_chunk = services.estimar_tokens_sintese([t.topico for t in chunk])
+        if total_batches > 0 and gasto_estimado + estimativa_chunk > teto_tokens:
+            _marcar_textos_teto_atingido(chunk, teto_tokens)
+            pulados += len(chunk)
+            continue
+        gasto_estimado += estimativa_chunk
         batch_id = services.submeter_batch_textos(chunk)
         coletar_batch_textos.apply_async(args=[batch_id], countdown=30)
         total_batches += 1
-    return f'{len(topicos)} tópicos criados; {total_batches} batch(es) de síntese'
+
+    aviso = ''
+    if pulados:
+        cache.set(
+            chave_topicos_erro(disciplina_id),
+            f'Teto de gastos atingido: {pulados} de {len(topicos)} tópico(s) não foram sintetizados. '
+            'Clique em "Regerar tópicos" para tentar concluir o restante.',
+            86400,
+        )
+        aviso = f'; {pulados} tópico(s) pulado(s) por teto de gastos'
+    return f'{len(topicos)} tópicos criados; {total_batches} batch(es) de síntese{aviso}'
 
 
 @shared_task(bind=True, max_retries=240)
