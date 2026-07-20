@@ -1670,7 +1670,16 @@ body.modal-open { overflow: hidden; }
   place-items: center;
 }
 .bloco-pegadinhas li::marker { color: var(--danger); }
-.bloco-pegadinhas strong { background-image: none; color: var(--danger); }
+/* Nos erros comuns o destaque é só o peso da letra: o marca-texto ali
+   competiria com o vermelho do painel. */
+.topico-texto .bloco-pegadinhas strong,
+.topico-texto .bloco-pegadinhas li strong {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--text);
+  font-weight: 700;
+}
 
 /* Peso do tópico: barra fina sob o nome, proporcional a quantas questões o
    tema teve na prova — a mesma informação que define a ordem da lista. */
@@ -1723,24 +1732,33 @@ body.modal-open { overflow: hidden; }
 .topico-link:focus-visible .topico-nome { color: var(--text); text-decoration: none; }
 
 .topico-item {
-  border-left: 3px solid transparent;
-  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+  border-left: 4px solid transparent;
+  transition: background .15s ease, border-color .15s ease;
 }
-.topico-item:hover,
-.topico-item:focus-within {
-  border-left-color: var(--accent);
-  transform: translateX(2px);
-}
-.topico-item.is-lido:hover,
-.topico-item.is-lido:focus-within { border-left-color: var(--success); }
+/* Passar o mouse: só o filete âmbar, discreto. */
+.topico-item:hover { border-left-color: var(--accent); }
+.topico-item.is-lido:hover { border-left-color: var(--success); }
 
-/* O anel de foco fica no item, não no texto do link. */
+/* Foco de teclado: marcação forte e imediata (sem transição, para não
+   "aparecer devagar" enquanto se navega por Tab) e sem deslocar o item. */
+.topico-item:focus-within {
+  border-color: var(--link);
+  border-left-color: var(--link);
+  background: var(--info-soft);
+  box-shadow: 0 0 0 3px var(--info-border);
+  transition: none;
+}
+/* O anel fica no item inteiro; o link não precisa do seu. */
 .topico-link:focus-visible { outline: none; }
-.topico-item:focus-within { box-shadow: 0 0 0 3px var(--info-border); }
+/* O check tem cor transparente quando não lido, então o contorno precisa
+   de cor explícita para não sumir. */
+.topico-check:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .topico-item { transition: none; }
-  .topico-item:hover, .topico-item:focus-within { transform: none; }
 }
 
 /* ---- lista de relatórios: sempre tabela ---------------------------------- */
@@ -1783,7 +1801,7 @@ body.modal-open { overflow: hidden; }
 
 .pe-numeros {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 0.7rem;
   margin-bottom: 0.9rem;
 }
@@ -1823,10 +1841,13 @@ body.modal-open { overflow: hidden; }
 }
 .pe-de { color: var(--muted); font-size: 0.5em; font-weight: 500; }
 
-.pe-card--topicos   { --pe-cor: var(--link); }
-.pe-card--lidos     { --pe-cor: var(--success); background: var(--success-soft); border-color: var(--success-border); }
-.pe-card--restantes { --pe-cor: var(--accent-text); }
-.pe-card--fila      { --pe-cor: var(--warning); background: var(--warning-soft); border-color: var(--warning-border); }
+.pe-card--lidos { --pe-cor: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+.pe-card--tempo { --pe-cor: var(--link); }
+
+/* linha de apoio dentro do card */
+.pe-rodape { display: block; margin-top: 0.45rem; font-size: 0.78rem; color: var(--muted); }
+.pe-un { font-size: 0.45em; font-weight: 500; color: var(--muted); margin-left: 0.15em; }
+.pe-card .pe-barra-track { margin-top: 0.6rem; }
 
 .pe-barra { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.9rem; }
 .pe-barra-track {
@@ -1869,4 +1890,60 @@ body.modal-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .pe-continuar:hover { transform: none; }
   .pe-barra-fill { transition: none; }
+}
+
+/* ---- continuar lendo: play + texto ------------------------------------- */
+.pe-continuar { display: flex; align-items: center; gap: 0.9rem; }
+.pe-play {
+  flex: none;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid; place-items: center;
+}
+.pe-play svg { width: 17px; height: 17px; margin-left: 2px; }
+.pe-continuar-txt { min-width: 0; }
+
+/* ---- barra de leitura no cabeçalho do tópico ---------------------------- */
+.leitura-prog { display: inline-flex; align-items: center; gap: 0.5rem; }
+.leitura-prog-track {
+  width: 110px; height: 5px; border-radius: 3px;
+  background: var(--border); overflow: hidden;
+}
+.leitura-prog-fill {
+  display: block; height: 100%; border-radius: 3px;
+  background: var(--success); transition: width 0.35s var(--ease);
+}
+.leitura-prog-label {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: nowrap;
+}
+
+/* ---- questões de origem: recolhidas ------------------------------------- */
+.leitura-questoes {
+  margin-top: 2.6rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.leitura-questoes > summary {
+  cursor: pointer; list-style: none;
+  padding: 0.85rem 1.1rem;
+  display: flex; align-items: center; gap: 0.55rem;
+}
+.leitura-questoes > summary::-webkit-details-marker { display: none; }
+.leitura-questoes > summary::before {
+  content: '▸'; color: var(--muted); transition: transform 0.15s ease; flex: none;
+}
+.leitura-questoes[open] > summary::before { transform: rotate(90deg); }
+.leitura-questoes > summary:hover { background: var(--surface-2); border-radius: 12px; }
+.lq-titulo { font-family: var(--font-display); font-weight: 550; font-size: 0.98rem; color: var(--text-soft); margin-right: auto; }
+.leitura-questoes .leitura-questoes-lista { padding: 0 1.1rem 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .leitura-prog-fill { transition: none; }
+}
+
+@media (max-width: 560px) {
+  .leitura-prog-track { width: 74px; }
 }

@@ -183,40 +183,36 @@
     {# O estudo acontece nos tópicos: são eles que o painel mede. #}
     <div class="painel-estudo">
         <div class="pe-numeros">
-            <article class="pe-card pe-card--topicos">
-                <span class="pe-label">Tópicos de estudo</span>
-                <strong class="pe-valor">{{ total_topicos }}</strong>
-            </article>
             <article class="pe-card pe-card--lidos">
-                <span class="pe-label">Lidos</span>
+                <span class="pe-label">Tópicos lidos</span>
                 <strong class="pe-valor">{{ total_lidos }}<span class="pe-de">/{{ total_topicos }}</span></strong>
+                {% if total_topicos %}
+                <div class="pe-barra-track">
+                    <div class="pe-barra-fill" style="width: {{ pct_lidos }}%"></div>
+                </div>
+                <span class="pe-rodape">{{ pct_lidos }}% do material</span>
+                {% endif %}
             </article>
-            <article class="pe-card pe-card--restantes">
-                <span class="pe-label">A ler</span>
-                <strong class="pe-valor">{{ total_a_ler }}</strong>
-            </article>
-            {% if na_fila > 0 %}
-            <article class="pe-card pe-card--fila">
-                <span class="pe-label">Na fila de IA</span>
-                <strong class="pe-valor">{{ na_fila }}</strong>
+            {% if minutos_a_ler %}
+            {# Responde "dá para encaixar isso hoje?", que a contagem não responde. #}
+            <article class="pe-card pe-card--tempo">
+                <span class="pe-label">Leitura restante</span>
+                <strong class="pe-valor">{{ tempo_a_ler }}</strong>
+                <span class="pe-rodape">{{ total_a_ler }} tópico{{ total_a_ler|pluralize }} por ler</span>
             </article>
             {% endif %}
         </div>
 
-        {% if total_topicos %}
-        <div class="pe-barra">
-            <div class="pe-barra-track">
-                <div class="pe-barra-fill" style="width: {{ pct_lidos }}%"></div>
-            </div>
-            <span class="pe-barra-label">{{ pct_lidos }}% lidos</span>
-        </div>
-        {% endif %}
-
         {% if continuar %}
         <a class="pe-continuar" href="{% url 'questions:topico_detalhe' continuar.pk %}">
-            <span class="pe-continuar-rotulo">Continuar lendo</span>
-            <span class="pe-continuar-nome">{{ continuar.nome }}</span>
-            <span class="pe-continuar-disc">{{ continuar.disciplina.nome }}</span>
+            <span class="pe-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"/></svg>
+            </span>
+            <span class="pe-continuar-txt">
+                <span class="pe-continuar-rotulo">Continuar lendo</span>
+                <span class="pe-continuar-nome">{{ continuar.nome }}</span>
+                <span class="pe-continuar-disc">{{ continuar.disciplina.nome }}</span>
+            </span>
         </a>
         {% endif %}
     </div>

@@ -16,10 +16,18 @@
     <header class="leitura-head">
         <h1>{{ topico.nome }}</h1>
         {% if topico.descricao %}<p class="leitura-desc">{{ topico.descricao }}</p>{% endif %}
-        <p class="leitura-meta">
+        <div class="leitura-meta">
             <span class="qchip qchip-vazio">{{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }}</span>
+            {# A barra mede a leitura da disciplina, não a posição: só avança com os lidos. #}
             <span class="leitura-pos">Tópico {{ posicao }} de {{ total_topicos }}</span>
-        </p>
+            <span class="leitura-prog" title="{{ total_lidos }} de {{ total_topicos }} tópicos lidos">
+                <span class="leitura-prog-track">
+                    <span class="leitura-prog-fill" id="lp-topico"
+                          style="width: {% widthratio total_lidos total_topicos 100 %}%"></span>
+                </span>
+                <span class="leitura-prog-label" id="lp-topico-label">{{ total_lidos }}/{{ total_topicos }} lidos</span>
+            </span>
+        </div>
     </header>
 
     {% if topico.texto.status == 'concluido' %}
@@ -42,8 +50,12 @@
         </div>
     {% endif %}
 
-    <section class="leitura-questoes">
-        <h2>Questões que deram origem a este tópico</h2>
+    {# Fonte do tópico: fica fechado, porque o estudo já está no texto acima. #}
+    <details class="leitura-questoes">
+        <summary>
+            <span class="lq-titulo">Questões que deram origem a este tópico</span>
+            <span class="qchip qchip-vazio">{{ questoes|length }}</span>
+        </summary>
         <ul class="leitura-questoes-lista">
             {% for q in questoes %}
             <li>
@@ -55,7 +67,7 @@
             </li>
             {% endfor %}
         </ul>
-    </section>
+    </details>
 
     <nav class="leitura-nav" aria-label="Navegação entre tópicos">
         {% if anterior %}
@@ -109,6 +121,11 @@
       btn.querySelector('.btn-lido-icone').textContent = data.lido ? '✓' : '○';
       btn.querySelector('.btn-lido-texto').textContent = data.lido ? 'Lido' : 'Marcar como lido';
       if (contador) contador.textContent = data.total_lidos + ' de ' + data.total + ' lidos';
+      // a barra do cabeçalho acompanha na hora
+      var barra = document.getElementById('lp-topico');
+      var rotulo = document.getElementById('lp-topico-label');
+      if (barra && data.total) barra.style.width = Math.round(data.total_lidos / data.total * 100) + '%';
+      if (rotulo) rotulo.textContent = data.total_lidos + '/' + data.total + ' lidos';
     }).catch(function () {}).finally(function () { btn.disabled = false; });
   });
 })();

@@ -1,9 +1,11 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Sum
+from django.db.models.functions import Length
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
+from ai.models import TextoTopico
 from questions.models import LeituraTopico, Questao, Topico
 
 from .models import Disciplina, Prova
@@ -37,6 +39,22 @@ def dashboard(request):
         user=request.user, topico=continuar,
     ).exists():
         continuar = None
+
+    # Quanto ainda falta ler, em tempo: é o número que responde "dá para
+    # encaixar isso hoje?", que a contagem de tópicos sozinha não responde.
+    chars_a_ler = TextoTopico.objects.filter(
+        topico__disciplina__prova__user=request.user,
+        status=TextoTopico.Status.CONCLUIDO,
+    ).exclude(
+        topico__in=LeituraTopico.objects.filter(user=request.user).values('topico'),
+    ).aggregate(s=Sum(Length('texto_md')))['s'] or 0
+    # ~900 caracteres por minuto: leitura de estudo, mais lenta que a corrida.
+    minutos_a_ler = round(chars_a_ler / 900)
+    if minutos_a_ler >= 60:
+        horas, resto = divmod(minutos_a_ler, 60)
+        tempo_a_ler = f'{horas}h{resto:02d}' if resto else f'{horas}h'
+    else:
+        tempo_a_ler = f'{minutos_a_ler}min'
     contexto = {
         'provas': provas,
         'total_provas': provas.count(),
@@ -48,6 +66,8 @@ def dashboard(request):
         'total_a_ler': total_topicos - total_lidos,
         'pct_lidos': round(total_lidos / total_topicos * 100) if total_topicos else 0,
         'continuar': continuar,
+        'minutos_a_ler': minutos_a_ler,
+        'tempo_a_ler': tempo_a_ler,
         'na_fila': Questao.objects.filter(
             disciplina__prova__user=request.user,
             status__in=[Questao.Status.NA_FILA, Questao.Status.PROCESSANDO]
