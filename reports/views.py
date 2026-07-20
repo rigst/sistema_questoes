@@ -7,7 +7,7 @@ from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 
 from .models import Relatorio
-from .services import gerar_relatorio
+from .services import gerar_relatorio, gerar_relatorio_topicos
 
 
 @login_required
@@ -29,8 +29,7 @@ def gerar(request):
     if request.method != 'POST':
         return redirect('reports:lista')
 
-    prompt = get_object_or_404(Prompt, user__isnull=True)
-    com_texto = request.POST.get('com_texto') == '1'
+    tipo = request.POST.get('tipo', Relatorio.Tipo.COMENTARIOS)
 
     disciplina = None
     prova = None
@@ -42,13 +41,23 @@ def gerar(request):
         prova = get_object_or_404(Prova, pk=prova_id, user=request.user)
 
     formato = request.POST.get('formato', 'md')
-    relatorio = gerar_relatorio(
-        request.user, prompt, prova=prova, disciplina=disciplina, com_texto=com_texto, formato=formato
-    )
-    if relatorio.num_questoes == 0:
-        messages.warning(request, 'Nenhuma questão com resultado salvo desse prompt no escopo escolhido.')
+
+    if tipo == Relatorio.Tipo.TOPICOS:
+        relatorio = gerar_relatorio_topicos(request.user, prova=prova, disciplina=disciplina, formato=formato)
+        if relatorio.num_questoes == 0:
+            messages.warning(request, 'Nenhum tópico com texto pronto nesse escopo.')
+        else:
+            messages.success(request, f'Relatório gerado com {relatorio.num_questoes} tópico(s).')
     else:
-        messages.success(request, f'Relatório gerado com {relatorio.num_questoes} questão(ões).')
+        prompt = get_object_or_404(Prompt, user__isnull=True)
+        com_texto = request.POST.get('com_texto') == '1'
+        relatorio = gerar_relatorio(
+            request.user, prompt, prova=prova, disciplina=disciplina, com_texto=com_texto, formato=formato
+        )
+        if relatorio.num_questoes == 0:
+            messages.warning(request, 'Nenhuma questão com resultado salvo desse prompt no escopo escolhido.')
+        else:
+            messages.success(request, f'Relatório gerado com {relatorio.num_questoes} questão(ões).')
     return redirect('reports:lista')
 
 

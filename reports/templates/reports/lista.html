@@ -6,9 +6,20 @@
 <section>
     <div class="section-heading"><h2>Gerar relatório</h2></div>
     <div class="form-panel form-panel-compact" style="margin-bottom:1.5rem;max-width:600px;margin-left:auto;margin-right:auto;">
-        <form method="post" action="{% url 'reports:gerar' %}">
+        <form method="post" action="{% url 'reports:gerar' %}" id="form-relatorio">
             {% csrf_token %}
             <div class="form-grid">
+                <div class="full">
+                    <label>Tipo de relatório</label>
+                    <div class="inline-actions" style="gap:1.25rem;">
+                        <label style="display:flex;align-items:center;gap:.4rem;font-weight:normal;">
+                            <input type="radio" name="tipo" value="comentarios" id="tipo-comentarios" checked> Comentários das questões
+                        </label>
+                        <label style="display:flex;align-items:center;gap:.4rem;font-weight:normal;">
+                            <input type="radio" name="tipo" value="topicos" id="tipo-topicos"> Tópicos de estudo
+                        </label>
+                    </div>
+                </div>
                 <div>
                     <label for="prova_id">Prova</label>
                     <select name="prova_id" id="prova_id">
@@ -23,7 +34,7 @@
                         {% for d in disciplinas %}<option value="{{ d.pk }}" data-prova="{{ d.prova.pk }}">{{ d.nome }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="full">
+                <div class="full" id="campo-com-texto">
                     <label style="display:flex;align-items:center;gap:.5rem;">
                         <input type="checkbox" name="com_texto" value="1" checked> Incluir texto e gabarito da questão
                     </label>
@@ -34,19 +45,20 @@
                 <button type="submit" name="formato" value="pdf" class="btn btn-primary">Gerar PDF</button>
             </div>
         </form>
-        <p class="form-note" style="margin-top:.75rem;">Entram no PDF as questões que já têm análise gerada. Se selecionar disciplina, ela tem prioridade sobre a prova.</p>
+        <p class="form-note" style="margin-top:.75rem;" id="nota-relatorio">Entram no PDF as questões que já têm análise gerada. Se selecionar disciplina, ela tem prioridade sobre a prova.</p>
     </div>
 
     <div class="section-heading"><h2>Relatórios gerados</h2></div>
     {% if relatorios %}
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Título</th><th>Questões</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
+                <thead><tr><th>Título</th><th>Tipo</th><th>Itens</th><th>Data</th><th class="actions-col">Ações</th></tr></thead>
                 <tbody>
                     {% for r in relatorios %}
                         <tr>
                             <td>{{ r.titulo }}</td>
-                            <td>{{ r.num_questoes }}</td>
+                            <td>{% if r.tipo == 'topicos' %}<span class="qchip qchip-vazio">tópicos</span>{% else %}<span class="qchip qchip-vazio">comentários</span>{% endif %}</td>
+                            <td>{{ r.num_questoes }} {% if r.tipo == 'topicos' %}{% if r.num_questoes == 1 %}tópico{% else %}tópicos{% endif %}{% else %}{% if r.num_questoes == 1 %}questão{% else %}questões{% endif %}{% endif %}</td>
                             <td>{{ r.criado_em|date:"d/m/Y H:i" }}</td>
                             <td class="actions-col">
                                 {% if r.arquivo_md %}<a class="btn btn-secondary btn-compact" href="{{ r.arquivo_md.url }}" download>Baixar .md</a>{% endif %}
@@ -84,6 +96,24 @@
             if (sel && sel.hidden) discSelect.value = '';
         }
     });
+})();
+
+(function () {
+    var radios = document.querySelectorAll('input[name="tipo"]');
+    var campoComTexto = document.getElementById('campo-com-texto');
+    var nota = document.getElementById('nota-relatorio');
+    if (!radios.length || !campoComTexto || !nota) return;
+
+    function atualizar() {
+        var topicos = document.getElementById('tipo-topicos').checked;
+        campoComTexto.hidden = topicos;
+        nota.textContent = topicos
+            ? 'Entram no relatório os tópicos que já têm texto de estudo gerado. Se selecionar disciplina, ela tem prioridade sobre a prova.'
+            : 'Entram no PDF as questões que já têm análise gerada. Se selecionar disciplina, ela tem prioridade sobre a prova.';
+    }
+
+    radios.forEach(function (r) { r.addEventListener('change', atualizar); });
+    atualizar();
 })();
 </script>
 {% endblock %}
