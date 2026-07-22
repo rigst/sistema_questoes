@@ -184,6 +184,24 @@
         i++;
         if (i >= dados.length) return terminar();
         render();
+        centralizar();
+      }
+
+      // Ao trocar de questão, reposiciona a tela como se recarregasse: o bloco
+      // do contador ("Questão X de Y") até o fim do card fica centralizado na
+      // vertical, com o enunciado à vista. Mede depois do layout (rAF).
+      var elTopo = document.querySelector('.revisao-topo');
+      function centralizar() {
+        requestAnimationFrame(function () {
+          var topo = elTopo.getBoundingClientRect().top + window.pageYOffset;
+          var base = card.getBoundingClientRect().bottom + window.pageYOffset;
+          // Bloco maior que a tela: alinha o contador perto do topo para não
+          // escondê-lo; senão, centraliza o bloco na vertical.
+          var destino = (base - topo) > window.innerHeight
+            ? topo - 24
+            : (topo + base) / 2 - window.innerHeight / 2;
+          window.scrollTo({ top: Math.max(0, destino), behavior: 'smooth' });
+        });
       }
 
       function terminar() {
@@ -203,7 +221,7 @@
       });
       document.getElementById('revisao-refazer').addEventListener('click', function () {
         i = 0; acertos = 0; elPlacar.textContent = '0 acertos';
-        card.hidden = false; fim.hidden = true; render();
+        card.hidden = false; fim.hidden = true; render(); centralizar();
       });
 
       render();
