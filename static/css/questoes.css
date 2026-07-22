@@ -2051,6 +2051,13 @@ body.modal-open { overflow: hidden; }
 }
 .revisao-alt.is-correta .gab-letter { transform: scale(1.12); }
 .revisao-alt.is-errada { border-color: var(--danger); background: var(--danger-soft); }
+/* Selecionada (antes de confirmar): marcada como quem preenche a bolha do
+   cartão-resposta. Só o botão "Responder" confirma. */
+.revisao-alt.is-selecionada {
+  border-color: var(--accent); background: var(--accent-tint);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.revisao-alt.is-selecionada .gab-letter { color: var(--accent-text); transform: scale(1.08); }
 /* Duplo clique descarta a alternativa: fica traçada e cinza fraca, como quem
    risca no papel. Continua clicável para desmarcar (outro duplo clique). */
 .revisao-alt.is-descartada {

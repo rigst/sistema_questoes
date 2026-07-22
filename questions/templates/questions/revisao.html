@@ -37,6 +37,7 @@
             </div>
         </div>
         <div class="revisao-acoes">
+            <button type="button" class="btn btn-primary" id="revisao-responder" disabled>Responder</button>
             <button type="button" class="btn btn-primary" id="revisao-proxima" hidden>Próxima →</button>
         </div>
     </article>
@@ -70,16 +71,18 @@
       var elEnunciado = document.getElementById('revisao-enunciado');
       var elAlts = document.getElementById('revisao-alternativas');
       var elFeedback = document.getElementById('revisao-feedback');
+      var elResponder = document.getElementById('revisao-responder');
       var elProxima = document.getElementById('revisao-proxima');
       var elAnalise = document.getElementById('revisao-analise');
       var elAnaliseMd = document.getElementById('revisao-analise-md');
       var card = document.getElementById('revisao-card');
       var fim = document.getElementById('revisao-fim');
 
-      var i = 0, acertos = 0, respondida = false;
+      var i = 0, acertos = 0, respondida = false, selecionada = null;
 
       function render() {
         respondida = false;
+        selecionada = null;
         var q = dados[i];
         elPasso.textContent = 'Questão ' + (i + 1) + ' de ' + dados.length;
         elFill.style.width = Math.round(i / dados.length * 100) + '%';
@@ -96,27 +99,24 @@
           b.dataset.letra = alt.letter;
           b.innerHTML = '<span class="gab-letter">' + alt.letter + '</span><span class="revisao-alt-txt"></span>';
           b.querySelector('.revisao-alt-txt').textContent = alt.text;
-          // Um clique responde; dois cliques descartam a alternativa (traçado).
-          // O clique espera um instante para saber se vira duplo — só então
-          // responde, para o primeiro clique do duplo não submeter antes.
-          var timerClique = null;
+          // Um clique seleciona (não envia); dois cliques descartam a
+          // alternativa (traçado). Só o botão "Responder" confirma a marcada.
           b.addEventListener('click', function () {
-            if (respondida) return;
-            if (timerClique) clearTimeout(timerClique);
-            timerClique = setTimeout(function () {
-              timerClique = null;
-              if (b.classList.contains('is-descartada')) return;
-              responder(alt.letter, q.pk);
-            }, 200);
+            if (respondida || b.classList.contains('is-descartada')) return;
+            selecionar(alt.letter);
           });
           b.addEventListener('dblclick', function () {
-            if (timerClique) { clearTimeout(timerClique); timerClique = null; }
             if (respondida) return;
+            var descartando = !b.classList.contains('is-descartada');
             b.classList.toggle('is-descartada');
+            // Descartar tira a seleção; se a marcada some, o Responder trava.
+            if (descartando && selecionada === alt.letter) selecionar(null);
           });
           elAlts.appendChild(b);
         });
+        atualizarResponder();
         elFeedback.hidden = true;
+        elResponder.hidden = false;
         elProxima.hidden = true;
         elAnalise.classList.remove('is-aberta');
         elAnaliseMd.innerHTML = '';
@@ -124,6 +124,18 @@
         card.classList.remove('rev-entra');
         void card.offsetWidth;
         card.classList.add('rev-entra');
+      }
+
+      function selecionar(letra) {
+        selecionada = letra;
+        elAlts.querySelectorAll('.revisao-alt').forEach(function (b) {
+          b.classList.toggle('is-selecionada', b.dataset.letra === letra);
+        });
+        atualizarResponder();
+      }
+
+      function atualizarResponder() {
+        elResponder.disabled = !selecionada;
       }
 
       function responder(letra, pk) {
@@ -138,10 +150,12 @@
           },
           body: new URLSearchParams({ alternativa: letra }),
         }).then(function (r) { return r.json(); }).then(function (data) {
+          elResponder.hidden = true;
           if (data.correta) acertos++;
           elPlacar.textContent = acertos + (acertos === 1 ? ' acerto' : ' acertos');
           elAlts.querySelectorAll('.revisao-alt').forEach(function (b) {
             b.disabled = true;
+            b.classList.remove('is-selecionada');
             if (b.dataset.letra === data.gabarito) b.classList.add('is-correta');
             if (b.dataset.letra === letra && !data.correta) b.classList.add('is-errada');
           });
@@ -177,6 +191,10 @@
         fim.hidden = false;
       }
 
+      elResponder.addEventListener('click', function () {
+        if (respondida || !selecionada) return;
+        responder(selecionada, dados[i].pk);
+      });
       elProxima.addEventListener('click', avancar);
       document.getElementById('revisao-refazer').addEventListener('click', function () {
         i = 0; acertos = 0; elPlacar.textContent = '0 acertos';
