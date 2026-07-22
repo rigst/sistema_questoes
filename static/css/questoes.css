@@ -2037,7 +2037,7 @@ body.modal-open { overflow: hidden; }
   padding: 0.7rem 0.9rem; text-align: left;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text); cursor: pointer;
-  font: inherit;
+  font: inherit; user-select: none;
   transition: border-color 0.2s ease, background 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
 }
 .revisao-alt:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
@@ -2051,6 +2051,17 @@ body.modal-open { overflow: hidden; }
 }
 .revisao-alt.is-correta .gab-letter { transform: scale(1.12); }
 .revisao-alt.is-errada { border-color: var(--danger); background: var(--danger-soft); }
+/* Duplo clique descarta a alternativa: fica traçada e cinza fraca, como quem
+   risca no papel. Continua clicável para desmarcar (outro duplo clique). */
+.revisao-alt.is-descartada {
+  opacity: 0.55; color: var(--muted); border-style: dashed;
+  background: var(--surface);
+}
+.revisao-alt.is-descartada .revisao-alt-txt { text-decoration: line-through; }
+.revisao-alt.is-descartada:hover:not(:disabled) { border-color: var(--border); background: var(--surface); }
+/* Mesmo descartada, o gabarito e o erro continuam legíveis depois de responder. */
+.revisao-alt.is-descartada.is-correta,
+.revisao-alt.is-descartada.is-errada { opacity: 1; }
 
 /* Feedback e botão "Próxima" surgem com um leve fade ao deixarem de estar
    ocultos — a pergunta e as alternativas continuam fixas no lugar. */

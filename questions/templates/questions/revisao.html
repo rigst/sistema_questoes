@@ -96,7 +96,24 @@
           b.dataset.letra = alt.letter;
           b.innerHTML = '<span class="gab-letter">' + alt.letter + '</span><span class="revisao-alt-txt"></span>';
           b.querySelector('.revisao-alt-txt').textContent = alt.text;
-          b.addEventListener('click', function () { responder(alt.letter, q.pk); });
+          // Um clique responde; dois cliques descartam a alternativa (traçado).
+          // O clique espera um instante para saber se vira duplo — só então
+          // responde, para o primeiro clique do duplo não submeter antes.
+          var timerClique = null;
+          b.addEventListener('click', function () {
+            if (respondida) return;
+            if (timerClique) clearTimeout(timerClique);
+            timerClique = setTimeout(function () {
+              timerClique = null;
+              if (b.classList.contains('is-descartada')) return;
+              responder(alt.letter, q.pk);
+            }, 200);
+          });
+          b.addEventListener('dblclick', function () {
+            if (timerClique) { clearTimeout(timerClique); timerClique = null; }
+            if (respondida) return;
+            b.classList.toggle('is-descartada');
+          });
           elAlts.appendChild(b);
         });
         elFeedback.hidden = true;
