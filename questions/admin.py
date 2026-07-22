@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ImportacaoPDF, Questao, QuestaoImagem
+from .models import ImportacaoPDF, Questao, QuestaoImagem, RespostaRevisao
 
 
 class QuestaoImagemInline(admin.TabularInline):
@@ -20,3 +20,9 @@ class QuestaoAdmin(admin.ModelAdmin):
     list_filter = ('status', 'disciplina')
     search_fields = ('enunciado_md',)
     inlines = [QuestaoImagemInline]
+
+
+@admin.register(RespostaRevisao)
+class RespostaRevisaoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'questao', 'alternativa', 'correta', 'respondido_em')
+    list_filter = ('correta',)

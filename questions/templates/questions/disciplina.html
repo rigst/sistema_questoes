@@ -138,6 +138,12 @@
             Questões
             <span class="disc-tab-count">{{ total_questoes }}</span>
         </button>
+        {% if top_topicos %}
+        <button type="button" class="disc-tab" role="tab" id="tab-estatisticas"
+                aria-controls="painel-estatisticas" aria-selected="false" data-tab="estatisticas">
+            Estatísticas
+        </button>
+        {% endif %}
     </div>
 
     {# ================= PAINEL: TÓPICOS ================= #}
@@ -158,6 +164,9 @@
                 </form>
                 {% if custo_estimado_topicos %}
                 <span class="disc-cost" id="custo-topicos">{{ total_analisadas }} quest{{ total_analisadas|pluralize:"ão,ões" }} · ~{{ custo_estimado_topicos }}</span>
+                {% endif %}
+                {% if total_lidos %}
+                <a class="btn btn-secondary btn-compact" href="{% url 'questions:revisao' %}?disciplina={{ disciplina.pk }}">Revisar lidos</a>
                 {% endif %}
             </div>
         </div>
@@ -307,6 +316,40 @@
         </form>
         {% include "partials/pagination.html" %}
     </div>
+
+    {# ================= PAINEL: ESTATÍSTICAS ================= #}
+    {% if top_topicos %}
+    <div id="painel-estatisticas" role="tabpanel" aria-labelledby="tab-estatisticas" class="disc-painel" hidden>
+        <div class="section-heading">
+            <h2>Tópicos que mais caem</h2>
+        </div>
+        <p class="muted" style="margin-top:-.25rem;margin-bottom:1rem;font-size:.85rem;">
+            Quanto cada tema pesa nas {{ total_questoes }} questões desta disciplina — estude de cima para baixo.
+        </p>
+        <ol class="estat-lista">
+            {% for t in top_topicos %}
+            <li class="estat-item">
+                <span class="estat-pos">{{ forloop.counter }}</span>
+                <span class="estat-corpo">
+                    <span class="estat-cabeca">
+                        <span class="estat-nome">{{ t.nome }}</span>
+                        <span class="estat-num">{{ t.n_questoes }} · {{ t.pct }}%</span>
+                    </span>
+                    <span class="estat-barra-track">
+                        <span class="estat-barra-fill" style="width: {% widthratio t.n_questoes top_topicos.0.n_questoes 100 %}%"></span>
+                    </span>
+                </span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% if n_top_concentracao >= 2 %}
+        <p class="estat-resumo">
+            Os {{ n_top_concentracao }} temas mais cobrados concentram
+            <strong>{{ concentracao_top5 }}%</strong> das questões da disciplina.
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
     {% else %}
         <div class="empty-state"><p>Nenhuma questão ainda. Importe um PDF para extrair.</p></div>
     {% endif %}
@@ -718,12 +761,13 @@ function formatarTempos(decorrido, eta) {
   });
 
   // Paginar é navegar nas questões: a página volta já naquela aba.
+  var VALIDAS = { questoes: 1, topicos: 1, estatisticas: 1 };
   var inicial;
   if (/[?&]page=/.test(location.search)) inicial = 'questoes';
-  else if (location.hash === '#questoes' || location.hash === '#topicos') inicial = location.hash.slice(1);
+  else if (VALIDAS[location.hash.slice(1)]) inicial = location.hash.slice(1);
   else {
     try { inicial = localStorage.getItem(CHAVE); } catch (e) {}
-    if (inicial !== 'questoes' && inicial !== 'topicos') inicial = null;
+    if (!VALIDAS[inicial]) inicial = null;
   }
   // Sem tópicos ainda, o caminho é gerar as análises na aba de questões.
   mostrar(inicial || (TEM_TOPICOS ? 'topicos' : 'questoes'), false);

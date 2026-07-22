@@ -11,7 +11,7 @@ from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 
 from . import extraction
-from .models import LeituraTopico, Questao, Topico
+from .models import LeituraTopico, Questao, RespostaRevisao, Topico
 
 User = get_user_model()
 
@@ -511,3 +511,70 @@ class RuidoDeGradeTests(TestCase):
         texto = 'O item 5 A da tabela citada é relevante para a resposta.\nA) sim\nB) não\n'
         out = _normalizar_enunciado(texto)
         self.assertIn('item 5 A da tabela', out)
+
+
+class RevisaoTests(TestCase):
+    """Autoteste com as questões dos tópicos já lidos."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('rod', password='x')
+        prova = Prova.objects.create(user=self.user, nome='Concurso')
+        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
+        self.lido = Topico.objects.create(disciplina=self.disc, nome='Lido', ordem=0)
+        self.nao_lido = Topico.objects.create(disciplina=self.disc, nome='Não lido', ordem=1)
+        self.q_lida = Questao.objects.create(
+            disciplina=self.disc, numero=1, topico=self.lido,
+            enunciado_md='Enunciado.\nA) a\nB) b\nC) c\nD) d', gabarito='B',
+        )
+        self.q_outra = Questao.objects.create(
+            disciplina=self.disc, numero=2, topico=self.nao_lido,
+            enunciado_md='Outra.\nA) a\nB) b', gabarito='A',
+        )
+        LeituraTopico.objects.create(user=self.user, topico=self.lido)
+        self.client.force_login(self.user)
+
+    def test_so_entram_questoes_de_topicos_lidos(self):
+        r = self.client.get(reverse('questions:revisao'))
+        self.assertEqual(r.status_code, 200)
+        pks = [d['pk'] for d in r.context['dados']]
+        self.assertIn(self.q_lida.pk, pks)
+        self.assertNotIn(self.q_outra.pk, pks)
+
+    def test_escopo_por_topico(self):
+        LeituraTopico.objects.create(user=self.user, topico=self.nao_lido)
+        r = self.client.get(reverse('questions:revisao'), {'topico': self.lido.pk})
+        pks = [d['pk'] for d in r.context['dados']]
+        self.assertEqual(pks, [self.q_lida.pk])
+
+    def test_questao_sem_gabarito_fica_de_fora(self):
+        self.q_lida.gabarito = ''
+        self.q_lida.save(update_fields=['gabarito'])
+        r = self.client.get(reverse('questions:revisao'))
+        self.assertEqual(r.context['total'], 0)
+
+    def test_responder_certo_registra_acerto(self):
+        url = reverse('questions:revisao_responder', args=[self.q_lida.pk])
+        r = self.client.post(url, {'alternativa': 'B'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data['correta'])
+        self.assertEqual(data['gabarito'], 'B')
+        resp = RespostaRevisao.objects.get(user=self.user, questao=self.q_lida)
+        self.assertTrue(resp.correta)
+        self.assertEqual(resp.alternativa, 'B')
+
+    def test_responder_errado_registra_erro(self):
+        url = reverse('questions:revisao_responder', args=[self.q_lida.pk])
+        data = self.client.post(url, {'alternativa': 'C'}).json()
+        self.assertFalse(data['correta'])
+        self.assertEqual(data['gabarito'], 'B')
+        self.assertFalse(RespostaRevisao.objects.get(user=self.user, questao=self.q_lida).correta)
+
+    def test_nao_responde_questao_de_outro_usuario(self):
+        outro = User.objects.create_user('bia', password='x')
+        outra_prova = Prova.objects.create(user=outro, nome='P')
+        outra_disc = Disciplina.objects.create(prova=outra_prova, nome='D')
+        alheia = Questao.objects.create(disciplina=outra_disc, numero=1, gabarito='A')
+        r = self.client.post(reverse('questions:revisao_responder', args=[alheia.pk]), {'alternativa': 'A'})
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(RespostaRevisao.objects.exists())

@@ -70,6 +70,7 @@ def dashboard(request):
         'total_lidos': total_lidos,
         'total_a_ler': total_topicos - total_lidos,
         'pct_lidos': round(total_lidos / total_topicos * 100) if total_topicos else 0,
+        'pode_revisar': total_lidos > 0,
         'continuar': continuar,
         'minutos_a_ler': minutos_a_ler,
         'tempo_a_ler': tempo_a_ler,

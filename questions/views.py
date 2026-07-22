@@ -14,7 +14,14 @@ from exams.models import Disciplina
 from prompts.models import Prompt
 
 from .forms import ImportacaoForm, QuestaoForm
-from .models import NOME_TOPICO_SOBRAS, ImportacaoPDF, LeituraTopico, Questao, Topico
+from .models import (
+    NOME_TOPICO_SOBRAS,
+    ImportacaoPDF,
+    LeituraTopico,
+    Questao,
+    RespostaRevisao,
+    Topico,
+)
 from .tasks import processar_importacao
 
 
@@ -85,10 +92,28 @@ def disciplina(request, pk):
         )
     )))
     custo_topicos = estimar_custo_topicos(analisadas) if analisadas else None
+
+    # Estatística "tópicos que mais caem": ranking dos temas de verdade (sem o
+    # balaio de sobras) por nº de questões, com o peso relativo à prova.
+    total_q = paginator.count
+    reais = [t for t in topicos if not t.e_sobras and t.n_questoes]
+    top_topicos = []
+    for t in reais[:8]:
+        top_topicos.append({
+            'nome': t.nome,
+            'n_questoes': t.n_questoes,
+            'pct': round(t.n_questoes / total_q * 100) if total_q else 0,
+        })
+    soma_top5 = sum(t.n_questoes for t in reais[:5])
+    concentracao_top5 = round(soma_top5 / total_q * 100) if total_q else 0
+
     contexto.update({
         'topicos': topicos,
         'total_topicos': len(topicos),
         'total_lidos': len(lidos),
+        'top_topicos': top_topicos,
+        'concentracao_top5': concentracao_top5,
+        'n_top_concentracao': min(5, len(reais)),
         # denominador da barra de peso: o tema mais cobrado da disciplina
         'maior_topico': max((t.n_questoes for t in topicos), default=1) or 1,
         'total_analisadas': len(analisadas),
@@ -355,6 +380,75 @@ def questao_excluir(request, pk):
         questao.delete()
         messages.success(request, 'Questão excluída.')
     return redirect('questions:disciplina', pk=disc_pk)
+
+
+def _gabarito_letra(questao):
+    """Extrai a letra do gabarito (A–E) do campo, que às vezes vem como
+    'A' e às vezes como 'A) ...' ou 'Letra A'."""
+    import re
+
+    m = re.search(r'[A-E]', (questao.gabarito or '').upper())
+    return m.group(0) if m else ''
+
+
+@login_required
+def revisao(request):
+    """Autoteste com as questões dos tópicos que o usuário já leu.
+
+    Escopo opcional por ?topico= ou ?disciplina=. Só entram questões de
+    tópicos marcados como lidos e que tenham gabarito (A–E) para conferir.
+    """
+    import random
+
+    lidos = LeituraTopico.objects.filter(
+        user=request.user, topico__disciplina__prova__user=request.user,
+    ).values('topico')
+    qs = Questao.objects.filter(
+        disciplina__prova__user=request.user, topico__in=lidos,
+    ).select_related('topico', 'disciplina')
+
+    escopo = None
+    topico_id = request.GET.get('topico')
+    disciplina_id = request.GET.get('disciplina')
+    if topico_id:
+        topico = get_object_or_404(Topico, pk=topico_id, disciplina__prova__user=request.user)
+        qs = qs.filter(topico=topico)
+        escopo = topico.nome
+    elif disciplina_id:
+        disc = _disciplina_do_user(request, disciplina_id)
+        qs = qs.filter(disciplina=disc)
+        escopo = disc.nome
+
+    # Só vale revisar o que dá para corrigir: precisa de gabarito A–E.
+    questoes = [q for q in qs if _gabarito_letra(q)]
+    random.shuffle(questoes)
+    questoes = questoes[:30]
+
+    dados = [{
+        'pk': q.pk,
+        'topico': q.topico.nome if q.topico else '',
+        'enunciado': q.enunciado_md,
+    } for q in questoes]
+
+    return render(request, 'questions/revisao.html', {
+        'dados': dados,
+        'total': len(dados),
+        'escopo': escopo,
+    })
+
+
+@login_required
+@require_POST
+def revisao_responder(request, pk):
+    """Registra a resposta do usuário e devolve se acertou + o gabarito."""
+    questao = _questao_do_user(request, pk)
+    escolha = (request.POST.get('alternativa') or '').strip().upper()[:4]
+    gabarito = _gabarito_letra(questao)
+    correta = bool(escolha) and escolha == gabarito
+    RespostaRevisao.objects.create(
+        user=request.user, questao=questao, alternativa=escolha, correta=correta,
+    )
+    return JsonResponse({'correta': correta, 'gabarito': gabarito})
 
 
 @login_required

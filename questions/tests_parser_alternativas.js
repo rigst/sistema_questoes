@@ -1,7 +1,7 @@
-// Extrai o parser da página e testa os casos que quebravam.
+// Extrai o parser compartilhado e testa os casos que quebravam.
 const fs = require('fs');
-const html = fs.readFileSync('questions/templates/questions/questao_detalhe.html', 'utf8');
-const re = /var match = line\.match\((\/[^;]+\/)i\);/.exec(html);
+const src = fs.readFileSync('static/js/alternativas.js', 'utf8');
+const re = /var match = line\.match\((\/[^;]+\/)i\);/.exec(src);
 if (!re) { console.error('FALHA: não achei o regex do parser'); process.exit(1); }
 const RE = new RegExp(re[1].slice(1, -1), 'i');
 

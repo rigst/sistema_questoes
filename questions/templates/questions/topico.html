@@ -48,6 +48,41 @@
     </header>
 
     {% if topico.texto.status == 'concluido' %}
+        {# Barra de leitura em voz alta + modo foco; some se o navegador não tem SpeechSynthesis (leitor-voz.js). #}
+        <div class="js-leitor-barra leitor-barra" data-alvo=".js-md-topico" role="group" aria-label="Leitor em voz alta">
+            <button type="button" class="btn btn-primary btn-compact js-leitor-play" aria-pressed="false">
+                <span class="js-leitor-icone" aria-hidden="true">▶</span>
+                <span class="js-leitor-rotulo">Ouvir</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-compact js-leitor-stop" title="Parar">
+                <span aria-hidden="true">⏹</span><span class="visually-hidden">Parar</span>
+            </button>
+            <label class="leitor-campo">Voz
+                <select class="js-leitor-voz" aria-label="Voz"></select>
+            </label>
+            <label class="leitor-campo">Velocidade
+                <select class="js-leitor-rate" aria-label="Velocidade da leitura">
+                    <option value="0.7">0,7×</option>
+                    <option value="0.85">0,85×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.15">1,15×</option>
+                    <option value="1.3">1,3×</option>
+                    <option value="1.5">1,5×</option>
+                </select>
+            </label>
+            <label class="leitor-campo">Tom
+                <select class="js-leitor-pitch" aria-label="Tom da voz">
+                    <option value="0.7">Grave</option>
+                    <option value="1" selected>Normal</option>
+                    <option value="1.3">Agudo</option>
+                </select>
+            </label>
+            <button type="button" class="btn btn-secondary btn-compact js-leitor-foco" aria-pressed="false"
+                    title="Realça a frase sob o cursor e esmaece o resto">
+                <span aria-hidden="true">◎</span> Foco
+            </button>
+        </div>
+
         <div class="md-content topico-texto js-md-topico" data-nome="{{ topico.nome }}">{{ topico.texto.texto_md }}</div>
 
         <div class="leitura-marcar">
@@ -57,6 +92,10 @@
                 <span class="btn-lido-icone" aria-hidden="true">{% if lido %}✓{% else %}○{% endif %}</span>
                 <span class="btn-lido-texto">{% if lido %}Lido{% else %}Marcar como lido{% endif %}</span>
             </button>
+            {% if questoes %}
+            <a class="btn btn-secondary btn-lido-revisar {% if not lido %}is-oculto{% endif %}" id="btn-revisar-topico"
+               href="{% url 'questions:revisao' %}?topico={{ topico.pk }}">Revisar este tópico</a>
+            {% endif %}
             <span class="leitura-contador" id="leitura-contador">{{ total_lidos }} de {{ total_topicos }} lidos</span>
         </div>
     {% elif topico.texto.status == 'erro' %}
@@ -104,6 +143,7 @@
 
 <script src="{% static 'js/marked.min.js' %}"></script>
 <script src="{% static 'js/estudo-texto.js' %}"></script>
+<script src="{% static 'js/leitor-voz.js' %}"></script>
 <script>
 (function () {
   if (typeof marked !== 'undefined') {
@@ -137,6 +177,9 @@
       btn.classList.toggle('btn-secondary', data.lido);
       btn.querySelector('.btn-lido-icone').textContent = data.lido ? '✓' : '○';
       btn.querySelector('.btn-lido-texto').textContent = data.lido ? 'Lido' : 'Marcar como lido';
+      // Revisar só faz sentido depois de ler: acompanha o estado do botão.
+      var revisar = document.getElementById('btn-revisar-topico');
+      if (revisar) revisar.classList.toggle('is-oculto', !data.lido);
       if (contador) contador.textContent = data.total_lidos + ' de ' + data.total + ' lidos';
       // a barra do cabeçalho acompanha na hora
       var barra = document.getElementById('lp-topico');

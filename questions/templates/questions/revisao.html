@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Revisão{% if escopo %} · {{ escopo }}{% endif %}{% endblock %}
+
+{% block content %}
+<section class="revisao">
+    <nav class="breadcrumb" aria-label="Navegação">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <span class="breadcrumb-sep" aria-hidden="true">›</span>
+        <span class="breadcrumb-current">Revisão{% if escopo %} · {{ escopo }}{% endif %}</span>
+    </nav>
+
+    <div class="section-heading">
+        <h2>Revisão{% if escopo %} <span class="muted" style="font-weight:500;">· {{ escopo }}</span>{% endif %}</h2>
+        {% if total %}<p class="muted" style="font-size:.85rem;">Responda e confira na hora. As questões vêm dos tópicos que você já leu.</p>{% endif %}
+    </div>
+
+    {% if total %}
+    <div class="revisao-topo">
+        <span class="revisao-passo" id="revisao-passo">Questão 1 de {{ total }}</span>
+        <span class="revisao-placar" id="revisao-placar" aria-live="polite">0 acertos</span>
+    </div>
+    <div class="revisao-progresso"><div class="revisao-progresso-fill" id="revisao-progresso-fill"></div></div>
+
+    <article class="form-panel revisao-card" id="revisao-card" aria-live="polite">
+        <span class="revisao-topico" id="revisao-topico"></span>
+        <div class="md-content questao-content" id="revisao-enunciado"></div>
+        <div class="revisao-alternativas" id="revisao-alternativas" role="group" aria-label="Alternativas"></div>
+        <p class="revisao-feedback" id="revisao-feedback" hidden></p>
+        <div class="revisao-acoes">
+            <button type="button" class="btn btn-primary" id="revisao-proxima" hidden>Próxima →</button>
+        </div>
+    </article>
+
+    <div class="empty-state revisao-fim" id="revisao-fim" hidden>
+        <p class="revisao-fim-nota" id="revisao-fim-nota"></p>
+        <div class="inline-actions" style="justify-content:center;">
+            <button type="button" class="btn btn-primary" id="revisao-refazer">Refazer</button>
+            <a class="btn btn-secondary" href="{% url 'dashboard' %}">Voltar ao dashboard</a>
+        </div>
+    </div>
+
+    {{ dados|json_script:"revisao-dados" }}
+
+    <script src="{% static 'js/marked.min.js' %}"></script>
+    <script src="{% static 'js/alternativas.js' %}"></script>
+    <script>
+    (function () {
+      var dados = JSON.parse(document.getElementById('revisao-dados').textContent || '[]');
+      if (!dados.length) return;
+      if (typeof marked !== 'undefined') marked.setOptions({ breaks: true, gfm: true });
+
+      var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      var RESP = '{% url 'questions:revisao_responder' pk=0 %}';   // .../revisao/0/responder/
+      function urlResponder(pk) { return RESP.replace('/0/responder/', '/' + pk + '/responder/'); }
+
+      var elPasso = document.getElementById('revisao-passo');
+      var elPlacar = document.getElementById('revisao-placar');
+      var elFill = document.getElementById('revisao-progresso-fill');
+      var elTopico = document.getElementById('revisao-topico');
+      var elEnunciado = document.getElementById('revisao-enunciado');
+      var elAlts = document.getElementById('revisao-alternativas');
+      var elFeedback = document.getElementById('revisao-feedback');
+      var elProxima = document.getElementById('revisao-proxima');
+      var card = document.getElementById('revisao-card');
+      var fim = document.getElementById('revisao-fim');
+
+      var i = 0, acertos = 0, respondida = false;
+
+      function render() {
+        respondida = false;
+        var q = dados[i];
+        elPasso.textContent = 'Questão ' + (i + 1) + ' de ' + dados.length;
+        elFill.style.width = Math.round(i / dados.length * 100) + '%';
+        elTopico.textContent = q.topico || '';
+        elTopico.hidden = !q.topico;
+        var parsed = parseAlternativas(q.enunciado);
+        elEnunciado.innerHTML = typeof marked !== 'undefined'
+          ? marked.parse(parsed.enunciado) : parsed.enunciado;
+        elAlts.innerHTML = '';
+        parsed.alternativas.forEach(function (alt) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'revisao-alt';
+          b.dataset.letra = alt.letter;
+          b.innerHTML = '<span class="gab-letter">' + alt.letter + '</span><span class="revisao-alt-txt"></span>';
+          b.querySelector('.revisao-alt-txt').textContent = alt.text;
+          b.addEventListener('click', function () { responder(alt.letter, q.pk); });
+          elAlts.appendChild(b);
+        });
+        elFeedback.hidden = true;
+        elProxima.hidden = true;
+      }
+
+      function responder(letra, pk) {
+        if (respondida) return;
+        respondida = true;
+        fetch(urlResponder(pk), {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': (csrf && csrf.value) || '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ alternativa: letra }),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data.correta) acertos++;
+          elPlacar.textContent = acertos + (acertos === 1 ? ' acerto' : ' acertos');
+          elAlts.querySelectorAll('.revisao-alt').forEach(function (b) {
+            b.disabled = true;
+            if (b.dataset.letra === data.gabarito) b.classList.add('is-correta');
+            if (b.dataset.letra === letra && !data.correta) b.classList.add('is-errada');
+          });
+          elFeedback.textContent = data.correta
+            ? 'Você acertou.'
+            : 'Resposta certa: ' + data.gabarito + '.';
+          elFeedback.className = 'revisao-feedback ' + (data.correta ? 'is-ok' : 'is-erro');
+          elFeedback.hidden = false;
+          elProxima.hidden = false;
+          elProxima.focus();
+        }).catch(function () { respondida = false; });
+      }
+
+      function avancar() {
+        i++;
+        if (i >= dados.length) return terminar();
+        render();
+        card.scrollIntoView({ block: 'nearest' });
+      }
+
+      function terminar() {
+        card.hidden = true;
+        elFill.style.width = '100%';
+        var pct = Math.round(acertos / dados.length * 100);
+        document.getElementById('revisao-fim-nota').textContent =
+          'Você acertou ' + acertos + ' de ' + dados.length + ' (' + pct + '%).';
+        fim.hidden = false;
+      }
+
+      elProxima.addEventListener('click', avancar);
+      document.getElementById('revisao-refazer').addEventListener('click', function () {
+        i = 0; acertos = 0; elPlacar.textContent = '0 acertos';
+        card.hidden = false; fim.hidden = true; render();
+      });
+
+      render();
+    })();
+    </script>
+    {% else %}
+    <div class="empty-state">
+        <p>Nada para revisar ainda.
+        {% if escopo %}Este escopo não tem questões com gabarito nos tópicos lidos.
+        {% else %}Leia alguns tópicos e marque-os como lidos — as questões deles aparecem aqui para revisão.{% endif %}</p>
+        <div class="inline-actions" style="justify-content:center;">
+            <a class="btn btn-primary" href="{% url 'dashboard' %}">Voltar ao dashboard</a>
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

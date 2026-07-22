@@ -1975,3 +1975,128 @@ body.modal-open { overflow: hidden; }
 }
 .lnt-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
 .lnt-espaco { flex: 1; }
+
+/* ======================================================================
+   Leitor em voz alta, modo foco, revisão e estatísticas de tópicos
+   ====================================================================== */
+
+/* ---- Frases: unidade do leitor de voz e do modo foco ------------------ */
+.topico-texto .frase.is-falando {
+  background: var(--marca-amarelo);
+  box-shadow: 0 0 0 2px var(--marca-amarelo);
+  border-radius: 3px;
+}
+/* Modo foco: só a frase sob o cursor (e a que está sendo lida) fica nítida. */
+.md-content.foco-ativo .frase { opacity: 0.35; transition: opacity 0.15s ease; }
+.md-content.foco-ativo .frase:hover,
+.md-content.foco-ativo .frase.is-falando { opacity: 1; }
+.md-content.foco-ativo .frase:hover { background: var(--accent-tint); border-radius: 3px; }
+
+/* ---- Barra do leitor -------------------------------------------------- */
+.leitor-barra {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.7rem;
+  padding: 0.6rem 0.8rem; margin-bottom: 1.1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.leitor-barra.is-tocando { border-color: var(--accent); }
+.leitor-campo {
+  display: inline-flex; flex-direction: column; gap: 0.15rem;
+  font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.leitor-campo select {
+  font-size: 0.82rem; text-transform: none; letter-spacing: normal; font-weight: 400;
+  padding: 0.25rem 0.4rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); max-width: 12rem;
+}
+.js-leitor-foco[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+
+/* ---- Botão "Revisar este tópico" na página de leitura ----------------- */
+.btn-lido-revisar.is-oculto { display: none; }
+
+/* ---- Card "Revisar" no dashboard (espelha .pe-continuar) -------------- */
+.pe-revisar {
+  display: flex; align-items: center; gap: 0.9rem; margin-top: 0.7rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--accent-tint-strong); border-left: 4px solid var(--accent);
+  border-radius: 12px; background: var(--accent-tint);
+  text-decoration: none; color: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.pe-revisar:hover { background: var(--accent-tint-strong); transform: translateX(2px); text-decoration: none; }
+.pe-revisar-icone {
+  flex: none; width: 42px; height: 42px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; font-size: 1.15rem;
+}
+
+/* ---- Página de revisão (autoteste) ------------------------------------ */
+.revisao-topo {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 0.4rem; font-size: 0.85rem;
+}
+.revisao-passo { color: var(--muted); }
+.revisao-placar { font-weight: 600; color: var(--accent-text); }
+.revisao-progresso {
+  height: 6px; border-radius: var(--radius-pill);
+  background: var(--surface-2); overflow: hidden; margin-bottom: 1.1rem;
+}
+.revisao-progresso-fill {
+  height: 100%; width: 0; background: var(--accent);
+  border-radius: var(--radius-pill); transition: width 0.25s ease;
+}
+.revisao-card { margin-bottom: 1rem; }
+.revisao-topico {
+  display: inline-block; font-size: 0.72rem; letter-spacing: 0.06em;
+  text-transform: uppercase; font-weight: 600; color: var(--accent-text);
+  margin-bottom: 0.5rem;
+}
+.revisao-alternativas { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.8rem; }
+.revisao-alt {
+  display: flex; align-items: flex-start; gap: 0.6rem; width: 100%;
+  padding: 0.7rem 0.9rem; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  font: inherit; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.revisao-alt:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
+.revisao-alt:disabled { cursor: default; }
+.revisao-alt .gab-letter { flex: none; }
+.revisao-alt-txt { flex: 1; }
+.revisao-alt.is-correta { border-color: var(--success); background: var(--success-soft); }
+.revisao-alt.is-errada { border-color: var(--danger); background: var(--danger-soft); }
+.revisao-feedback { margin-top: 0.8rem; font-weight: 600; font-size: 0.92rem; }
+.revisao-feedback.is-ok { color: var(--success); }
+.revisao-feedback.is-erro { color: var(--danger); }
+.revisao-acoes { margin-top: 1rem; display: flex; justify-content: flex-end; }
+.revisao-fim { text-align: center; }
+.revisao-fim-nota { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.9rem; }
+
+/* ---- Painel de estatísticas da disciplina ----------------------------- */
+.estat-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+.estat-item { display: flex; align-items: center; gap: 0.7rem; }
+.estat-pos {
+  flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+  display: grid; place-items: center; font-family: var(--font-mono);
+  font-size: 0.82rem; font-weight: 600;
+  background: var(--surface-2); color: var(--text-soft);
+}
+.estat-item:nth-child(1) .estat-pos { background: var(--accent); color: var(--accent-ink); }
+.estat-corpo { flex: 1; min-width: 0; }
+.estat-cabeca { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; margin-bottom: 0.25rem; }
+.estat-nome { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.estat-num { flex: none; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.estat-barra-track { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--surface-2); overflow: hidden; }
+.estat-barra-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
+.estat-resumo { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); font-size: 0.92rem; color: var(--text-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .md-content.foco-ativo .frase,
+  .revisao-progresso-fill,
+  .revisao-alt,
+  .pe-revisar { transition: none; }
+  .pe-revisar:hover { transform: none; }
+}

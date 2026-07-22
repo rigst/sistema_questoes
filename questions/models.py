@@ -156,3 +156,31 @@ class LeituraTopico(models.Model):
 
     def __str__(self):
         return f'{self.user} leu {self.topico.nome}'
+
+
+class RespostaRevisao(models.Model):
+    """Uma resposta do usuário a uma questão, durante a revisão.
+
+    É um log de tentativas (sem unicidade): responder de novo cria outra
+    linha, o que deixa medir a evolução do acerto ao longo do tempo. Some
+    junto com a questão (cascade).
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='respostas_revisao'
+    )
+    questao = models.ForeignKey(
+        Questao, on_delete=models.CASCADE, related_name='respostas'
+    )
+    alternativa = models.CharField('alternativa escolhida', max_length=4)
+    correta = models.BooleanField('acertou')
+    respondido_em = models.DateTimeField('respondido em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'resposta de revisão'
+        verbose_name_plural = 'respostas de revisão'
+        ordering = ['-respondido_em']
+
+    def __str__(self):
+        marca = 'acertou' if self.correta else 'errou'
+        return f'{self.user} {marca} a questão {self.questao_id}'

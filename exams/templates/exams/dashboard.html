@@ -215,6 +215,18 @@
             </span>
         </a>
         {% endif %}
+
+        {% if pode_revisar %}
+        {# Revisar o que já foi lido: questões dos tópicos concluídos, para testar-se. #}
+        <a class="pe-revisar" href="{% url 'questions:revisao' %}">
+            <span class="pe-revisar-icone" aria-hidden="true">✎</span>
+            <span class="pe-continuar-txt">
+                <span class="pe-continuar-rotulo">Revisar</span>
+                <span class="pe-continuar-nome">Questões dos {{ total_lidos }} tópico{{ total_lidos|pluralize }} lido{{ total_lidos|pluralize }}</span>
+                <span class="pe-continuar-disc">Responda e confira na hora</span>
+            </span>
+        </a>
+        {% endif %}
     </div>
 
     {% if na_fila > 0 %}

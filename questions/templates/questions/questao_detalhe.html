@@ -89,67 +89,26 @@
 
 
 <script src="{% static 'js/marked.min.js' %}"></script>
+<script src="{% static 'js/alternativas.js' %}"></script>
 <script>
 (function () {
   var raw = document.getElementById('enunciado-raw');
   if (!raw) return;
-  var texto = raw.textContent || '';
-
-  // Só o parêntese marca alternativa. Antes a classe aceitava espaço, e
-  // "A inobservância..." (artigo + substantivo) virava a alternativa A —
-  // 124 das 1008 questões abriam sem enunciado por causa disso. O ponto
-  // também saiu: "A. celebrou acordo..." é nome de parte, não marcador.
-  // Todos os enunciados são gravados normalizados como "A) ".
-  var altRegex = /^([A-E])\s*[)]/im;
-  var lines = texto.split('\n');
-  var enunciadoLines = [];
-  var alternativas = [];
-  var currentAlt = null;
-
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    var match = line.match(/^([A-E])\s*[)]\s*(.*)/i);
-    if (match) {
-      if (currentAlt) alternativas.push(currentAlt);
-      currentAlt = { letter: match[1].toUpperCase(), text: match[2].trim() };
-    } else if (currentAlt) {
-      if (line.trim()) currentAlt.text += ' ' + line.trim();
-    } else {
-      enunciadoLines.push(line);
-    }
-  }
-  if (currentAlt) alternativas.push(currentAlt);
-
-  if (alternativas.length === 0) {
-    var inlineMatch = texto.match(/^([\s\S]*?)\s*(A\s*[)])/i);
-    if (inlineMatch) {
-      var enuncPart = inlineMatch[1];
-      var altPart = texto.slice(enuncPart.length);
-      enunciadoLines = [enuncPart.trim()];
-      var altMatches = altPart.match(/([A-E])\s*[)]\s*[^A-E]*/gi);
-      if (altMatches) {
-        alternativas = [];
-        altMatches.forEach(function (a) {
-          var m = a.match(/^([A-E])\s*[)]\s*(.*)/i);
-          if (m) alternativas.push({ letter: m[1].toUpperCase(), text: m[2].trim() });
-        });
-      }
-    }
-  }
+  var parsed = parseAlternativas(raw.textContent || '');
 
   var enuncEl = document.getElementById('questao-enunciado');
   var altEl = document.getElementById('questao-alternativas');
 
   if (typeof marked !== 'undefined') {
     marked.setOptions({ breaks: true, gfm: true });
-    enuncEl.innerHTML = marked.parse(enunciadoLines.join('\n').trim());
+    enuncEl.innerHTML = marked.parse(parsed.enunciado);
   } else {
-    enuncEl.textContent = enunciadoLines.join('\n').trim();
+    enuncEl.textContent = parsed.enunciado;
   }
 
-  if (alternativas.length > 0) {
+  if (parsed.alternativas.length > 0) {
     var html = '';
-    alternativas.forEach(function (alt) {
+    parsed.alternativas.forEach(function (alt) {
       html += '<div class="alt-item"><span class="alt-letter">' + alt.letter + ')</span><span>' + alt.text + '</span></div>';
     });
     altEl.innerHTML = html;
