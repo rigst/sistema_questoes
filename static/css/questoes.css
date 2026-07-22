@@ -1840,6 +1840,7 @@ body.modal-open { overflow: hidden; }
 
 .pe-card--lidos { --pe-cor: var(--success); background: var(--success-soft); border-color: var(--success-border); }
 .pe-card--tempo { --pe-cor: var(--link); }
+.pe-card--acerto { --pe-cor: var(--accent); }
 
 /* linha de apoio dentro do card */
 .pe-rodape { display: block; margin-top: 0.45rem; font-size: 0.78rem; color: var(--muted); }
@@ -2077,24 +2078,6 @@ body.modal-open { overflow: hidden; }
 
 .revisao-fim { text-align: center; }
 .revisao-fim-nota { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.9rem; }
-
-/* ---- Painel de estatísticas da disciplina ----------------------------- */
-.estat-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
-.estat-item { display: flex; align-items: center; gap: 0.7rem; }
-.estat-pos {
-  flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
-  display: grid; place-items: center; font-family: var(--font-mono);
-  font-size: 0.82rem; font-weight: 600;
-  background: var(--surface-2); color: var(--text-soft);
-}
-.estat-item:nth-child(1) .estat-pos { background: var(--accent); color: var(--accent-ink); }
-.estat-corpo { flex: 1; min-width: 0; }
-.estat-cabeca { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; margin-bottom: 0.25rem; }
-.estat-nome { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.estat-num { flex: none; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
-.estat-barra-track { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--surface-2); overflow: hidden; }
-.estat-barra-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
-.estat-resumo { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); font-size: 0.92rem; color: var(--text-soft); }
 
 @media (prefers-reduced-motion: reduce) {
   .revisao-progresso-fill,

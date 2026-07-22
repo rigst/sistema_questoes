@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
 from ai.models import TextoTopico
-from questions.models import LeituraTopico, Questao, Topico
+from questions.models import LeituraTopico, Questao, RespostaRevisao, Topico
 
 from .models import Disciplina, Prova
 
@@ -60,6 +60,13 @@ def dashboard(request):
     # dias a uma hora por dia vira um plano.
     META_DIARIA_MIN = 60
     dias_no_ritmo = -(-minutos_a_ler // META_DIARIA_MIN) if minutos_a_ler else 0
+
+    # Desempenho nas revisões: acerto acumulado do usuário.
+    respostas = RespostaRevisao.objects.filter(user=request.user)
+    total_respostas = respostas.count()
+    total_acertos = respostas.filter(correta=True).count()
+    pct_acerto = round(total_acertos / total_respostas * 100) if total_respostas else 0
+
     contexto = {
         'provas': provas,
         'total_provas': provas.count(),
@@ -71,6 +78,9 @@ def dashboard(request):
         'total_a_ler': total_topicos - total_lidos,
         'pct_lidos': round(total_lidos / total_topicos * 100) if total_topicos else 0,
         'pode_revisar': total_lidos > 0,
+        'total_respostas': total_respostas,
+        'total_acertos': total_acertos,
+        'pct_acerto': pct_acerto,
         'continuar': continuar,
         'minutos_a_ler': minutos_a_ler,
         'tempo_a_ler': tempo_a_ler,

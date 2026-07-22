@@ -138,12 +138,6 @@
             Questões
             <span class="disc-tab-count">{{ total_questoes }}</span>
         </button>
-        {% if top_topicos %}
-        <button type="button" class="disc-tab" role="tab" id="tab-estatisticas"
-                aria-controls="painel-estatisticas" aria-selected="false" data-tab="estatisticas">
-            Estatísticas
-        </button>
-        {% endif %}
     </div>
 
     {# ================= PAINEL: TÓPICOS ================= #}
@@ -189,13 +183,14 @@
         {% endif %}
 
         {% if topicos %}
-        <div class="leitura-progresso">
+        {# Progresso ponderado pelo peso de cada tópico (nº de questões): mede
+           quanto da matéria já foi coberto, não só a contagem de tópicos. #}
+        <div class="leitura-progresso" data-total-peso="{{ total_peso }}">
             <div class="leitura-progresso-track">
-                <div class="leitura-progresso-fill" id="lp-fill"
-                     style="width: {% widthratio total_lidos total_topicos 100 %}%"></div>
+                <div class="leitura-progresso-fill" id="lp-fill" style="width: {{ pct_conteudo }}%"></div>
             </div>
             <span class="leitura-progresso-label" id="lp-label">
-                {{ total_lidos }} de {{ total_topicos }} lidos
+                <strong id="lp-pct">{{ pct_conteudo }}%</strong> da matéria · {{ total_lidos }} de {{ total_topicos }} tópicos
             </span>
         </div>
         {% endif %}
@@ -203,7 +198,7 @@
         <ul class="topico-lista">
         {% for t in topicos %}
             <li class="topico-item{% if t.lido %} is-lido{% endif %}{% if t.e_sobras %} is-sobras{% endif %}"
-                data-topico="{{ t.pk }}">
+                data-topico="{{ t.pk }}" data-peso="{{ t.n_questoes }}">
                 <button type="button" class="topico-check js-topico-check"
                         data-url="{% url 'questions:topico_leitura' t.pk %}"
                         data-lido="{{ t.lido|yesno:"1,0" }}"
@@ -254,6 +249,8 @@
             <div class="disc-prompt-bar">
                 <label class="sel-todas-cards"><input type="checkbox" id="sel-todos-cards"> marcar todas</label>
                 <button type="submit" class="btn btn-primary btn-compact precisa-selecao" id="lote-btn" disabled>Gerar análise</button>
+                <button type="button" class="btn btn-secondary btn-compact precisa-selecao" id="revisar-selecao-btn"
+                        data-url="{% url 'questions:revisao' %}" disabled>Revisar selecionadas</button>
                 <span class="disc-prompt-hint">Dois parágrafos por questão: a matéria e a resposta; os erros e as pegadinhas.</span>
                 <span id="cost-preview" class="disc-cost" hidden>
                     <span id="cost-summary"></span>
@@ -317,39 +314,6 @@
         {% include "partials/pagination.html" %}
     </div>
 
-    {# ================= PAINEL: ESTATÍSTICAS ================= #}
-    {% if top_topicos %}
-    <div id="painel-estatisticas" role="tabpanel" aria-labelledby="tab-estatisticas" class="disc-painel" hidden>
-        <div class="section-heading">
-            <h2>Tópicos que mais caem</h2>
-        </div>
-        <p class="muted" style="margin-top:-.25rem;margin-bottom:1rem;font-size:.85rem;">
-            Quanto cada tema pesa nas {{ total_questoes }} questões desta disciplina — estude de cima para baixo.
-        </p>
-        <ol class="estat-lista">
-            {% for t in top_topicos %}
-            <li class="estat-item">
-                <span class="estat-pos">{{ forloop.counter }}</span>
-                <span class="estat-corpo">
-                    <span class="estat-cabeca">
-                        <span class="estat-nome">{{ t.nome }}</span>
-                        <span class="estat-num">{{ t.n_questoes }} · {{ t.pct }}%</span>
-                    </span>
-                    <span class="estat-barra-track">
-                        <span class="estat-barra-fill" style="width: {% widthratio t.n_questoes top_topicos.0.n_questoes 100 %}%"></span>
-                    </span>
-                </span>
-            </li>
-            {% endfor %}
-        </ol>
-        {% if n_top_concentracao >= 2 %}
-        <p class="estat-resumo">
-            Os {{ n_top_concentracao }} temas mais cobrados concentram
-            <strong>{{ concentracao_top5 }}%</strong> das questões da disciplina.
-        </p>
-        {% endif %}
-    </div>
-    {% endif %}
     {% else %}
         <div class="empty-state"><p>Nenhuma questão ainda. Importe um PDF para extrair.</p></div>
     {% endif %}
@@ -706,13 +670,44 @@ function formatarTempos(decorrido, eta) {
   });
 })();
 
+// ---- Revisar as questões selecionadas ----
+(function () {
+  var btn = document.getElementById('revisar-selecao-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var ids = Array.prototype.map.call(
+      document.querySelectorAll('.sel-questao:checked'), function (c) { return c.value; }
+    );
+    if (!ids.length) return;
+    window.location = btn.dataset.url + '?questoes=' + ids.join(',');
+  });
+})();
+
 // ---- Checks de leitura no índice de tópicos ----
 (function () {
   var checks = document.querySelectorAll('.js-topico-check');
   if (!checks.length) return;
   var fill = document.getElementById('lp-fill');
+  var pctEl = document.getElementById('lp-pct');
   var label = document.getElementById('lp-label');
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+
+  // Recalcula a % de conteúdo lido pelo peso (nº de questões) de cada tópico.
+  function atualizarProgresso(totalTopicos) {
+    var itens = document.querySelectorAll('.topico-item[data-peso]');
+    var totalPeso = 0, pesoLido = 0, lidos = 0;
+    itens.forEach(function (it) {
+      var w = parseInt(it.dataset.peso, 10) || 0;
+      totalPeso += w;
+      if (it.classList.contains('is-lido')) { pesoLido += w; lidos++; }
+    });
+    var pct = totalPeso ? Math.round(pesoLido / totalPeso * 100) : 0;
+    if (fill) fill.style.width = pct + '%';
+    if (label) {
+      label.innerHTML = '<strong id="lp-pct">' + pct + '%</strong> da matéria · '
+        + lidos + ' de ' + totalTopicos + ' tópicos';
+    }
+  }
 
   checks.forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -731,8 +726,7 @@ function formatarTempos(decorrido, eta) {
         btn.setAttribute('aria-pressed', data.lido ? 'true' : 'false');
         btn.title = data.lido ? 'Marcar como não lido' : 'Marcar como lido';
         btn.closest('.topico-item').classList.toggle('is-lido', data.lido);
-        if (fill && data.total) fill.style.width = Math.round(data.total_lidos / data.total * 100) + '%';
-        if (label) label.textContent = data.total_lidos + ' de ' + data.total + ' lidos';
+        atualizarProgresso(data.total);
       }).catch(function () {}).finally(function () { btn.disabled = false; });
     });
   });
@@ -761,7 +755,7 @@ function formatarTempos(decorrido, eta) {
   });
 
   // Paginar é navegar nas questões: a página volta já naquela aba.
-  var VALIDAS = { questoes: 1, topicos: 1, estatisticas: 1 };
+  var VALIDAS = { questoes: 1, topicos: 1 };
   var inicial;
   if (/[?&]page=/.test(location.search)) inicial = 'questoes';
   else if (VALIDAS[location.hash.slice(1)]) inicial = location.hash.slice(1);

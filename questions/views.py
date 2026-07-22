@@ -93,27 +93,20 @@ def disciplina(request, pk):
     )))
     custo_topicos = estimar_custo_topicos(analisadas) if analisadas else None
 
-    # Estatística "tópicos que mais caem": ranking dos temas de verdade (sem o
-    # balaio de sobras) por nº de questões, com o peso relativo à prova.
-    total_q = paginator.count
-    reais = [t for t in topicos if not t.e_sobras and t.n_questoes]
-    top_topicos = []
-    for t in reais[:8]:
-        top_topicos.append({
-            'nome': t.nome,
-            'n_questoes': t.n_questoes,
-            'pct': round(t.n_questoes / total_q * 100) if total_q else 0,
-        })
-    soma_top5 = sum(t.n_questoes for t in reais[:5])
-    concentracao_top5 = round(soma_top5 / total_q * 100) if total_q else 0
+    # Progresso ponderado por conteúdo: cada tópico pesa pelo nº de questões
+    # (o quanto o tema é cobrado). Ler os temas grandes avança mais que ler
+    # os pequenos — a barra reflete quanto da matéria já foi coberto.
+    total_peso = sum(t.n_questoes for t in topicos)
+    peso_lido = sum(t.n_questoes for t in topicos if t.lido)
+    pct_conteudo = round(peso_lido / total_peso * 100) if total_peso else 0
 
     contexto.update({
         'topicos': topicos,
         'total_topicos': len(topicos),
         'total_lidos': len(lidos),
-        'top_topicos': top_topicos,
-        'concentracao_top5': concentracao_top5,
-        'n_top_concentracao': min(5, len(reais)),
+        'pct_conteudo': pct_conteudo,
+        'total_peso': total_peso,
+        'peso_lido': peso_lido,
         # denominador da barra de peso: o tema mais cobrado da disciplina
         'maior_topico': max((t.n_questoes for t in topicos), default=1) or 1,
         'total_analisadas': len(analisadas),
@@ -393,36 +386,54 @@ def _gabarito_letra(questao):
 
 @login_required
 def revisao(request):
-    """Autoteste com as questões dos tópicos que o usuário já leu.
+    """Autoteste, só com questões que têm gabarito (A–E) para conferir.
 
-    Escopo opcional por ?topico= ou ?disciplina=. Só entram questões de
-    tópicos marcados como lidos e que tenham gabarito (A–E) para conferir.
+    Escopos: ?questoes=1,2,3 revisa questões específicas escolhidas (não
+    exige leitura); ?topico= ou ?disciplina= revisa os tópicos JÁ LIDOS
+    daquele recorte; sem parâmetro, todos os tópicos lidos do usuário.
     """
     import random
 
-    lidos = LeituraTopico.objects.filter(
-        user=request.user, topico__disciplina__prova__user=request.user,
-    ).values('topico')
-    qs = Questao.objects.filter(
-        disciplina__prova__user=request.user, topico__in=lidos,
-    ).select_related('topico', 'disciplina').prefetch_related('resultados')
-
     escopo = None
-    topico_id = request.GET.get('topico')
-    disciplina_id = request.GET.get('disciplina')
-    if topico_id:
-        topico = get_object_or_404(Topico, pk=topico_id, disciplina__prova__user=request.user)
-        qs = qs.filter(topico=topico)
-        escopo = topico.nome
-    elif disciplina_id:
-        disc = _disciplina_do_user(request, disciplina_id)
-        qs = qs.filter(disciplina=disc)
-        escopo = disc.nome
+    selecao = False
+    questoes_param = request.GET.get('questoes')
+    if questoes_param:
+        # Revisão de questões específicas (marcadas na aba de questões).
+        ids = [int(x) for x in questoes_param.split(',') if x.strip().isdigit()]
+        qs = Questao.objects.filter(
+            pk__in=ids, disciplina__prova__user=request.user,
+        ).select_related('topico', 'disciplina').prefetch_related('resultados')
+        selecao = True
+        discs = {q.disciplina.nome for q in qs}
+        escopo = discs.pop() if len(discs) == 1 else 'Questões selecionadas'
+    else:
+        lidos = LeituraTopico.objects.filter(
+            user=request.user, topico__disciplina__prova__user=request.user,
+        ).values('topico')
+        qs = Questao.objects.filter(
+            disciplina__prova__user=request.user, topico__in=lidos,
+        ).select_related('topico', 'disciplina').prefetch_related('resultados')
+
+        topico_id = request.GET.get('topico')
+        disciplina_id = request.GET.get('disciplina')
+        if topico_id:
+            topico = get_object_or_404(Topico, pk=topico_id, disciplina__prova__user=request.user)
+            qs = qs.filter(topico=topico)
+            escopo = topico.nome
+        elif disciplina_id:
+            disc = _disciplina_do_user(request, disciplina_id)
+            qs = qs.filter(disciplina=disc)
+            escopo = disc.nome
 
     # Só vale revisar o que dá para corrigir: precisa de gabarito A–E.
     questoes = [q for q in qs if _gabarito_letra(q)]
-    random.shuffle(questoes)
-    questoes = questoes[:30]
+    if selecao:
+        # Seleção explícita: respeita a escolha, na ordem das questões.
+        questoes.sort(key=lambda q: (q.ordem, q.numero, q.id))
+        questoes = questoes[:60]
+    else:
+        random.shuffle(questoes)
+        questoes = questoes[:30]
 
     def _analise(q):
         # A análise da IA já gerada da questão, mostrada só depois de responder.

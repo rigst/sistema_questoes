@@ -201,6 +201,17 @@
                 <span class="pe-rodape">{{ total_a_ler }} tópico{{ total_a_ler|pluralize }} · {{ tempo_a_ler }} de leitura</span>
             </article>
             {% endif %}
+            {% if total_respostas %}
+            {# Acerto acumulado nas revisões: o retorno do estudo em números. #}
+            <article class="pe-card pe-card--acerto">
+                <span class="pe-label">Acerto nas revisões</span>
+                <strong class="pe-valor">{{ pct_acerto }}<span class="pe-un">%</span></strong>
+                <div class="pe-barra-track">
+                    <div class="pe-barra-fill" style="width: {{ pct_acerto }}%"></div>
+                </div>
+                <span class="pe-rodape">{{ total_acertos }} de {{ total_respostas }} questões</span>
+            </article>
+            {% endif %}
         </div>
 
         {% if continuar %}

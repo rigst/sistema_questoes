@@ -578,3 +578,21 @@ class RevisaoTests(TestCase):
         r = self.client.post(reverse('questions:revisao_responder', args=[alheia.pk]), {'alternativa': 'A'})
         self.assertEqual(r.status_code, 404)
         self.assertFalse(RespostaRevisao.objects.exists())
+
+    def test_selecao_revisa_questoes_especificas_mesmo_nao_lidas(self):
+        # ?questoes= entra mesmo com o tópico não lido, e ignora as não escolhidas.
+        ids = '%d,%d' % (self.q_lida.pk, self.q_outra.pk)
+        r = self.client.get(reverse('questions:revisao'), {'questoes': ids})
+        pks = {d['pk'] for d in r.context['dados']}
+        self.assertEqual(pks, {self.q_lida.pk, self.q_outra.pk})
+
+    def test_selecao_ignora_questao_de_outro_usuario(self):
+        outra_prova = Prova.objects.create(
+            user=User.objects.create_user('bia', password='x'), nome='P')
+        alheia = Questao.objects.create(
+            disciplina=Disciplina.objects.create(prova=outra_prova, nome='D'),
+            numero=9, gabarito='A')
+        r = self.client.get(reverse('questions:revisao'),
+                            {'questoes': '%d,%d' % (self.q_lida.pk, alheia.pk)})
+        pks = {d['pk'] for d in r.context['dados']}
+        self.assertEqual(pks, {self.q_lida.pk})
