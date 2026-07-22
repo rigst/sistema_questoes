@@ -37,8 +37,7 @@
             </div>
         </div>
         <div class="revisao-acoes">
-            <button type="button" class="btn btn-primary" id="revisao-responder" disabled>Responder</button>
-            <button type="button" class="btn btn-primary" id="revisao-proxima" hidden>Próxima →</button>
+            <button type="button" class="btn btn-primary" id="revisao-acao" disabled>Responder</button>
         </div>
     </article>
 
@@ -71,8 +70,7 @@
       var elEnunciado = document.getElementById('revisao-enunciado');
       var elAlts = document.getElementById('revisao-alternativas');
       var elFeedback = document.getElementById('revisao-feedback');
-      var elResponder = document.getElementById('revisao-responder');
-      var elProxima = document.getElementById('revisao-proxima');
+      var elAcao = document.getElementById('revisao-acao');
       var elAnalise = document.getElementById('revisao-analise');
       var elAnaliseMd = document.getElementById('revisao-analise-md');
       var card = document.getElementById('revisao-card');
@@ -114,10 +112,11 @@
           });
           elAlts.appendChild(b);
         });
-        atualizarResponder();
+        // Botão volta a ser "Responder", travado até haver uma marcação.
+        elAcao.textContent = 'Responder';
+        elAcao.classList.remove('rev-troca');
+        atualizarAcao();
         elFeedback.hidden = true;
-        elResponder.hidden = false;
-        elProxima.hidden = true;
         elAnalise.classList.remove('is-aberta');
         elAnaliseMd.innerHTML = '';
         // Re-dispara a animação de entrada da nova questão.
@@ -131,11 +130,12 @@
         elAlts.querySelectorAll('.revisao-alt').forEach(function (b) {
           b.classList.toggle('is-selecionada', b.dataset.letra === letra);
         });
-        atualizarResponder();
+        atualizarAcao();
       }
 
-      function atualizarResponder() {
-        elResponder.disabled = !selecionada;
+      // Antes de responder, o botão só destrava com uma alternativa marcada.
+      function atualizarAcao() {
+        if (!respondida) elAcao.disabled = !selecionada;
       }
 
       function responder(letra, pk) {
@@ -150,7 +150,6 @@
           },
           body: new URLSearchParams({ alternativa: letra }),
         }).then(function (r) { return r.json(); }).then(function (data) {
-          elResponder.hidden = true;
           if (data.correta) acertos++;
           elPlacar.textContent = acertos + (acertos === 1 ? ' acerto' : ' acertos');
           elAlts.querySelectorAll('.revisao-alt').forEach(function (b) {
@@ -171,8 +170,13 @@
             elAnaliseMd.innerHTML = typeof marked !== 'undefined' ? marked.parse(analise) : analise;
             elAnalise.classList.add('is-aberta');
           }
-          elProxima.hidden = false;
-          elProxima.focus({ preventScroll: true });
+          // Mesmo botão vira "Próxima →", com uma troca animada.
+          elAcao.textContent = 'Próxima →';
+          elAcao.disabled = false;
+          elAcao.classList.remove('rev-troca');
+          void elAcao.offsetWidth;
+          elAcao.classList.add('rev-troca');
+          elAcao.focus({ preventScroll: true });
         }).catch(function () { respondida = false; });
       }
 
@@ -191,11 +195,12 @@
         fim.hidden = false;
       }
 
-      elResponder.addEventListener('click', function () {
-        if (respondida || !selecionada) return;
+      // Um só botão: antes responde a marcada; depois avança para a próxima.
+      elAcao.addEventListener('click', function () {
+        if (respondida) return avancar();
+        if (!selecionada) return;
         responder(selecionada, dados[i].pk);
       });
-      elProxima.addEventListener('click', avancar);
       document.getElementById('revisao-refazer').addEventListener('click', function () {
         i = 0; acertos = 0; elPlacar.textContent = '0 acertos';
         card.hidden = false; fim.hidden = true; render();

@@ -2077,7 +2077,11 @@ body.modal-open { overflow: hidden; }
 .revisao-feedback:not([hidden]) { animation: rev-surge 0.28s ease both; }
 .revisao-feedback.is-ok { color: var(--success); }
 .revisao-feedback.is-erro { color: var(--danger); }
-.revisao-acoes .btn:not([hidden]) { animation: rev-surge 0.28s ease both; }
+/* O botão de ação é único e sempre visível: "Responder" (travado até marcar)
+   que, ao confirmar, se transforma em "Próxima →" com uma trocinha animada. */
+.revisao-acoes .btn:disabled { opacity: 0.55; cursor: default; }
+@keyframes rev-troca { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+.revisao-acoes .btn.rev-troca { animation: rev-troca 0.26s ease both; }
 
 /* Análise: cresce por baixo com animação de altura (grid 0fr→1fr), sem
    empurrar a tela nem estimar max-height. */
@@ -2114,7 +2118,7 @@ body.modal-open { overflow: hidden; }
   .revisao-analise-box,
   .pe-revisar { transition: none; }
   .revisao-feedback:not([hidden]),
-  .revisao-acoes .btn:not([hidden]),
+  .revisao-acoes .btn.rev-troca,
   .revisao-card.rev-entra #revisao-enunciado,
   .revisao-card.rev-entra .revisao-alternativas { animation: none; }
   .pe-revisar:hover { transform: none; }
