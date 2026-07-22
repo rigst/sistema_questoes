@@ -183,15 +183,15 @@
         {% endif %}
 
         {% if topicos %}
-        {# Progresso ponderado pelo peso de cada tópico (nº de questões): mede
-           quanto da matéria já foi coberto, não só a contagem de tópicos. #}
+        {# % da matéria coberta, ponderada pelo peso (nº de questões) de cada tópico. #}
         <div class="leitura-progresso" data-total-peso="{{ total_peso }}">
+            <div class="lp-topo">
+                <span class="lp-grande"><strong id="lp-pct">{{ pct_conteudo }}%</strong><span class="lp-legenda">da matéria coberta</span></span>
+                <span class="lp-secundario" id="lp-count">{{ total_lidos }} de {{ total_topicos }} tópicos</span>
+            </div>
             <div class="leitura-progresso-track">
                 <div class="leitura-progresso-fill" id="lp-fill" style="width: {{ pct_conteudo }}%"></div>
             </div>
-            <span class="leitura-progresso-label" id="lp-label">
-                <strong id="lp-pct">{{ pct_conteudo }}%</strong> da matéria · {{ total_lidos }} de {{ total_topicos }} tópicos
-            </span>
         </div>
         {% endif %}
 
@@ -689,7 +689,7 @@ function formatarTempos(decorrido, eta) {
   if (!checks.length) return;
   var fill = document.getElementById('lp-fill');
   var pctEl = document.getElementById('lp-pct');
-  var label = document.getElementById('lp-label');
+  var countEl = document.getElementById('lp-count');
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
 
   // Recalcula a % de conteúdo lido pelo peso (nº de questões) de cada tópico.
@@ -703,10 +703,8 @@ function formatarTempos(decorrido, eta) {
     });
     var pct = totalPeso ? Math.round(pesoLido / totalPeso * 100) : 0;
     if (fill) fill.style.width = pct + '%';
-    if (label) {
-      label.innerHTML = '<strong id="lp-pct">' + pct + '%</strong> da matéria · '
-        + lidos + ' de ' + totalTopicos + ' tópicos';
-    }
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (countEl) countEl.textContent = lidos + ' de ' + totalTopicos + ' tópicos';
   }
 
   checks.forEach(function (btn) {

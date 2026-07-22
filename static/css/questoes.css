@@ -1074,7 +1074,7 @@ html.cards-mode .table-wrap:not([data-sempre-tabela]) tbody td.actions-col::befo
 
 /* lista de questões no modo cards: cada card é um item de cartão-resposta —
    checkbox + número + gabarito em cima, enunciado no meio, chips embaixo */
-html.cards-mode .questoes-table tbody tr {
+html.cards-mode .table-wrap .questoes-table tbody tr {
   display: grid;
   grid-template-columns: auto auto 1fr auto;
   grid-template-areas:
@@ -1086,16 +1086,16 @@ html.cards-mode .questoes-table tbody tr {
   padding: 0.8rem 1rem;
 }
 
-html.cards-mode .questoes-table tbody td { display: block; padding: 0; }
-html.cards-mode .questoes-table tbody td::before { display: none; }
+html.cards-mode .table-wrap .questoes-table tbody td { display: block; padding: 0; }
+html.cards-mode .table-wrap .questoes-table tbody td::before { display: none; }
 
-html.cards-mode .questoes-table .col-check {
+html.cards-mode .table-wrap .questoes-table .col-check {
   display: flex;
   grid-area: check;
   align-items: center;
 }
 
-html.cards-mode .questoes-table .col-num {
+html.cards-mode .table-wrap .questoes-table .col-num {
   grid-area: num;
   font-family: var(--font-mono);
   font-size: 0.85rem;
@@ -1103,19 +1103,19 @@ html.cards-mode .questoes-table .col-num {
   color: var(--muted);
 }
 
-html.cards-mode .questoes-table .col-num::before { content: "Q"; display: inline; }
+html.cards-mode .table-wrap .questoes-table .col-num::before { content: "Q"; display: inline; }
 
-html.cards-mode .questoes-table .col-gab { grid-area: gab; justify-self: end; }
+html.cards-mode .table-wrap .questoes-table .col-gab { grid-area: gab; justify-self: end; }
 
-html.cards-mode .questoes-table .questao-enunciado {
+html.cards-mode .table-wrap .questoes-table .questao-enunciado {
   grid-area: enun;
   font-size: 0.9rem;
 }
 
-html.cards-mode .questoes-table .questao-enunciado .questao-abrir { -webkit-line-clamp: 3; }
-html.cards-mode .questoes-table .col-chips { grid-area: chips; }
-html.cards-mode .questoes-table .col-chips .qchip-vazio { display: none; }
-html.cards-mode .questoes-table .col-open { display: none; }
+html.cards-mode .table-wrap .questoes-table .questao-enunciado .questao-abrir { -webkit-line-clamp: 3; }
+html.cards-mode .table-wrap .questoes-table .col-chips { grid-area: chips; }
+html.cards-mode .table-wrap .questoes-table .col-chips .qchip-vazio { display: none; }
+html.cards-mode .table-wrap .questoes-table .col-open { display: none; }
 
 /* ---- badges ---------------------------------------------------------------- */
 
@@ -1505,18 +1505,28 @@ body.modal-open { overflow: hidden; }
 
 /* ---- progresso de leitura ---- */
 .leitura-progresso {
-    display: flex; align-items: center; gap: .8rem; margin-bottom: 1rem;
+    margin-bottom: 1.2rem; padding: 0.9rem 1.1rem;
+    background: var(--accent-tint); border: 1px solid var(--accent-tint-strong);
+    border-left: 4px solid var(--accent); border-radius: var(--radius-md);
 }
+.lp-topo {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: .8rem; flex-wrap: wrap; margin-bottom: .6rem;
+}
+.lp-grande { display: inline-flex; align-items: baseline; gap: .5rem; }
+.lp-grande strong {
+    font-family: var(--font-display); font-size: 2.3rem; font-weight: 600;
+    line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums;
+}
+.lp-legenda { font-size: .92rem; font-weight: 550; color: var(--text-soft); }
+.lp-secundario { font-size: .82rem; color: var(--muted); font-family: var(--font-mono); }
 .leitura-progresso-track {
-    flex: 1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+    width: 100%; height: 10px; border-radius: var(--radius-pill);
+    background: var(--surface); overflow: hidden;
 }
 .leitura-progresso-fill {
-    height: 100%; border-radius: 3px; background: var(--success);
-    width: 0%; transition: width .3s ease;
-}
-.leitura-progresso-label {
-    font-size: .8rem; color: var(--muted); white-space: nowrap;
-    font-family: var(--font-mono);
+    height: 100%; border-radius: var(--radius-pill); background: var(--accent);
+    width: 0%; transition: width .35s ease;
 }
 
 
@@ -1693,8 +1703,8 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 760px) {
   /* A largura de célula de tabela vazava para o grid e abria um buraco entre
      o checkbox e o número. */
-  html.cards-mode .questoes-table .col-check { width: auto; padding: 0 !important; }
-  html.cards-mode .questoes-table tbody tr {
+  html.cards-mode .table-wrap .questoes-table .col-check { width: auto; padding: 0 !important; }
+  html.cards-mode .table-wrap .questoes-table tbody tr {
     grid-template-columns: auto 1fr auto;
     grid-template-areas:
       "check num  gab"
@@ -1703,13 +1713,13 @@ body.modal-open { overflow: hidden; }
     gap: 0.5rem 0.6rem;
     padding: 0.85rem 0.95rem;
   }
-  html.cards-mode .questoes-table .col-num {
+  html.cards-mode .table-wrap .questoes-table .col-num {
     font-size: 0.95rem;
     color: var(--text);
     justify-self: start;
   }
-  html.cards-mode .questoes-table .questao-enunciado { font-size: 0.88rem; line-height: 1.55; }
-  html.cards-mode .questoes-table .col-chips { padding-top: 0.15rem; }
+  html.cards-mode .table-wrap .questoes-table .questao-enunciado { font-size: 0.88rem; line-height: 1.55; }
+  html.cards-mode .table-wrap .questoes-table .col-chips { padding-top: 0.15rem; }
 
   /* A barra de ação empilha em vez de espremer o botão contra o rótulo. */
   .disc-prompt-bar { flex-direction: column; align-items: stretch; gap: 0.55rem; }
