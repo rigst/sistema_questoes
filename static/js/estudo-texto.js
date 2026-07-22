@@ -113,77 +113,11 @@
     });
   }
 
-  // Abreviações em que o ponto NÃO fecha a frase. Sem elas, "art. 5º" e
-  // "Lei nº 12.016" partiriam a frase no meio.
-  var ABREV = /(?:arts?|incs?|al|par|§|p|pp|fls?|ss|n[ºo]?|dr|dra|sr|sra|ex|obs|cf|cc|cpc|stf|stj|tst|min|prof|proc)\.?$/i;
-
-  // Quebra uma string em frases, mantendo a pontuação no fim de cada peça.
-  // Conservador: só corta em .!?: seguidos de espaço e de maiúscula/aspas/
-  // número, e nunca logo após uma abreviação conhecida ou entre dígitos
-  // (1.015). Frase é a unidade que o leitor de voz fala e que o modo foco
-  // realça — errar para menos (frase longa) é melhor que cortar no meio.
-  function dividirFrases(texto) {
-    var res = [];
-    var re = /[.!?:]/g, m, ultimo = 0;
-    while ((m = re.exec(texto)) !== null) {
-      var idx = m.index;
-      var depois = texto.slice(idx + 1);
-      if (!/^\s/.test(depois)) continue;              // precisa de espaço logo após
-      var prox = depois.replace(/^\s+/, '').charAt(0);
-      if (prox && !/[A-ZÀ-Þ0-9"“(«]/.test(prox)) continue;  // início de frase
-      if (m[0] === '.') {
-        var ultimaPalavra = (texto.slice(ultimo, idx).match(/(\S+)$/) || ['', ''])[1];
-        if (ABREV.test(ultimaPalavra + '.')) continue;
-        if (/\d$/.test(ultimaPalavra) && /^\s*\d/.test(depois)) continue;  // 1.015
-      }
-      res.push(texto.slice(ultimo, idx + 1));
-      ultimo = idx + 1;
-    }
-    if (ultimo < texto.length) res.push(texto.slice(ultimo));
-    return res;
-  }
-
-  // Envolve cada frase de um bloco num <span class="frase">, sem desfazer os
-  // .ref-legal/.tem-marca já inseridos: nós-elemento entram inteiros na frase
-  // corrente; só os nós de texto é que são fatiados por dividirFrases.
-  function envolverFrasesNoBloco(bloco) {
-    if (bloco.dataset.fraseado) return;
-    if (bloco.closest('code, pre, table')) return;
-    var filhos = Array.prototype.slice.call(bloco.childNodes);
-    var frag = document.createDocumentFragment();
-    var atual = null;
-    function abrir() { atual = document.createElement('span'); atual.className = 'frase'; frag.appendChild(atual); }
-    filhos.forEach(function (no) {
-      if (no.nodeType === 3) {  // texto
-        dividirFrases(no.nodeValue).forEach(function (parte) {
-          if (!atual) abrir();
-          atual.appendChild(document.createTextNode(parte));
-          if (/[.!?:]$/.test(parte)) atual = null;   // fecha ao terminar a frase
-        });
-      } else {
-        if (!atual) abrir();
-        atual.appendChild(no);
-      }
-    });
-    bloco.textContent = '';
-    bloco.appendChild(frag);
-    bloco.dataset.fraseado = '1';
-  }
-
-  // Marca as frases do texto renderizado. Roda por último, depois que
-  // referências e destaques já viraram elementos, para não os quebrar.
-  function segmentarFrases(raiz) {
-    raiz.querySelectorAll('p, li, h2, h3, h4').forEach(envolverFrasesNoBloco);
-  }
-
-  global.segmentarFrases = segmentarFrases;
-
   global.formatarTextoDeEstudo = function (el) {
     removerTituloDuplicado(el, el.dataset.nome);
     agruparPegadinhas(el);
     marcarDestaques(el);
     marcarReferencias(el);
     envolverTabelas(el);
-    segmentarFrases(el);
   };
 })(window);

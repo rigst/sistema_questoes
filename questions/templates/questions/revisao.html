@@ -28,9 +28,13 @@
         <div class="md-content questao-content" id="revisao-enunciado"></div>
         <div class="revisao-alternativas" id="revisao-alternativas" role="group" aria-label="Alternativas"></div>
         <p class="revisao-feedback" id="revisao-feedback" hidden></p>
-        <div class="revisao-analise" id="revisao-analise" hidden>
-            <span class="revisao-analise-rotulo">Análise da IA</span>
-            <div class="md-content" id="revisao-analise-md"></div>
+        <div class="revisao-analise" id="revisao-analise">
+            <div class="revisao-analise-inner">
+                <div class="revisao-analise-box">
+                    <span class="revisao-analise-rotulo">Análise da IA</span>
+                    <div class="md-content" id="revisao-analise-md"></div>
+                </div>
+            </div>
         </div>
         <div class="revisao-acoes">
             <button type="button" class="btn btn-primary" id="revisao-proxima" hidden>Próxima →</button>
@@ -97,8 +101,12 @@
         });
         elFeedback.hidden = true;
         elProxima.hidden = true;
-        elAnalise.hidden = true;
+        elAnalise.classList.remove('is-aberta');
         elAnaliseMd.innerHTML = '';
+        // Re-dispara a animação de entrada da nova questão.
+        card.classList.remove('rev-entra');
+        void card.offsetWidth;
+        card.classList.add('rev-entra');
       }
 
       function responder(letra, pk) {
@@ -126,13 +134,14 @@
           elFeedback.className = 'revisao-feedback ' + (data.correta ? 'is-ok' : 'is-erro');
           elFeedback.hidden = false;
           // Junto do gabarito, a análise da IA da questão (se já existir).
+          // Cresce por baixo, com a pergunta fixa no lugar — nada de rolar a tela.
           var analise = (dados[i] || {}).analise;
           if (analise) {
             elAnaliseMd.innerHTML = typeof marked !== 'undefined' ? marked.parse(analise) : analise;
-            elAnalise.hidden = false;
+            elAnalise.classList.add('is-aberta');
           }
           elProxima.hidden = false;
-          elProxima.focus();
+          elProxima.focus({ preventScroll: true });
         }).catch(function () { respondida = false; });
       }
 
@@ -140,7 +149,6 @@
         i++;
         if (i >= dados.length) return terminar();
         render();
-        card.scrollIntoView({ block: 'nearest' });
       }
 
       function terminar() {

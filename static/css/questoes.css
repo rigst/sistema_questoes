@@ -1977,55 +1977,8 @@ body.modal-open { overflow: hidden; }
 .lnt-espaco { flex: 1; }
 
 /* ======================================================================
-   Leitor em voz alta, modo foco, revisão e estatísticas de tópicos
+   Revisão (autoteste) e estatísticas de tópicos
    ====================================================================== */
-
-/* ---- Frases: unidade do leitor de voz e do modo foco ------------------ */
-.topico-texto .frase.is-falando {
-  background: var(--marca-amarelo);
-  box-shadow: 0 0 0 2px var(--marca-amarelo);
-  border-radius: 3px;
-}
-/* Modo foco: esmaece por parágrafo; o bloco sob o cursor — ou o que está
-   sendo lido em voz alta — reaparece inteiro, com o contexto ao redor. */
-.md-content.foco-ativo p,
-.md-content.foco-ativo li,
-.md-content.foco-ativo h2,
-.md-content.foco-ativo h3,
-.md-content.foco-ativo h4,
-.md-content.foco-ativo blockquote,
-.md-content.foco-ativo .table-scroll { opacity: 0.32; transition: opacity 0.15s ease; }
-.md-content.foco-ativo p:hover,
-.md-content.foco-ativo li:hover,
-.md-content.foco-ativo h2:hover,
-.md-content.foco-ativo h3:hover,
-.md-content.foco-ativo h4:hover,
-.md-content.foco-ativo blockquote:hover,
-.md-content.foco-ativo .table-scroll:hover,
-.md-content.foco-ativo p:has(.frase.is-falando),
-.md-content.foco-ativo li:has(.frase.is-falando) { opacity: 1; }
-
-/* ---- Barra do leitor -------------------------------------------------- */
-.leitor-barra {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.7rem;
-  padding: 0.6rem 0.8rem; margin-bottom: 1.1rem;
-  background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-}
-.leitor-barra.is-tocando { border-color: var(--accent); }
-.leitor-campo {
-  display: inline-flex; flex-direction: column; gap: 0.15rem;
-  font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600;
-}
-.leitor-campo select {
-  font-size: 0.82rem; text-transform: none; letter-spacing: normal; font-weight: 400;
-  padding: 0.25rem 0.4rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text); max-width: 12rem;
-}
-.js-leitor-foco[aria-pressed="true"] {
-  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
-}
 
 /* ---- Botão "Revisar este tópico" na página de leitura ----------------- */
 .btn-lido-revisar.is-oculto { display: none; }
@@ -2073,28 +2026,55 @@ body.modal-open { overflow: hidden; }
   padding: 0.7rem 0.9rem; text-align: left;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text); cursor: pointer;
-  font: inherit; transition: border-color 0.15s ease, background 0.15s ease;
+  font: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
 }
 .revisao-alt:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
+.revisao-alt:active:not(:disabled) { transform: scale(0.99); }
 .revisao-alt:disabled { cursor: default; }
-.revisao-alt .gab-letter { flex: none; }
+.revisao-alt .gab-letter { flex: none; transition: transform 0.2s ease; }
 .revisao-alt-txt { flex: 1; }
-.revisao-alt.is-correta { border-color: var(--success); background: var(--success-soft); }
+.revisao-alt.is-correta {
+  border-color: var(--success); background: var(--success-soft);
+  box-shadow: 0 0 0 1px var(--success-border);
+}
+.revisao-alt.is-correta .gab-letter { transform: scale(1.12); }
 .revisao-alt.is-errada { border-color: var(--danger); background: var(--danger-soft); }
+
+/* Feedback e botão "Próxima" surgem com um leve fade ao deixarem de estar
+   ocultos — a pergunta e as alternativas continuam fixas no lugar. */
+@keyframes rev-surge { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .revisao-feedback { margin-top: 0.8rem; font-weight: 600; font-size: 0.92rem; }
+.revisao-feedback:not([hidden]) { animation: rev-surge 0.28s ease both; }
 .revisao-feedback.is-ok { color: var(--success); }
 .revisao-feedback.is-erro { color: var(--danger); }
-.revisao-analise {
+.revisao-acoes .btn:not([hidden]) { animation: rev-surge 0.28s ease both; }
+
+/* Análise: cresce por baixo com animação de altura (grid 0fr→1fr), sem
+   empurrar a tela nem estimar max-height. */
+.revisao-analise { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s ease; }
+.revisao-analise.is-aberta { grid-template-rows: 1fr; }
+.revisao-analise-inner { overflow: hidden; min-height: 0; }
+.revisao-analise-box {
   margin-top: 1rem; padding: 0.9rem 1.1rem;
   border: 1px solid var(--border); border-left: 3px solid var(--accent);
   border-radius: var(--radius-md); background: var(--surface-2);
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity 0.3s ease 0.08s, transform 0.3s ease 0.08s;
 }
+.revisao-analise.is-aberta .revisao-analise-box { opacity: 1; transform: none; }
 .revisao-analise-rotulo {
   display: block; font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase;
   font-weight: 600; color: var(--accent-text); margin-bottom: 0.4rem;
 }
-.revisao-analise .md-content { font-size: 0.9rem; }
+.revisao-analise-box .md-content { font-size: 0.9rem; }
 .revisao-acoes { margin-top: 1rem; display: flex; justify-content: flex-end; }
+
+/* Entrada da nova questão: enunciado e alternativas entram com um leve fade. */
+@keyframes rev-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.revisao-card.rev-entra #revisao-enunciado,
+.revisao-card.rev-entra .revisao-alternativas { animation: rev-entra 0.32s ease both; }
+
 .revisao-fim { text-align: center; }
 .revisao-fim-nota { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.9rem; }
 
@@ -2116,21 +2096,15 @@ body.modal-open { overflow: hidden; }
 .estat-barra-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
 .estat-resumo { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); font-size: 0.92rem; color: var(--text-soft); }
 
-/* ---- Mentoria da IA ---------------------------------------------------- */
-.mentoria { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--border); }
-.mentoria-texto {
-  padding: 1rem 1.2rem; margin-bottom: 0.8rem;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-left: 3px solid var(--accent); border-radius: var(--radius-md);
-  font-size: 0.94rem;
-}
-.mentoria-acoes { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
-
 @media (prefers-reduced-motion: reduce) {
-  .md-content.foco-ativo p,
-  .md-content.foco-ativo li,
   .revisao-progresso-fill,
   .revisao-alt,
+  .revisao-analise,
+  .revisao-analise-box,
   .pe-revisar { transition: none; }
+  .revisao-feedback:not([hidden]),
+  .revisao-acoes .btn:not([hidden]),
+  .revisao-card.rev-entra #revisao-enunciado,
+  .revisao-card.rev-entra .revisao-alternativas { animation: none; }
   .pe-revisar:hover { transform: none; }
 }

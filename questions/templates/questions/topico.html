@@ -48,41 +48,6 @@
     </header>
 
     {% if topico.texto.status == 'concluido' %}
-        {# Barra de leitura em voz alta + modo foco; some se o navegador não tem SpeechSynthesis (leitor-voz.js). #}
-        <div class="js-leitor-barra leitor-barra" data-alvo=".js-md-topico" role="group" aria-label="Leitor em voz alta">
-            <button type="button" class="btn btn-primary btn-compact js-leitor-play" aria-pressed="false">
-                <span class="js-leitor-icone" aria-hidden="true">▶</span>
-                <span class="js-leitor-rotulo">Ouvir</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-compact js-leitor-stop" title="Parar">
-                <span aria-hidden="true">⏹</span><span class="visually-hidden">Parar</span>
-            </button>
-            <label class="leitor-campo">Voz
-                <select class="js-leitor-voz" aria-label="Voz"></select>
-            </label>
-            <label class="leitor-campo">Velocidade
-                <select class="js-leitor-rate" aria-label="Velocidade da leitura">
-                    <option value="0.7">0,7×</option>
-                    <option value="0.85">0,85×</option>
-                    <option value="1" selected>1×</option>
-                    <option value="1.15">1,15×</option>
-                    <option value="1.3">1,3×</option>
-                    <option value="1.5">1,5×</option>
-                </select>
-            </label>
-            <label class="leitor-campo">Tom
-                <select class="js-leitor-pitch" aria-label="Tom da voz">
-                    <option value="0.7">Grave</option>
-                    <option value="1" selected>Normal</option>
-                    <option value="1.3">Agudo</option>
-                </select>
-            </label>
-            <button type="button" class="btn btn-secondary btn-compact js-leitor-foco" aria-pressed="false"
-                    title="Realça a frase sob o cursor e esmaece o resto">
-                <span aria-hidden="true">◎</span> Foco
-            </button>
-        </div>
-
         <div class="md-content topico-texto js-md-topico" data-nome="{{ topico.nome }}">{{ topico.texto.texto_md }}</div>
 
         <div class="leitura-marcar">
@@ -143,7 +108,6 @@
 
 <script src="{% static 'js/marked.min.js' %}"></script>
 <script src="{% static 'js/estudo-texto.js' %}"></script>
-<script src="{% static 'js/leitor-voz.js' %}"></script>
 <script>
 (function () {
   if (typeof marked !== 'undefined') {

@@ -1,7 +1,5 @@
-from django.conf import settings
 from django.db import models
 
-from exams.models import Disciplina
 from prompts.models import Prompt
 from questions.models import Questao, Topico
 
@@ -80,36 +78,3 @@ class TextoTopico(models.Model):
     @property
     def total_tokens(self):
         return self.input_tokens + self.output_tokens
-
-
-class MentoriaDisciplina(models.Model):
-    """Dicas de estudo geradas pela IA para uma disciplina, por usuário.
-
-    Diferente do texto de tópico (o QUE estudar), a mentoria é sobre COMO
-    estudar a matéria: é personalizada com o que mais cai e com o
-    desempenho do aluno na revisão, então há uma por usuário.
-    """
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mentorias'
-    )
-    disciplina = models.ForeignKey(
-        Disciplina, on_delete=models.CASCADE, related_name='mentorias'
-    )
-    texto_md = models.TextField('texto (markdown)', blank=True)
-    modelo = models.CharField('modelo', max_length=100, blank=True)
-    input_tokens = models.PositiveIntegerField(default=0)
-    output_tokens = models.PositiveIntegerField(default=0)
-    custo_estimado = models.DecimalField(max_digits=10, decimal_places=5, default=0)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    atualizado_em = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = 'mentoria de disciplina'
-        verbose_name_plural = 'mentorias de disciplinas'
-        constraints = [
-            models.UniqueConstraint(fields=['user', 'disciplina'], name='mentoria_unica_por_disciplina'),
-        ]
-
-    def __str__(self):
-        return f'Mentoria de {self.disciplina.nome} para {self.user}'

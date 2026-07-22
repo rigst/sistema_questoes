@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -9,15 +8,8 @@ from exams.models import Disciplina
 from prompts.models import Prompt
 from questions.models import Questao
 
-from .models import MentoriaDisciplina, ResultadoPrompt
-from .services import (
-    IAError,
-    MARGEM_TETO_OPERACAO,
-    estimar_tokens,
-    estimar_tokens_mentoria,
-    estimar_tokens_topicos,
-    gerar_mentoria_sincrono,
-)
+from .models import ResultadoPrompt
+from .services import MARGEM_TETO_OPERACAO, estimar_tokens, estimar_tokens_topicos
 from .tasks import (
     aplicar_resultado,
     chave_topicos_classificando,
@@ -196,43 +188,6 @@ def gerar_topicos(request, disciplina_pk):
         f'Gerando tópicos e textos com {len(analisadas)} questão(ões) analisada(s).{aviso}',
     )
     return _redir(request)
-
-
-@login_required
-@require_POST
-def mentoria(request, disciplina_pk):
-    """Gera (ou regera) as dicas de estudo da disciplina. Chamada síncrona por
-    AJAX — é uma única geração, então não passa pela fila do Celery."""
-    disc = get_object_or_404(Disciplina, pk=disciplina_pk, prova__user=request.user)
-    profile = getattr(request.user, 'profile', None)
-    estimados = estimar_tokens_mentoria(disc)
-    if profile is not None and not profile.tem_quota(estimados):
-        return JsonResponse({
-            'ok': False,
-            'erro': f'Quota de IA insuficiente: a mentoria precisa de ~{estimados:,} tokens '
-                    f'e restam {profile.tokens_restantes:,} neste mês.'.replace(',', '.'),
-        }, status=400)
-
-    try:
-        res = gerar_mentoria_sincrono(disc, request.user, profile)
-    except IAError as exc:
-        return JsonResponse({'ok': False, 'erro': str(exc)}, status=502)
-    except Exception:  # noqa: BLE001
-        return JsonResponse({'ok': False, 'erro': 'Falha ao gerar a mentoria. Tente de novo.'}, status=502)
-
-    m, _ = MentoriaDisciplina.objects.update_or_create(
-        user=request.user, disciplina=disc,
-        defaults={
-            'texto_md': res['texto_md'], 'modelo': res['modelo'],
-            'input_tokens': res['input_tokens'], 'output_tokens': res['output_tokens'],
-            'custo_estimado': res['custo'],
-        },
-    )
-    return JsonResponse({
-        'ok': True,
-        'texto_md': m.texto_md,
-        'atualizado_em': m.atualizado_em.strftime('%d/%m/%Y %H:%M'),
-    })
 
 
 @login_required

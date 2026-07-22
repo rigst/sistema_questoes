@@ -38,7 +38,7 @@ def disciplina(request, pk):
     from django.core.cache import cache
     from django.db.models import Count
 
-    from ai.models import MentoriaDisciplina, ResultadoPrompt, TextoTopico
+    from ai.models import ResultadoPrompt, TextoTopico
     from ai.services import estimar_custo_topicos, formatar_custo_usd
     from ai.tasks import chave_topicos_classificando, chave_topicos_erro
 
@@ -114,7 +114,6 @@ def disciplina(request, pk):
         'top_topicos': top_topicos,
         'concentracao_top5': concentracao_top5,
         'n_top_concentracao': min(5, len(reais)),
-        'mentoria': MentoriaDisciplina.objects.filter(user=request.user, disciplina=disc).first(),
         # denominador da barra de peso: o tema mais cobrado da disciplina
         'maior_topico': max((t.n_questoes for t in topicos), default=1) or 1,
         'total_analisadas': len(analisadas),
