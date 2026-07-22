@@ -28,6 +28,10 @@
         <div class="md-content questao-content" id="revisao-enunciado"></div>
         <div class="revisao-alternativas" id="revisao-alternativas" role="group" aria-label="Alternativas"></div>
         <p class="revisao-feedback" id="revisao-feedback" hidden></p>
+        <div class="revisao-analise" id="revisao-analise" hidden>
+            <span class="revisao-analise-rotulo">Análise da IA</span>
+            <div class="md-content" id="revisao-analise-md"></div>
+        </div>
         <div class="revisao-acoes">
             <button type="button" class="btn btn-primary" id="revisao-proxima" hidden>Próxima →</button>
         </div>
@@ -63,6 +67,8 @@
       var elAlts = document.getElementById('revisao-alternativas');
       var elFeedback = document.getElementById('revisao-feedback');
       var elProxima = document.getElementById('revisao-proxima');
+      var elAnalise = document.getElementById('revisao-analise');
+      var elAnaliseMd = document.getElementById('revisao-analise-md');
       var card = document.getElementById('revisao-card');
       var fim = document.getElementById('revisao-fim');
 
@@ -91,6 +97,8 @@
         });
         elFeedback.hidden = true;
         elProxima.hidden = true;
+        elAnalise.hidden = true;
+        elAnaliseMd.innerHTML = '';
       }
 
       function responder(letra, pk) {
@@ -117,6 +125,12 @@
             : 'Resposta certa: ' + data.gabarito + '.';
           elFeedback.className = 'revisao-feedback ' + (data.correta ? 'is-ok' : 'is-erro');
           elFeedback.hidden = false;
+          // Junto do gabarito, a análise da IA da questão (se já existir).
+          var analise = (dados[i] || {}).analise;
+          if (analise) {
+            elAnaliseMd.innerHTML = typeof marked !== 'undefined' ? marked.parse(analise) : analise;
+            elAnalise.hidden = false;
+          }
           elProxima.hidden = false;
           elProxima.focus();
         }).catch(function () { respondida = false; });

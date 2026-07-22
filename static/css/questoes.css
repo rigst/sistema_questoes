@@ -1986,11 +1986,24 @@ body.modal-open { overflow: hidden; }
   box-shadow: 0 0 0 2px var(--marca-amarelo);
   border-radius: 3px;
 }
-/* Modo foco: só a frase sob o cursor (e a que está sendo lida) fica nítida. */
-.md-content.foco-ativo .frase { opacity: 0.35; transition: opacity 0.15s ease; }
-.md-content.foco-ativo .frase:hover,
-.md-content.foco-ativo .frase.is-falando { opacity: 1; }
-.md-content.foco-ativo .frase:hover { background: var(--accent-tint); border-radius: 3px; }
+/* Modo foco: esmaece por parágrafo; o bloco sob o cursor — ou o que está
+   sendo lido em voz alta — reaparece inteiro, com o contexto ao redor. */
+.md-content.foco-ativo p,
+.md-content.foco-ativo li,
+.md-content.foco-ativo h2,
+.md-content.foco-ativo h3,
+.md-content.foco-ativo h4,
+.md-content.foco-ativo blockquote,
+.md-content.foco-ativo .table-scroll { opacity: 0.32; transition: opacity 0.15s ease; }
+.md-content.foco-ativo p:hover,
+.md-content.foco-ativo li:hover,
+.md-content.foco-ativo h2:hover,
+.md-content.foco-ativo h3:hover,
+.md-content.foco-ativo h4:hover,
+.md-content.foco-ativo blockquote:hover,
+.md-content.foco-ativo .table-scroll:hover,
+.md-content.foco-ativo p:has(.frase.is-falando),
+.md-content.foco-ativo li:has(.frase.is-falando) { opacity: 1; }
 
 /* ---- Barra do leitor -------------------------------------------------- */
 .leitor-barra {
@@ -2071,6 +2084,16 @@ body.modal-open { overflow: hidden; }
 .revisao-feedback { margin-top: 0.8rem; font-weight: 600; font-size: 0.92rem; }
 .revisao-feedback.is-ok { color: var(--success); }
 .revisao-feedback.is-erro { color: var(--danger); }
+.revisao-analise {
+  margin-top: 1rem; padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md); background: var(--surface-2);
+}
+.revisao-analise-rotulo {
+  display: block; font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase;
+  font-weight: 600; color: var(--accent-text); margin-bottom: 0.4rem;
+}
+.revisao-analise .md-content { font-size: 0.9rem; }
 .revisao-acoes { margin-top: 1rem; display: flex; justify-content: flex-end; }
 .revisao-fim { text-align: center; }
 .revisao-fim-nota { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.9rem; }
@@ -2093,8 +2116,19 @@ body.modal-open { overflow: hidden; }
 .estat-barra-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
 .estat-resumo { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); font-size: 0.92rem; color: var(--text-soft); }
 
+/* ---- Mentoria da IA ---------------------------------------------------- */
+.mentoria { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--border); }
+.mentoria-texto {
+  padding: 1rem 1.2rem; margin-bottom: 0.8rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--radius-md);
+  font-size: 0.94rem;
+}
+.mentoria-acoes { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+
 @media (prefers-reduced-motion: reduce) {
-  .md-content.foco-ativo .frase,
+  .md-content.foco-ativo p,
+  .md-content.foco-ativo li,
   .revisao-progresso-fill,
   .revisao-alt,
   .pe-revisar { transition: none; }

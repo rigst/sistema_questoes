@@ -9,5 +9,6 @@ urlpatterns = [
     path('aplicar-lote/', views.aplicar_lote, name='aplicar_lote'),
     path('gerar-comentarios/', views.gerar_comentarios, name='gerar_comentarios'),
     path('gerar-topicos/<int:disciplina_pk>/', views.gerar_topicos, name='gerar_topicos'),
+    path('mentoria/<int:disciplina_pk>/', views.mentoria, name='mentoria'),
     path('resultado/<int:pk>/excluir/', views.resultado_excluir, name='resultado_excluir'),
 ]

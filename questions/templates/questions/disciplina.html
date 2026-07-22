@@ -348,6 +348,30 @@
             <strong>{{ concentracao_top5 }}%</strong> das questões da disciplina.
         </p>
         {% endif %}
+
+        {# ---- Mentoria da IA: COMO estudar esta disciplina ---- #}
+        <section class="mentoria" id="mentoria">
+            <div class="section-heading" style="margin-top:1.6rem;">
+                <h3>Mentoria da IA</h3>
+            </div>
+            <p class="muted" style="margin-top:-.3rem;margin-bottom:.8rem;font-size:.85rem;">
+                Dicas de como estudar esta disciplina, a partir do que mais cai e do seu desempenho na revisão.
+            </p>
+            <div class="md-content mentoria-texto js-md-mentoria" id="mentoria-texto" {% if not mentoria %}hidden{% endif %}>{{ mentoria.texto_md }}</div>
+            <p class="muted mentoria-vazio" id="mentoria-vazio" {% if mentoria %}hidden{% endif %} style="font-size:.9rem;">
+                Nenhuma mentoria gerada ainda.
+            </p>
+            <div class="mentoria-acoes">
+                <button type="button" class="btn btn-primary btn-compact" id="mentoria-btn"
+                        data-url="{% url 'ai:mentoria' disciplina.pk %}">
+                    {% if mentoria %}Atualizar mentoria{% else %}Gerar mentoria{% endif %}
+                </button>
+                <span class="muted" id="mentoria-data" style="font-size:.8rem;" {% if not mentoria %}hidden{% endif %}>
+                    {% if mentoria %}atualizada em {{ mentoria.atualizado_em|date:"d/m/Y H:i" }}{% endif %}
+                </span>
+            </div>
+            <div class="disc-banner disc-banner-error" id="mentoria-erro" hidden style="margin-top:.7rem;"></div>
+        </section>
     </div>
     {% endif %}
     {% else %}
@@ -631,7 +655,47 @@ function formatarTempos(decorrido, eta) {
         wrap.appendChild(tb);
       });
     });
+    // Mentoria já gerada: renderiza o Markdown salvo.
+    document.querySelectorAll('.js-md-mentoria').forEach(function (el) {
+      if ((el.textContent || '').trim()) el.innerHTML = marked.parse(el.textContent);
+    });
   }
+
+  // ---- Gerar/atualizar mentoria da IA ----
+  (function () {
+    var btn = document.getElementById('mentoria-btn');
+    if (!btn) return;
+    var texto = document.getElementById('mentoria-texto');
+    var vazio = document.getElementById('mentoria-vazio');
+    var data = document.getElementById('mentoria-data');
+    var erro = document.getElementById('mentoria-erro');
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    btn.addEventListener('click', function () {
+      var rotulo = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Gerando…'; erro.hidden = true;
+      fetch(btn.dataset.url, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': (csrf && csrf.value) || '{{ csrf_token }}',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.d.ok) {
+            erro.textContent = (res.d && res.d.erro) || 'Falha ao gerar a mentoria.';
+            erro.hidden = false;
+            return;
+          }
+          texto.innerHTML = (typeof marked !== 'undefined') ? marked.parse(res.d.texto_md) : res.d.texto_md;
+          texto.hidden = false;
+          if (vazio) vazio.hidden = true;
+          if (data) { data.hidden = false; data.textContent = 'atualizada em ' + res.d.atualizado_em; }
+          btn.textContent = 'Atualizar mentoria'; return;
+        }).catch(function () { erro.textContent = 'Erro de rede. Tente de novo.'; erro.hidden = false; })
+        .finally(function () { btn.disabled = false; if (btn.textContent === 'Gerando…') btn.textContent = rotulo; });
+    });
+  })();
 
   // ---- Polling da geração de tópicos ----
   {% if topicos_gerando %}

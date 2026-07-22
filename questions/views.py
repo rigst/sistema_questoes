@@ -38,7 +38,7 @@ def disciplina(request, pk):
     from django.core.cache import cache
     from django.db.models import Count
 
-    from ai.models import ResultadoPrompt, TextoTopico
+    from ai.models import MentoriaDisciplina, ResultadoPrompt, TextoTopico
     from ai.services import estimar_custo_topicos, formatar_custo_usd
     from ai.tasks import chave_topicos_classificando, chave_topicos_erro
 
@@ -114,6 +114,7 @@ def disciplina(request, pk):
         'top_topicos': top_topicos,
         'concentracao_top5': concentracao_top5,
         'n_top_concentracao': min(5, len(reais)),
+        'mentoria': MentoriaDisciplina.objects.filter(user=request.user, disciplina=disc).first(),
         # denominador da barra de peso: o tema mais cobrado da disciplina
         'maior_topico': max((t.n_questoes for t in topicos), default=1) or 1,
         'total_analisadas': len(analisadas),
@@ -405,7 +406,7 @@ def revisao(request):
     ).values('topico')
     qs = Questao.objects.filter(
         disciplina__prova__user=request.user, topico__in=lidos,
-    ).select_related('topico', 'disciplina')
+    ).select_related('topico', 'disciplina').prefetch_related('resultados')
 
     escopo = None
     topico_id = request.GET.get('topico')
@@ -424,10 +425,18 @@ def revisao(request):
     random.shuffle(questoes)
     questoes = questoes[:30]
 
+    def _analise(q):
+        # A análise da IA já gerada da questão, mostrada só depois de responder.
+        for r in q.resultados.all():
+            if r.status == 'concluido' and r.resultado_md:
+                return r.resultado_md
+        return ''
+
     dados = [{
         'pk': q.pk,
         'topico': q.topico.nome if q.topico else '',
         'enunciado': q.enunciado_md,
+        'analise': _analise(q),
     } for q in questoes]
 
     return render(request, 'questions/revisao.html', {
