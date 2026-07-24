@@ -50,3 +50,5 @@ python manage.py test
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).
 
 O sistema utiliza [PyMuPDF](https://github.com/pymupdf/PyMuPDF), licenciado sob AGPL-3.0 pela Artifex Software. Em conformidade com a cláusula de rede da AGPL (§13), o código-fonte completo deste sistema está disponível em <https://github.com/rigst/sistema_questoes>.
+
+O inventário das bibliotecas de terceiros está em [docs/LICENCAS-TERCEIROS.md](docs/LICENCAS-TERCEIROS.md), regenerável com `./venv/bin/python scripts/licencas_terceiros.py`.
