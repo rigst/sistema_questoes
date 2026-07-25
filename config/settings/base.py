@@ -82,6 +82,11 @@ UNFOLD = {
 # Destino após o aceite nas telas do app `legal`.
 LEGAL_REDIRECT_URL = 'dashboard'
 
+# Para onde a tela de aceite de visitante posta. Aqui a criação do visitante
+# tem rota própria e não precisa de campos extras.
+LEGAL_VISITOR_ACTION = 'accounts:entrar_visitante'
+LEGAL_VISITOR_EXTRA = {}
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [

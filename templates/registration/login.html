@@ -32,11 +32,9 @@
 
         <div class="auth-visitor-section">
             <p class="auth-alt-note">{% if allow_public_signup %}Ainda não tem conta? <a href="{% url 'accounts:cadastro' %}">Criar conta</a> · {% endif %}<a href="{% url 'password_reset' %}">Esqueci minha senha</a></p>
-            <form method="post" action="{% url 'accounts:entrar_visitante' %}">
-                {% csrf_token %}
-                {% include "legal/_checkbox_aceite.html" with field=form_aceite.aceite_legal %}
-                <button type="submit" class="btn btn-secondary auth-submit">Entrar como visitante</button>
-            </form>
+            {# O aceite acontece na própria página de aceite, não aqui: o texto
+               que a pessoa precisa ler não cabe ao lado de um botão. #}
+            <a class="btn btn-secondary auth-submit" href="{% url 'legal:aceite_visitante' %}">Entrar como visitante</a>
             <p class="auth-alt-note">Dados de visitante são temporários e expiram após 48h sem uso.</p>
         </div>
     </div>

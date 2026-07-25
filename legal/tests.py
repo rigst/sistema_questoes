@@ -80,7 +80,8 @@ class AceiteFormTests(TestCase):
 
         criar_documento()
         criar_documento(tipo=TipoDocumento.PRIVACIDADE)
-        html = self.client.get(reverse("login")).content.decode()
+        # O aceite saiu do login para uma página própria.
+        html = self.client.get(reverse("legal:aceite_visitante")).content.decode()
 
         tags = re.findall(r"<input[^>]*name=\"aceite_legal\"[^>]*>", html)
         self.assertEqual(len(tags), 1, "esperava exatamente um checkbox de aceite")
@@ -90,7 +91,8 @@ class AceiteFormTests(TestCase):
     def test_template_nao_vaza_comentario_de_desenvolvimento(self):
         """`{# #}` no Django é de uma linha só: comentário em bloco vaza para a página."""
         criar_documento()
-        html = self.client.get(reverse("login")).content.decode()
+        # O aceite saiu do login para uma página própria.
+        html = self.client.get(reverse("legal:aceite_visitante")).content.decode()
         self.assertNotIn("initial=False", html)
 
 
@@ -100,12 +102,11 @@ class AceiteVisitanteTests(TestCase):
         self.privacidade = criar_documento(tipo=TipoDocumento.PRIVACIDADE)
 
     def test_visitante_sem_aceite_nao_cria_conta(self):
-        resposta = self.client.post(reverse("accounts:entrar_visitante"), {}, follow=True)
+        resposta = self.client.post(reverse("accounts:entrar_visitante"), {})
 
-        # A view é @require_POST e não renderiza formulário: devolve ao login
-        # com a mensagem de erro.
-        self.assertRedirects(resposta, reverse("login"))
-        self.assertContains(resposta, "aceitar os Termos de Uso")
+        # Re-renderiza a própria tela de aceite com o erro no campo.
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "É preciso aceitar")
         self.assertFalse(Usuario.objects.filter(username__startswith="visitante_").exists())
         self.assertFalse(AceiteLegal.objects.exists())
 
@@ -223,7 +224,7 @@ class PaginasPublicasTests(TestCase):
 
         resposta = self.client.get(reverse("legal:versao", args=[antiga.tipo, antiga.versao]))
         self.assertContains(resposta, "Texto antigo.")
-        self.assertContains(resposta, "versão arquivada")
+        self.assertContains(resposta, "versão anterior")
 
     def test_rascunho_nao_e_publico(self):
         rascunho = criar_documento(versao="9.0", publicar=False)
