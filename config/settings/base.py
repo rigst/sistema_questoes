@@ -28,6 +28,10 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # O unfold precisa vir antes do admin: é assim que os templates dele
+    # sobrescrevem os do django.contrib.admin.
+    'unfold',
+    'unfold.contrib.filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -41,6 +45,7 @@ INSTALLED_APPS = [
     'prompts',
     'ai',
     'reports',
+    'legal',
 ]
 
 MIDDLEWARE = [
@@ -49,10 +54,33 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Depois do Authentication (precisa de request.user) e antes do
+    # VisitorExpiryMiddleware: nova versão dos termos bloqueia o uso até ser
+    # aceita, inclusive para visitantes.
+    'legal.middleware.AceiteObrigatorioMiddleware',
     'accounts.middleware.VisitorExpiryMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+UNFOLD = {
+    'SITE_TITLE': 'Estudo por Questões',
+    'SITE_HEADER': 'Estudo por Questões',
+    'SITE_SUBHEADER': 'Administração',
+    'SHOW_HISTORY': True,
+    'SHOW_VIEW_ON_SITE': False,
+    'COLORS': {
+        'primary': {
+            '50': '255 247 237', '100': '255 237 213', '200': '254 215 170',
+            '300': '253 186 116', '400': '251 146 60', '500': '249 115 22',
+            '600': '234 88 12', '700': '194 65 12', '800': '154 52 18',
+            '900': '124 45 18', '950': '67 20 7',
+        },
+    },
+}
+
+# Destino após o aceite nas telas do app `legal`.
+LEGAL_REDIRECT_URL = 'dashboard'
 
 ROOT_URLCONF = 'config.urls'
 

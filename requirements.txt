@@ -16,3 +16,9 @@ gunicorn>=22.0,<27.0
 psycopg2-binary>=2.9,<3.0
 django-redis>=5.4,<7.0
 pyspellchecker>=0.8
+
+# Conformidade legal (app `legal`): render e sanitização das políticas.
+nh3>=0.2,<1.0
+
+# Tema do admin.
+django-unfold>=0.101,<1.0

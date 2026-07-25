@@ -50,7 +50,10 @@ class AuthViewsTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_entrar_como_visitante_autentica(self):
-        resp = self.client.post('/accounts/visitante/', follow=True)
+        # O aceite dos termos passou a ser condição para criar o visitante.
+        resp = self.client.post(
+            '/accounts/visitante/', {'aceite_legal': 'on'}, follow=True
+        )
         self.assertEqual(resp.status_code, 200)
         user = resp.context['user']
         self.assertTrue(user.is_authenticated)
@@ -68,6 +71,7 @@ class AuthViewsTests(TestCase):
             'email': 'novo@example.com',
             'password1': 'senha-bem-forte-123',
             'password2': 'senha-bem-forte-123',
+            'aceite_legal': 'on',
         }, follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(User.objects.filter(username='novo_usuario').exists())

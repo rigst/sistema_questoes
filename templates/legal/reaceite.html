@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Atualização dos termos · Estudo por Questões{% endblock %}
+
+{% block content %}
+<div class="legal-page">
+    <div class="form-panel legal-doc">
+        <header class="legal-doc-header">
+            <h1>Atualizamos nossos termos</h1>
+            <p class="legal-doc-meta">
+                Para continuar usando o sistema, leia e aceite
+                {% if documentos|length > 1 %}os documentos abaixo{% else %}o documento abaixo{% endif %}.
+            </p>
+        </header>
+
+        {% for documento in documentos %}
+            <section class="legal-doc-corpo legal-doc-scroll">
+                <h2>{{ documento.titulo }} <small>(versão {{ documento.versao }})</small></h2>
+                {{ documento.corpo_html|safe }}
+            </section>
+        {% endfor %}
+
+        <form method="post" class="legal-aceite-form">
+            {% csrf_token %}
+            {% include "legal/_checkbox_aceite.html" with field=form.aceite_legal %}
+            <button class="btn btn-primary" type="submit">Aceitar e continuar</button>
+        </form>
+
+        {# Sem onclick inline: a CSP do app só libera script com nonce. #}
+        <form method="post" action="{% url 'logout' %}" class="legal-recusa">
+            {% csrf_token %}
+            <p class="legal-doc-meta">
+                Se preferir não aceitar, você pode
+                <button type="submit" class="link-button">sair da conta</button>.
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

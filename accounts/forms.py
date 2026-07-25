@@ -1,10 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
 
+from legal.forms import AceiteLegalMixin
+
 User = get_user_model()
 
 
-class CadastroForm(UserCreationForm):
+class CadastroForm(AceiteLegalMixin, UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ('username', 'first_name', 'email')

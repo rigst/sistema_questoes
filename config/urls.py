@@ -5,17 +5,20 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from django.views.generic import TemplateView
 
+from accounts import views as accounts_views
 from exams import views as exams_views
+from legal import views as legal_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Páginas legais (LGPD): acessíveis sem login.
-    path('privacidade/', TemplateView.as_view(template_name='legal/privacidade.html'), name='privacidade'),
-    path('termos/', TemplateView.as_view(template_name='legal/termos.html'), name='termos'),
+    # Páginas legais (LGPD): acessíveis sem login. O texto vem do banco (app
+    # `legal`), versionado — os nomes de rota seguem os mesmos de antes.
+    path('privacidade/', legal_views.privacidade, name='privacidade'),
+    path('termos/', legal_views.termos, name='termos'),
+    path('legal/', include('legal.urls')),
     path('accounts/', include('accounts.urls')),
-    path('login/', auth_views.LoginView.as_view(), name='login'),
+    path('login/', accounts_views.LoginComAceiteView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('senha/', auth_views.PasswordResetView.as_view(), name='password_reset'),
     path('senha/enviado/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),

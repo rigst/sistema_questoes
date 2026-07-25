@@ -1,10 +1,11 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import ResultadoPrompt
 
 
 @admin.register(ResultadoPrompt)
-class ResultadoPromptAdmin(admin.ModelAdmin):
+class ResultadoPromptAdmin(ModelAdmin):
     list_display = (
         'id', 'questao', 'prompt', 'status',
         'input_tokens', 'output_tokens', 'custo_estimado', 'criado_em',

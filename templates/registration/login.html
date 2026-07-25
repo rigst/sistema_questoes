@@ -34,6 +34,7 @@
             <p class="auth-alt-note">{% if allow_public_signup %}Ainda não tem conta? <a href="{% url 'accounts:cadastro' %}">Criar conta</a> · {% endif %}<a href="{% url 'password_reset' %}">Esqueci minha senha</a></p>
             <form method="post" action="{% url 'accounts:entrar_visitante' %}">
                 {% csrf_token %}
+                {% include "legal/_checkbox_aceite.html" with field=form_aceite.aceite_legal %}
                 <button type="submit" class="btn btn-secondary auth-submit">Entrar como visitante</button>
             </form>
             <p class="auth-alt-note">Dados de visitante são temporários e expiram após 48h sem uso.</p>
