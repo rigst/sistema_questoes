@@ -1,9 +1,8 @@
 import fitz
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
-
-from django.core.cache import cache
 
 from ai.models import ResultadoPrompt
 from ai.tasks import chave_topicos_erro
@@ -50,184 +49,200 @@ class ExtracaoTests(TestCase):
         numeros = sorted(q.numero for q in res.questoes)
         self.assertEqual(numeros, [1, 2])
         gabaritos = {q.numero: q.gabarito for q in res.questoes}
-        self.assertEqual(gabaritos[1], 'A')
-        self.assertEqual(gabaritos[2], 'D')
+        self.assertEqual(gabaritos[1], "A")
+        self.assertEqual(gabaritos[2], "D")
         self.assertGreaterEqual(res.confianca_media, 0.8)
 
     def test_pdf_sem_questoes_nao_quebra(self):
-        res = extraction.extrair(_pdf_bytes('Texto qualquer sem numeracao.'), usar_ia=False)
+        res = extraction.extrair(_pdf_bytes("Texto qualquer sem numeracao."), usar_ia=False)
         self.assertEqual(res.questoes, [])
 
     def test_formato_questao_N_com_grade_de_gabarito(self):
         # Formato "Questão N <disciplina>", alternativas "A ..." e grade final
         # "1 C 2 A 3 E" — sem a palavra GABARITO (estilo curso/FGV).
         texto = (
-            'Direito Processual Civil FGV\n'
-            'Fulano - 024.308.130-84\n'
-            'Questão 1 Direito Processual Civil\n'
-            'Primeiro enunciado sobre competencia.\n'
-            'A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n'
-            'Essa questao possui comentario do professor no site 123\n'
-            'Questão 2 Direito Processual Civil\n'
-            'Segundo enunciado sobre recursos.\n'
-            'A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n'
-            'Essa questao possui comentario do professor no site 456\n'
-            'Questão 3 Direito Processual Civil\n'
-            'Terceiro enunciado sobre execucao.\n'
-            'A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n'
-            '1 C 2 A 3 E\n'
+            "Direito Processual Civil FGV\n"
+            "Fulano - 024.308.130-84\n"
+            "Questão 1 Direito Processual Civil\n"
+            "Primeiro enunciado sobre competencia.\n"
+            "A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n"
+            "Essa questao possui comentario do professor no site 123\n"
+            "Questão 2 Direito Processual Civil\n"
+            "Segundo enunciado sobre recursos.\n"
+            "A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n"
+            "Essa questao possui comentario do professor no site 456\n"
+            "Questão 3 Direito Processual Civil\n"
+            "Terceiro enunciado sobre execucao.\n"
+            "A alternativa a\nB alternativa b\nC alternativa c\nD alternativa d\nE alternativa e\n"
+            "1 C 2 A 3 E\n"
         )
         res = extraction.extrair(_pdf_bytes(texto), usar_ia=False)
         self.assertEqual(len(res.questoes), 3)
         gab = {q.numero: q.gabarito for q in res.questoes}
-        self.assertEqual(gab, {1: 'C', 2: 'A', 3: 'E'})
+        self.assertEqual(gab, {1: "C", 2: "A", 3: "E"})
         # cabeçalho/CPF e rodapé de comentário não vazam para o enunciado
         q1 = res.questoes[0]
-        self.assertNotIn('024.308', q1.enunciado)
-        self.assertNotIn('comentario do professor', q1.enunciado)
-        self.assertIn('competencia', q1.enunciado)
+        self.assertNotIn("024.308", q1.enunciado)
+        self.assertNotIn("comentario do professor", q1.enunciado)
+        self.assertIn("competencia", q1.enunciado)
 
 
 class LimpezaTextoTests(TestCase):
     def test_remove_nul_do_texto(self):
-        self.assertEqual(extraction._limpar_texto('abc\x00def'), 'abcdef')
+        self.assertEqual(extraction._limpar_texto("abc\x00def"), "abcdef")
 
     def test_normaliza_codepoints_de_ligadura(self):
-        self.assertEqual(extraction._limpar_texto('ﬁm do ﬂagrante'), 'fim do flagrante')
+        self.assertEqual(extraction._limpar_texto("ﬁm do ﬂagrante"), "fim do flagrante")
 
     def test_repara_ligaduras_engolidas_pela_fonte(self):
-        texto = 'o signicado da deagração foi vericado e quali cou'
+        texto = "o signicado da deagração foi vericado e quali cou"
         reparado = extraction._limpar_texto(texto)
-        self.assertIn('significado', reparado)
-        self.assertIn('deflagração', reparado)
-        self.assertIn('verificado', reparado)
+        self.assertIn("significado", reparado)
+        self.assertIn("deflagração", reparado)
+        self.assertIn("verificado", reparado)
 
     def test_nao_altera_palavras_corretas_nem_siglas(self):
-        texto = 'O STF julgou o financeiro conforme a CRFB'
+        texto = "O STF julgou o financeiro conforme a CRFB"
         self.assertEqual(extraction._limpar_texto(texto), texto)
 
 
 class NormalizarEnunciadoTests(TestCase):
     def test_formato_fgv_letra_espaco_com_continuacao(self):
         from .forms import _normalizar_enunciado
+
         texto = (
-            'Inúmeras demandas vinham sendo ajuizadas em face do Estado Alfa.\n'
-            'À luz da sistemática vigente, assinale a afirmativa correta.\n'
-            'A Como os atos de Alfa se estendem por 12 meses, não é cabível.\n'
-            'B A decretação pressupõe requisição pelo Tribunal de Justiça.\n'
-            'C A decretação, por estar presente um requisito, pode ocorrer na modalidade\n'
-            'espontânea.\n'
-            'D A decretação pressupõe o provimento de ação direta interventiva.\n'
-            'E A decretação pressupõe iniciativa privativa do PGR.'
+            "Inúmeras demandas vinham sendo ajuizadas em face do Estado Alfa.\n"
+            "À luz da sistemática vigente, assinale a afirmativa correta.\n"
+            "A Como os atos de Alfa se estendem por 12 meses, não é cabível.\n"
+            "B A decretação pressupõe requisição pelo Tribunal de Justiça.\n"
+            "C A decretação, por estar presente um requisito, pode ocorrer na modalidade\n"
+            "espontânea.\n"
+            "D A decretação pressupõe o provimento de ação direta interventiva.\n"
+            "E A decretação pressupõe iniciativa privativa do PGR."
         )
         out = _normalizar_enunciado(texto)
-        paras = out.split('\n\n')
+        paras = out.split("\n\n")
         self.assertEqual(len(paras), 6)  # enunciado + 5 alternativas
-        self.assertTrue(paras[1].startswith('A) Como os atos'))
-        self.assertIn('C) A decretação, por estar presente um requisito, pode ocorrer na modalidade espontânea.', paras)
-        self.assertTrue(paras[5].startswith('E) A decretação'))
+        self.assertTrue(paras[1].startswith("A) Como os atos"))
+        self.assertIn(
+            "C) A decretação, por estar presente um requisito, pode ocorrer na modalidade espontânea.",
+            paras,
+        )
+        self.assertTrue(paras[5].startswith("E) A decretação"))
 
     def test_linha_do_enunciado_comecando_com_A_nao_vira_alternativa(self):
         from .forms import _normalizar_enunciado
+
         texto = (
-            'A sociedade empresária Alfa foi contratada pela Administração.\n'
-            'Considerando a situação, assinale a afirmativa correta.\n'
-            'A O Tribunal de Justiça deve julgar o mandado de segurança.\n'
-            'B O mandado deverá ser impetrado perante um Juiz de Direito.\n'
-            'C A divergência deve ser julgada por um Juiz Federal.\n'
-            'D A divergência deve ser julgada por um TRF.\n'
-            'E A União deve ser intimada da existência do feito.'
+            "A sociedade empresária Alfa foi contratada pela Administração.\n"
+            "Considerando a situação, assinale a afirmativa correta.\n"
+            "A O Tribunal de Justiça deve julgar o mandado de segurança.\n"
+            "B O mandado deverá ser impetrado perante um Juiz de Direito.\n"
+            "C A divergência deve ser julgada por um Juiz Federal.\n"
+            "D A divergência deve ser julgada por um TRF.\n"
+            "E A União deve ser intimada da existência do feito."
         )
         out = _normalizar_enunciado(texto)
-        paras = out.split('\n\n')
+        paras = out.split("\n\n")
         self.assertEqual(len(paras), 6)
-        self.assertIn('A sociedade empresária', paras[0])
-        self.assertTrue(paras[1].startswith('A) O Tribunal'))
+        self.assertIn("A sociedade empresária", paras[0])
+        self.assertTrue(paras[1].startswith("A) O Tribunal"))
 
     def test_formatos_pontuados_continuam_funcionando(self):
         from .forms import _normalizar_enunciado
-        texto = 'Enunciado da questão.\nA) primeira\nB) segunda\nC) terceira\nD) quarta'
+
+        texto = "Enunciado da questão.\nA) primeira\nB) segunda\nC) terceira\nD) quarta"
         out = _normalizar_enunciado(texto)
-        self.assertEqual(len(out.split('\n\n')), 5)
+        self.assertEqual(len(out.split("\n\n")), 5)
 
     def test_certo_errado(self):
         from .forms import _normalizar_enunciado
-        texto = 'Julgue o item a seguir: a União é ente federativo.\nCerto\nErrado'
+
+        texto = "Julgue o item a seguir: a União é ente federativo.\nCerto\nErrado"
         out = _normalizar_enunciado(texto)
-        paras = out.split('\n\n')
-        self.assertEqual(paras[1], 'C) Certo')
-        self.assertEqual(paras[2], 'E) Errado')
+        paras = out.split("\n\n")
+        self.assertEqual(paras[1], "C) Certo")
+        self.assertEqual(paras[2], "E) Errado")
 
     def test_sem_alternativas_mantem_paragrafos(self):
         from .forms import _normalizar_enunciado
-        texto = 'Primeiro parágrafo.\n\nSegundo parágrafo.'
-        self.assertEqual(_normalizar_enunciado(texto), 'Primeiro parágrafo.\n\nSegundo parágrafo.')
+
+        texto = "Primeiro parágrafo.\n\nSegundo parágrafo."
+        self.assertEqual(_normalizar_enunciado(texto), "Primeiro parágrafo.\n\nSegundo parágrafo.")
 
     def test_cid_63_e_64_viram_ligaduras(self):
-        self.assertEqual(extraction._limpar_texto('a(cid:63)rmado e in(cid:64)uência'), 'afirmado e influência')
+        self.assertEqual(
+            extraction._limpar_texto("a(cid:63)rmado e in(cid:64)uência"), "afirmado e influência"
+        )
 
     def test_alternativas_minusculas_continuando_o_enunciado(self):
         from .forms import _normalizar_enunciado
+
         texto = (
-            'A sociedade Alfa ajuizou demanda em face do Estado.\n'
-            'Ao fim dos estudos, concluiu-se corretamente que:\n'
-            'A é cabível a decretação da intervenção provocada, a que pressupõe o provimento de representação\n'
-            'ajuizada pelo procurador-geral;\n'
-            'B é cabível a decretação da intervenção espontânea, desde que a ausência de repasse\n'
-            'tenha se estendido;\n'
-            'C é cabível a decretação da intervenção espontânea, devendo o decreto especificar a amplitude;\n'
-            'D é cabível a decretação da intervenção provocada, o que pressupõe requerimento;\n'
-            'E não é cabível a decretação da intervenção pela União.'
+            "A sociedade Alfa ajuizou demanda em face do Estado.\n"
+            "Ao fim dos estudos, concluiu-se corretamente que:\n"
+            "A é cabível a decretação da intervenção provocada, a que pressupõe o provimento de representação\n"
+            "ajuizada pelo procurador-geral;\n"
+            "B é cabível a decretação da intervenção espontânea, desde que a ausência de repasse\n"
+            "tenha se estendido;\n"
+            "C é cabível a decretação da intervenção espontânea, devendo o decreto especificar a amplitude;\n"
+            "D é cabível a decretação da intervenção provocada, o que pressupõe requerimento;\n"
+            "E não é cabível a decretação da intervenção pela União."
         )
         out = _normalizar_enunciado(texto)
-        paras = out.split('\n\n')
+        paras = out.split("\n\n")
         self.assertEqual(len(paras), 6)
-        self.assertIn('A sociedade Alfa', paras[0])
-        self.assertTrue(paras[1].startswith('A) é cabível a decretação da intervenção provocada'))
-        self.assertIn('ajuizada pelo procurador-geral;', paras[1])
+        self.assertIn("A sociedade Alfa", paras[0])
+        self.assertTrue(paras[1].startswith("A) é cabível a decretação da intervenção provocada"))
+        self.assertIn("ajuizada pelo procurador-geral;", paras[1])
 
     def test_remove_grade_de_respostas_e_ids(self):
         from .forms import _normalizar_enunciado
+
         texto = (
-            'Enunciado final do caderno.\n'
-            'A não afrontaria a ordem constitucional;\n'
-            'B afrontaria a ordem constitucional;\n'
-            'C não afrontaria, pois as desigualdades foram superadas;\n'
-            '4000823362\n'
-            'Respostas:\n'
-            '1 C 2 A 3 A 4 E 5 A 6 A 7 C 8 B\n'
-            '9 B 10 D 11 C 12 E 13 A 14 A 15 E 16 E'
+            "Enunciado final do caderno.\n"
+            "A não afrontaria a ordem constitucional;\n"
+            "B afrontaria a ordem constitucional;\n"
+            "C não afrontaria, pois as desigualdades foram superadas;\n"
+            "4000823362\n"
+            "Respostas:\n"
+            "1 C 2 A 3 A 4 E 5 A 6 A 7 C 8 B\n"
+            "9 B 10 D 11 C 12 E 13 A 14 A 15 E 16 E"
         )
         out = _normalizar_enunciado(texto)
-        self.assertNotIn('Respostas', out)
-        self.assertNotIn('4000823362', out)
-        self.assertNotIn('9 B 10 D', out)
-        self.assertEqual(len(out.split('\n\n')), 4)
+        self.assertNotIn("Respostas", out)
+        self.assertNotIn("4000823362", out)
+        self.assertNotIn("9 B 10 D", out)
+        self.assertEqual(len(out.split("\n\n")), 4)
 
 
 class DisciplinaCustoTopicosTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user('ana', password='x')
-        self.prova = Prova.objects.create(user=self.user, nome='Concurso')
-        self.disc = Disciplina.objects.create(prova=self.prova, nome='Direito')
-        self.prompt = Prompt.objects.create(user=self.user, nome='Explicar', texto='Explique.')
+        self.user = User.objects.create_user("ana", password="x")
+        self.prova = Prova.objects.create(user=self.user, nome="Concurso")
+        self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
+        self.prompt = Prompt.objects.create(user=self.user, nome="Explicar", texto="Explique.")
         self.client.force_login(self.user)
 
     def test_sem_analise_nao_estima_custo(self):
-        Questao.objects.create(disciplina=self.disc, numero=1, enunciado_md='Enunciado sem análise')
-        resp = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
-        self.assertIsNone(resp.context['custo_estimado_topicos'])
+        Questao.objects.create(disciplina=self.disc, numero=1, enunciado_md="Enunciado sem análise")
+        resp = self.client.get(reverse("questions:disciplina", args=[self.disc.pk]))
+        self.assertIsNone(resp.context["custo_estimado_topicos"])
 
     def test_com_analise_mostra_custo_estimado_ao_lado_do_botao(self):
-        q = Questao.objects.create(disciplina=self.disc, numero=1, enunciado_md='Enunciado sobre X ' * 20)
-        ResultadoPrompt.objects.create(
-            questao=q, prompt=self.prompt, status=ResultadoPrompt.Status.CONCLUIDO,
-            resultado_md='Análise concluída sobre o tema.',
+        q = Questao.objects.create(
+            disciplina=self.disc, numero=1, enunciado_md="Enunciado sobre X " * 20
         )
-        resp = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
-        custo = resp.context['custo_estimado_topicos']
+        ResultadoPrompt.objects.create(
+            questao=q,
+            prompt=self.prompt,
+            status=ResultadoPrompt.Status.CONCLUIDO,
+            resultado_md="Análise concluída sobre o tema.",
+        )
+        resp = self.client.get(reverse("questions:disciplina", args=[self.disc.pk]))
+        custo = resp.context["custo_estimado_topicos"]
         self.assertIsNotNone(custo)
-        self.assertTrue(custo.startswith('$') or custo.startswith('< $'))
+        self.assertTrue(custo.startswith("$") or custo.startswith("< $"))
         self.assertContains(resp, custo)
 
 
@@ -237,19 +252,19 @@ class TopicosErroVisivelTests(TestCase):
     polling ao vivo está rodando — senão o usuário só vê silêncio."""
 
     def test_erro_persistido_aparece_no_carregamento_normal_da_pagina(self):
-        user = User.objects.create_user('ana2', password='x')
-        prova = Prova.objects.create(user=user, nome='Concurso')
-        disc = Disciplina.objects.create(prova=prova, nome='Direito Processual Civil')
-        Questao.objects.create(disciplina=disc, numero=1, enunciado_md='Enunciado')
+        user = User.objects.create_user("ana2", password="x")
+        prova = Prova.objects.create(user=user, nome="Concurso")
+        disc = Disciplina.objects.create(prova=prova, nome="Direito Processual Civil")
+        Questao.objects.create(disciplina=disc, numero=1, enunciado_md="Enunciado")
         cache.set(
             chave_topicos_erro(disc.pk),
-            'Teto de gastos atingido: 3 de 8 tópico(s) não foram sintetizados.',
+            "Teto de gastos atingido: 3 de 8 tópico(s) não foram sintetizados.",
             86400,
         )
         self.client.force_login(user)
-        resp = self.client.get(reverse('questions:disciplina', args=[disc.pk]))
-        self.assertContains(resp, 'Teto de gastos atingido')
-        self.assertContains(resp, 'disc-banner-error')
+        resp = self.client.get(reverse("questions:disciplina", args=[disc.pk]))
+        self.assertContains(resp, "Teto de gastos atingido")
+        self.assertContains(resp, "disc-banner-error")
 
 
 class ProgressoComEtaTests(TestCase):
@@ -261,72 +276,76 @@ class ProgressoComEtaTests(TestCase):
         from django.utils import timezone
 
         from .views import _progresso_com_eta
+
         inicio = timezone.now() - timedelta(seconds=segundos_atras)
         return _progresso_com_eta(inicio, feitos, restantes)
 
     def test_sem_inicio_nao_estima(self):
         from .views import _progresso_com_eta
-        self.assertEqual(_progresso_com_eta(None, 0, 0), {'decorrido': None, 'eta': None})
+
+        self.assertEqual(_progresso_com_eta(None, 0, 0), {"decorrido": None, "eta": None})
 
     def test_estimativa_proporcional_ao_ritmo_observado(self):
         # 10 feitos em 100s => 10s cada => 5 restantes ~ 50s
         r = self._eta(100, 10, 5)
-        self.assertAlmostEqual(r['decorrido'], 100, delta=2)
-        self.assertAlmostEqual(r['eta'], 50, delta=3)
+        self.assertAlmostEqual(r["decorrido"], 100, delta=2)
+        self.assertAlmostEqual(r["eta"], 50, delta=3)
 
     def test_nao_estima_antes_de_ter_amostra(self):
-        self.assertIsNone(self._eta(120, 0, 10)['eta'])   # nada concluído ainda
-        self.assertIsNone(self._eta(5, 1, 10)['eta'])     # cedo demais
-        self.assertIsNone(self._eta(120, 10, 0)['eta'])   # nada restante
+        self.assertIsNone(self._eta(120, 0, 10)["eta"])  # nada concluído ainda
+        self.assertIsNone(self._eta(5, 1, 10)["eta"])  # cedo demais
+        self.assertIsNone(self._eta(120, 10, 0)["eta"])  # nada restante
 
     def test_estimativa_tem_teto_para_nao_projetar_horas(self):
         # 1 item levou 1h; 100 restantes projetariam ~100h
         r = self._eta(3600, 1, 100)
-        self.assertEqual(r['eta'], 4 * 3600)
+        self.assertEqual(r["eta"], 4 * 3600)
 
 
 class LeituraTopicoTests(TestCase):
     """Marcação de tópicos lidos e sua contagem."""
 
     def setUp(self):
-        self.user = User.objects.create_user('leitor', password='x')
-        prova = Prova.objects.create(user=self.user, nome='Concurso')
-        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
-        self.t1 = Topico.objects.create(disciplina=self.disc, nome='Tema A', ordem=0)
-        self.t2 = Topico.objects.create(disciplina=self.disc, nome='Tema B', ordem=1)
+        self.user = User.objects.create_user("leitor", password="x")
+        prova = Prova.objects.create(user=self.user, nome="Concurso")
+        self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
+        self.t1 = Topico.objects.create(disciplina=self.disc, nome="Tema A", ordem=0)
+        self.t2 = Topico.objects.create(disciplina=self.disc, nome="Tema B", ordem=1)
         self.client.force_login(self.user)
 
     def test_marca_e_desmarca_como_lido(self):
-        url = reverse('questions:topico_leitura', args=[self.t1.pk])
-        r = self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
-        self.assertEqual(r.json()['lido'], True)
-        self.assertEqual(r.json()['total_lidos'], 1)
+        url = reverse("questions:topico_leitura", args=[self.t1.pk])
+        r = self.client.post(url, {"lido": "1"}, headers={"x-requested-with": "XMLHttpRequest"})
+        self.assertEqual(r.json()["lido"], True)
+        self.assertEqual(r.json()["total_lidos"], 1)
         self.assertTrue(LeituraTopico.objects.filter(user=self.user, topico=self.t1).exists())
 
-        r = self.client.post(url, {'lido': '0'}, headers={'x-requested-with': 'XMLHttpRequest'})
-        self.assertEqual(r.json()['lido'], False)
-        self.assertEqual(r.json()['total_lidos'], 0)
+        r = self.client.post(url, {"lido": "0"}, headers={"x-requested-with": "XMLHttpRequest"})
+        self.assertEqual(r.json()["lido"], False)
+        self.assertEqual(r.json()["total_lidos"], 0)
         self.assertFalse(LeituraTopico.objects.filter(user=self.user, topico=self.t1).exists())
 
     def test_marcar_duas_vezes_nao_duplica(self):
-        url = reverse('questions:topico_leitura', args=[self.t1.pk])
-        self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
-        self.client.post(url, {'lido': '1'}, headers={'x-requested-with': 'XMLHttpRequest'})
+        url = reverse("questions:topico_leitura", args=[self.t1.pk])
+        self.client.post(url, {"lido": "1"}, headers={"x-requested-with": "XMLHttpRequest"})
+        self.client.post(url, {"lido": "1"}, headers={"x-requested-with": "XMLHttpRequest"})
         self.assertEqual(LeituraTopico.objects.filter(topico=self.t1).count(), 1)
 
     def test_leitura_e_por_usuario(self):
         LeituraTopico.objects.create(user=self.user, topico=self.t1)
-        outro = User.objects.create_user('outro', password='x')
+        outro = User.objects.create_user("outro", password="x")
         self.client.force_login(outro)
         # o tópico é de outro usuário: nem acessível
-        r = self.client.post(reverse('questions:topico_leitura', args=[self.t1.pk]))
+        r = self.client.post(reverse("questions:topico_leitura", args=[self.t1.pk]))
         self.assertEqual(r.status_code, 404)
 
     def test_nao_marca_topico_de_outro_usuario(self):
-        outra_prova = Prova.objects.create(user=User.objects.create_user('bia', password='x'), nome='P')
-        outra_disc = Disciplina.objects.create(prova=outra_prova, nome='D')
-        alheio = Topico.objects.create(disciplina=outra_disc, nome='Alheio')
-        r = self.client.post(reverse('questions:topico_leitura', args=[alheio.pk]))
+        outra_prova = Prova.objects.create(
+            user=User.objects.create_user("bia", password="x"), nome="P"
+        )
+        outra_disc = Disciplina.objects.create(prova=outra_prova, nome="D")
+        alheio = Topico.objects.create(disciplina=outra_disc, nome="Alheio")
+        r = self.client.post(reverse("questions:topico_leitura", args=[alheio.pk]))
         self.assertEqual(r.status_code, 404)
         self.assertFalse(LeituraTopico.objects.exists())
 
@@ -337,83 +356,85 @@ class LeituraTopicoTests(TestCase):
 
     def test_pagina_do_topico_traz_navegacao_e_estado(self):
         LeituraTopico.objects.create(user=self.user, topico=self.t1)
-        r = self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        r = self.client.get(reverse("questions:topico_detalhe", args=[self.t1.pk]))
         self.assertEqual(r.status_code, 200)
-        self.assertTrue(r.context['lido'])
-        self.assertEqual(r.context['total_lidos'], 1)
-        self.assertEqual(r.context['total_topicos'], 2)
-        self.assertIsNone(r.context['anterior'])
-        self.assertEqual(r.context['proximo'], self.t2)
+        self.assertTrue(r.context["lido"])
+        self.assertEqual(r.context["total_lidos"], 1)
+        self.assertEqual(r.context["total_topicos"], 2)
+        self.assertIsNone(r.context["anterior"])
+        self.assertEqual(r.context["proximo"], self.t2)
 
     def test_disciplina_marca_quais_topicos_estao_lidos(self):
         LeituraTopico.objects.create(user=self.user, topico=self.t2)
-        r = self.client.get(reverse('questions:disciplina', args=[self.disc.pk]))
-        lidos = {t.nome: t.lido for t in r.context['topicos']}
-        self.assertEqual(lidos, {'Tema A': False, 'Tema B': True})
-        self.assertEqual(r.context['total_lidos'], 1)
+        r = self.client.get(reverse("questions:disciplina", args=[self.disc.pk]))
+        lidos = {t.nome: t.lido for t in r.context["topicos"]}
+        self.assertEqual(lidos, {"Tema A": False, "Tema B": True})
+        self.assertEqual(r.context["total_lidos"], 1)
 
 
 class OrdemTopicosTests(TestCase):
     def test_mais_questoes_primeiro_e_sobras_por_ultimo(self):
-        user = User.objects.create_user('ana3', password='x')
-        prova = Prova.objects.create(user=user, nome='P')
-        disc = Disciplina.objects.create(prova=prova, nome='D')
+        user = User.objects.create_user("ana3", password="x")
+        prova = Prova.objects.create(user=user, nome="P")
+        disc = Disciplina.objects.create(prova=prova, nome="D")
         from .models import NOME_TOPICO_SOBRAS
+
         sobras = Topico.objects.create(disciplina=disc, nome=NOME_TOPICO_SOBRAS)
-        pequeno = Topico.objects.create(disciplina=disc, nome='Pequeno')
-        grande = Topico.objects.create(disciplina=disc, nome='Grande')
+        pequeno = Topico.objects.create(disciplina=disc, nome="Pequeno")
+        grande = Topico.objects.create(disciplina=disc, nome="Grande")
         for i, t in enumerate([sobras] * 9 + [pequeno] * 2 + [grande] * 5):
             Questao.objects.create(disciplina=disc, numero=i + 1, topico=t)
 
         from .views import _topicos_ordenados
+
         nomes = [t.nome for t in _topicos_ordenados(disc)]
         # sobras tem MAIS questões que todos, mas vai para o fim mesmo assim
-        self.assertEqual(nomes, ['Grande', 'Pequeno', NOME_TOPICO_SOBRAS])
+        self.assertEqual(nomes, ["Grande", "Pequeno", NOME_TOPICO_SOBRAS])
 
 
 class ContinuarLendoTests(TestCase):
     """Atalho da dashboard para o último tópico aberto."""
 
     def setUp(self):
-        self.user = User.objects.create_user('leitor2', password='x')
-        prova = Prova.objects.create(user=self.user, nome='Concurso')
-        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
-        self.t1 = Topico.objects.create(disciplina=self.disc, nome='Tema A', ordem=0)
-        self.t2 = Topico.objects.create(disciplina=self.disc, nome='Tema B', ordem=1)
+        self.user = User.objects.create_user("leitor2", password="x")
+        prova = Prova.objects.create(user=self.user, nome="Concurso")
+        self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
+        self.t1 = Topico.objects.create(disciplina=self.disc, nome="Tema A", ordem=0)
+        self.t2 = Topico.objects.create(disciplina=self.disc, nome="Tema B", ordem=1)
         self.client.force_login(self.user)
 
     def test_abrir_topico_registra_como_ultimo(self):
-        self.client.get(reverse('questions:topico_detalhe', args=[self.t2.pk]))
+        self.client.get(reverse("questions:topico_detalhe", args=[self.t2.pk]))
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.ultimo_topico, self.t2)
 
     def test_dashboard_oferece_continuar_de_onde_parou(self):
-        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
-        r = self.client.get(reverse('dashboard'))
-        self.assertEqual(r.context['continuar'], self.t1)
+        self.client.get(reverse("questions:topico_detalhe", args=[self.t1.pk]))
+        r = self.client.get(reverse("dashboard"))
+        self.assertEqual(r.context["continuar"], self.t1)
 
     def test_topico_ja_lido_nao_e_oferecido(self):
-        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        self.client.get(reverse("questions:topico_detalhe", args=[self.t1.pk]))
         LeituraTopico.objects.create(user=self.user, topico=self.t1)
-        r = self.client.get(reverse('dashboard'))
-        self.assertIsNone(r.context['continuar'])
+        r = self.client.get(reverse("dashboard"))
+        self.assertIsNone(r.context["continuar"])
 
     def test_regerar_topicos_nao_quebra_o_atalho(self):
-        self.client.get(reverse('questions:topico_detalhe', args=[self.t1.pk]))
+        self.client.get(reverse("questions:topico_detalhe", args=[self.t1.pk]))
         self.disc.topicos.all().delete()
         self.user.profile.refresh_from_db()
         self.assertIsNone(self.user.profile.ultimo_topico)
-        r = self.client.get(reverse('dashboard'))
+        r = self.client.get(reverse("dashboard"))
         self.assertEqual(r.status_code, 200)
-        self.assertIsNone(r.context['continuar'])
+        self.assertIsNone(r.context["continuar"])
 
     def test_dashboard_conta_topicos_lidos_e_a_ler(self):
         LeituraTopico.objects.create(user=self.user, topico=self.t1)
-        r = self.client.get(reverse('dashboard'))
-        self.assertEqual(r.context['total_topicos'], 2)
-        self.assertEqual(r.context['total_lidos'], 1)
-        self.assertEqual(r.context['total_a_ler'], 1)
-        self.assertEqual(r.context['pct_lidos'], 50)
+        r = self.client.get(reverse("dashboard"))
+        self.assertEqual(r.context["total_topicos"], 2)
+        self.assertEqual(r.context["total_lidos"], 1)
+        self.assertEqual(r.context["total_a_ler"], 1)
+        self.assertEqual(r.context["pct_lidos"], 50)
 
 
 class ParserAlternativasTests(TestCase):
@@ -427,13 +448,16 @@ class ParserAlternativasTests(TestCase):
         import subprocess
         from pathlib import Path
 
-        node = shutil.which('node')
+        node = shutil.which("node")
         if not node:
-            self.skipTest('node não disponível')
+            self.skipTest("node não disponível")
         base = Path(__file__).resolve().parent.parent
         r = subprocess.run(
-            [node, 'questions/tests_parser_alternativas.js'],
-            cwd=base, capture_output=True, text=True, timeout=60,
+            [node, "questions/tests_parser_alternativas.js"],
+            cwd=base,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         self.assertEqual(r.returncode, 0, msg=r.stdout + r.stderr)
 
@@ -446,31 +470,24 @@ class GabaritoGradeTests(TestCase):
 
     def test_linha_final_parcial_da_grade_entra(self):
         paginas = [
-            'GABARITO\n'
-            '1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n'
-            '9 D 10 E 11 A 12 B 13 C 14 D 15 E 16 A\n'
-            '17 B 18 C\n'
+            "GABARITO\n"
+            "1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n"
+            "9 D 10 E 11 A 12 B 13 C 14 D 15 E 16 A\n"
+            "17 B 18 C\n"
         ]
         mapa = extraction._detectar_gabarito(paginas)
         self.assertEqual(len(mapa), 18)
-        self.assertEqual(mapa[17], 'B')
-        self.assertEqual(mapa[18], 'C')
+        self.assertEqual(mapa[17], "B")
+        self.assertEqual(mapa[18], "C")
 
     def test_par_solto_fora_da_sequencia_nao_entra(self):
         # "1 A" de legenda/rodapé não pode virar gabarito: não emenda no fim.
-        paginas = [
-            '10 A 11 B 12 C 13 D 14 E 15 A\n'
-            '1 A\n'
-            '99 E\n'
-        ]
+        paginas = ["10 A 11 B 12 C 13 D 14 E 15 A\n1 A\n99 E\n"]
         mapa = extraction._detectar_gabarito(paginas)
         self.assertEqual(sorted(mapa), [10, 11, 12, 13, 14, 15])
 
     def test_linha_parcial_com_texto_em_volta_nao_entra(self):
-        paginas = [
-            '1 A 2 B 3 C 4 D 5 E 6 A\n'
-            'conforme o art. 7 A da lei\n'
-        ]
+        paginas = ["1 A 2 B 3 C 4 D 5 E 6 A\nconforme o art. 7 A da lei\n"]
         mapa = extraction._detectar_gabarito(paginas)
         self.assertEqual(sorted(mapa), [1, 2, 3, 4, 5, 6])
 
@@ -482,117 +499,132 @@ class RuidoDeGradeTests(TestCase):
 
     def test_linha_de_grade_com_um_par_so_e_removida(self):
         from .forms import _normalizar_enunciado
+
         texto = (
-            'Enunciado da última questão do caderno.\n'
-            'A) primeira\nB) segunda\nC) terceira\n'
-            'GABARITO\n'
-            '1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n'
-            '9 D\n'
+            "Enunciado da última questão do caderno.\n"
+            "A) primeira\nB) segunda\nC) terceira\n"
+            "GABARITO\n"
+            "1 A 2 B 3 C 4 D 5 E 6 A 7 B 8 C\n"
+            "9 D\n"
         )
         out = _normalizar_enunciado(texto)
-        self.assertNotIn('GABARITO', out)
-        self.assertNotIn('9 D', out)
-        self.assertIn('Enunciado da última questão', out)
-        self.assertIn('C) terceira', out)
+        self.assertNotIn("GABARITO", out)
+        self.assertNotIn("9 D", out)
+        self.assertIn("Enunciado da última questão", out)
+        self.assertIn("C) terceira", out)
 
     def test_palavra_gabarito_dentro_da_frase_permanece(self):
         # Caso real: questão que fala sobre o gabarito de um concurso.
         from .forms import _normalizar_enunciado
+
         texto = (
-            'Antônio alegou que suas respostas estavam de acordo com o '
-            'gabarito fornecido pela comissão organizadora do concurso.\n'
-            'A) primeira\nB) segunda\n'
+            "Antônio alegou que suas respostas estavam de acordo com o "
+            "gabarito fornecido pela comissão organizadora do concurso.\n"
+            "A) primeira\nB) segunda\n"
         )
         out = _normalizar_enunciado(texto)
-        self.assertIn('gabarito fornecido pela comissão', out)
+        self.assertIn("gabarito fornecido pela comissão", out)
 
     def test_numero_e_letra_no_meio_do_texto_permanecem(self):
         from .forms import _normalizar_enunciado
-        texto = 'O item 5 A da tabela citada é relevante para a resposta.\nA) sim\nB) não\n'
+
+        texto = "O item 5 A da tabela citada é relevante para a resposta.\nA) sim\nB) não\n"
         out = _normalizar_enunciado(texto)
-        self.assertIn('item 5 A da tabela', out)
+        self.assertIn("item 5 A da tabela", out)
 
 
 class RevisaoTests(TestCase):
     """Autoteste com as questões dos tópicos já lidos."""
 
     def setUp(self):
-        self.user = User.objects.create_user('rod', password='x')
-        prova = Prova.objects.create(user=self.user, nome='Concurso')
-        self.disc = Disciplina.objects.create(prova=prova, nome='Direito')
-        self.lido = Topico.objects.create(disciplina=self.disc, nome='Lido', ordem=0)
-        self.nao_lido = Topico.objects.create(disciplina=self.disc, nome='Não lido', ordem=1)
+        self.user = User.objects.create_user("rod", password="x")
+        prova = Prova.objects.create(user=self.user, nome="Concurso")
+        self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
+        self.lido = Topico.objects.create(disciplina=self.disc, nome="Lido", ordem=0)
+        self.nao_lido = Topico.objects.create(disciplina=self.disc, nome="Não lido", ordem=1)
         self.q_lida = Questao.objects.create(
-            disciplina=self.disc, numero=1, topico=self.lido,
-            enunciado_md='Enunciado.\nA) a\nB) b\nC) c\nD) d', gabarito='B',
+            disciplina=self.disc,
+            numero=1,
+            topico=self.lido,
+            enunciado_md="Enunciado.\nA) a\nB) b\nC) c\nD) d",
+            gabarito="B",
         )
         self.q_outra = Questao.objects.create(
-            disciplina=self.disc, numero=2, topico=self.nao_lido,
-            enunciado_md='Outra.\nA) a\nB) b', gabarito='A',
+            disciplina=self.disc,
+            numero=2,
+            topico=self.nao_lido,
+            enunciado_md="Outra.\nA) a\nB) b",
+            gabarito="A",
         )
         LeituraTopico.objects.create(user=self.user, topico=self.lido)
         self.client.force_login(self.user)
 
     def test_so_entram_questoes_de_topicos_lidos(self):
-        r = self.client.get(reverse('questions:revisao'))
+        r = self.client.get(reverse("questions:revisao"))
         self.assertEqual(r.status_code, 200)
-        pks = [d['pk'] for d in r.context['dados']]
+        pks = [d["pk"] for d in r.context["dados"]]
         self.assertIn(self.q_lida.pk, pks)
         self.assertNotIn(self.q_outra.pk, pks)
 
     def test_escopo_por_topico(self):
         LeituraTopico.objects.create(user=self.user, topico=self.nao_lido)
-        r = self.client.get(reverse('questions:revisao'), {'topico': self.lido.pk})
-        pks = [d['pk'] for d in r.context['dados']]
+        r = self.client.get(reverse("questions:revisao"), {"topico": self.lido.pk})
+        pks = [d["pk"] for d in r.context["dados"]]
         self.assertEqual(pks, [self.q_lida.pk])
 
     def test_questao_sem_gabarito_fica_de_fora(self):
-        self.q_lida.gabarito = ''
-        self.q_lida.save(update_fields=['gabarito'])
-        r = self.client.get(reverse('questions:revisao'))
-        self.assertEqual(r.context['total'], 0)
+        self.q_lida.gabarito = ""
+        self.q_lida.save(update_fields=["gabarito"])
+        r = self.client.get(reverse("questions:revisao"))
+        self.assertEqual(r.context["total"], 0)
 
     def test_responder_certo_registra_acerto(self):
-        url = reverse('questions:revisao_responder', args=[self.q_lida.pk])
-        r = self.client.post(url, {'alternativa': 'B'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        url = reverse("questions:revisao_responder", args=[self.q_lida.pk])
+        r = self.client.post(url, {"alternativa": "B"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertEqual(r.status_code, 200)
         data = r.json()
-        self.assertTrue(data['correta'])
-        self.assertEqual(data['gabarito'], 'B')
+        self.assertTrue(data["correta"])
+        self.assertEqual(data["gabarito"], "B")
         resp = RespostaRevisao.objects.get(user=self.user, questao=self.q_lida)
         self.assertTrue(resp.correta)
-        self.assertEqual(resp.alternativa, 'B')
+        self.assertEqual(resp.alternativa, "B")
 
     def test_responder_errado_registra_erro(self):
-        url = reverse('questions:revisao_responder', args=[self.q_lida.pk])
-        data = self.client.post(url, {'alternativa': 'C'}).json()
-        self.assertFalse(data['correta'])
-        self.assertEqual(data['gabarito'], 'B')
+        url = reverse("questions:revisao_responder", args=[self.q_lida.pk])
+        data = self.client.post(url, {"alternativa": "C"}).json()
+        self.assertFalse(data["correta"])
+        self.assertEqual(data["gabarito"], "B")
         self.assertFalse(RespostaRevisao.objects.get(user=self.user, questao=self.q_lida).correta)
 
     def test_nao_responde_questao_de_outro_usuario(self):
-        outro = User.objects.create_user('bia', password='x')
-        outra_prova = Prova.objects.create(user=outro, nome='P')
-        outra_disc = Disciplina.objects.create(prova=outra_prova, nome='D')
-        alheia = Questao.objects.create(disciplina=outra_disc, numero=1, gabarito='A')
-        r = self.client.post(reverse('questions:revisao_responder', args=[alheia.pk]), {'alternativa': 'A'})
+        outro = User.objects.create_user("bia", password="x")
+        outra_prova = Prova.objects.create(user=outro, nome="P")
+        outra_disc = Disciplina.objects.create(prova=outra_prova, nome="D")
+        alheia = Questao.objects.create(disciplina=outra_disc, numero=1, gabarito="A")
+        r = self.client.post(
+            reverse("questions:revisao_responder", args=[alheia.pk]), {"alternativa": "A"}
+        )
         self.assertEqual(r.status_code, 404)
         self.assertFalse(RespostaRevisao.objects.exists())
 
     def test_selecao_revisa_questoes_especificas_mesmo_nao_lidas(self):
         # ?questoes= entra mesmo com o tópico não lido, e ignora as não escolhidas.
-        ids = '%d,%d' % (self.q_lida.pk, self.q_outra.pk)
-        r = self.client.get(reverse('questions:revisao'), {'questoes': ids})
-        pks = {d['pk'] for d in r.context['dados']}
+        ids = "%d,%d" % (self.q_lida.pk, self.q_outra.pk)
+        r = self.client.get(reverse("questions:revisao"), {"questoes": ids})
+        pks = {d["pk"] for d in r.context["dados"]}
         self.assertEqual(pks, {self.q_lida.pk, self.q_outra.pk})
 
     def test_selecao_ignora_questao_de_outro_usuario(self):
         outra_prova = Prova.objects.create(
-            user=User.objects.create_user('bia', password='x'), nome='P')
+            user=User.objects.create_user("bia", password="x"), nome="P"
+        )
         alheia = Questao.objects.create(
-            disciplina=Disciplina.objects.create(prova=outra_prova, nome='D'),
-            numero=9, gabarito='A')
-        r = self.client.get(reverse('questions:revisao'),
-                            {'questoes': '%d,%d' % (self.q_lida.pk, alheia.pk)})
-        pks = {d['pk'] for d in r.context['dados']}
+            disciplina=Disciplina.objects.create(prova=outra_prova, nome="D"),
+            numero=9,
+            gabarito="A",
+        )
+        r = self.client.get(
+            reverse("questions:revisao"), {"questoes": "%d,%d" % (self.q_lida.pk, alheia.pk)}
+        )
+        pks = {d["pk"] for d in r.context["dados"]}
         self.assertEqual(pks, {self.q_lida.pk})

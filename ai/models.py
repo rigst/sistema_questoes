@@ -8,35 +8,31 @@ class ResultadoPrompt(models.Model):
     """Resultado da aplicação de um prompt sobre uma questão (N por questão)."""
 
     class Status(models.TextChoices):
-        PENDENTE = 'pendente', 'Pendente'
-        PROCESSANDO = 'processando', 'Processando'
-        CONCLUIDO = 'concluido', 'Concluído'
-        ERRO = 'erro', 'Erro'
+        PENDENTE = "pendente", "Pendente"
+        PROCESSANDO = "processando", "Processando"
+        CONCLUIDO = "concluido", "Concluído"
+        ERRO = "erro", "Erro"
 
-    questao = models.ForeignKey(
-        Questao, on_delete=models.CASCADE, related_name='resultados'
-    )
-    prompt = models.ForeignKey(
-        Prompt, on_delete=models.CASCADE, related_name='resultados'
-    )
+    questao = models.ForeignKey(Questao, on_delete=models.CASCADE, related_name="resultados")
+    prompt = models.ForeignKey(Prompt, on_delete=models.CASCADE, related_name="resultados")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDENTE)
-    resultado_md = models.TextField('resultado (markdown)', blank=True)
-    modelo = models.CharField('modelo', max_length=100, blank=True)
+    resultado_md = models.TextField("resultado (markdown)", blank=True)
+    modelo = models.CharField("modelo", max_length=100, blank=True)
     input_tokens = models.PositiveIntegerField(default=0)
     output_tokens = models.PositiveIntegerField(default=0)
     custo_estimado = models.DecimalField(max_digits=10, decimal_places=5, default=0)
-    batch_id = models.CharField('batch id', max_length=120, blank=True)
-    erro = models.TextField('erro', blank=True)
+    batch_id = models.CharField("batch id", max_length=120, blank=True)
+    erro = models.TextField("erro", blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'resultado de prompt'
-        verbose_name_plural = 'resultados de prompts'
-        ordering = ['-criado_em']
+        verbose_name = "resultado de prompt"
+        verbose_name_plural = "resultados de prompts"
+        ordering = ["-criado_em"]
 
     def __str__(self):
-        return f'{self.prompt.nome} → Q{self.questao.numero}'
+        return f"{self.prompt.nome} → Q{self.questao.numero}"
 
     @property
     def total_tokens(self):
@@ -48,32 +44,30 @@ class TextoTopico(models.Model):
     questões e análises do tópico (1 por tópico)."""
 
     class Status(models.TextChoices):
-        PENDENTE = 'pendente', 'Pendente'
-        PROCESSANDO = 'processando', 'Processando'
-        CONCLUIDO = 'concluido', 'Concluído'
-        ERRO = 'erro', 'Erro'
+        PENDENTE = "pendente", "Pendente"
+        PROCESSANDO = "processando", "Processando"
+        CONCLUIDO = "concluido", "Concluído"
+        ERRO = "erro", "Erro"
 
-    topico = models.OneToOneField(
-        Topico, on_delete=models.CASCADE, related_name='texto'
-    )
+    topico = models.OneToOneField(Topico, on_delete=models.CASCADE, related_name="texto")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDENTE)
-    texto_md = models.TextField('texto (markdown)', blank=True)
-    modelo = models.CharField('modelo', max_length=100, blank=True)
+    texto_md = models.TextField("texto (markdown)", blank=True)
+    modelo = models.CharField("modelo", max_length=100, blank=True)
     input_tokens = models.PositiveIntegerField(default=0)
     output_tokens = models.PositiveIntegerField(default=0)
     custo_estimado = models.DecimalField(max_digits=10, decimal_places=5, default=0)
-    batch_id = models.CharField('batch id', max_length=120, blank=True)
-    erro = models.TextField('erro', blank=True)
+    batch_id = models.CharField("batch id", max_length=120, blank=True)
+    erro = models.TextField("erro", blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'texto de tópico'
-        verbose_name_plural = 'textos de tópicos'
-        ordering = ['topico__ordem', 'topico_id']
+        verbose_name = "texto de tópico"
+        verbose_name_plural = "textos de tópicos"
+        ordering = ["topico__ordem", "topico_id"]
 
     def __str__(self):
-        return f'Texto de {self.topico.nome}'
+        return f"Texto de {self.topico.nome}"
 
     @property
     def total_tokens(self):

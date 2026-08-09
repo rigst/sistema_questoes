@@ -16,22 +16,22 @@ from .services import criar_visitante
 
 def cadastro(request):
     """Cria uma conta e autentica a sessão (se o cadastro público estiver ativo)."""
-    if not getattr(settings, 'ALLOW_PUBLIC_SIGNUP', False):
+    if not getattr(settings, "ALLOW_PUBLIC_SIGNUP", False):
         raise Http404
     if request.user.is_authenticated:
-        return redirect('dashboard')
-    if request.method == 'POST':
+        return redirect("dashboard")
+    if request.method == "POST":
         form = CadastroForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             # Depois do login: o aceite fica vinculado à conta recém-criada.
             registrar_aceite(request, usuario=user, origem=OrigemAceite.CADASTRO)
-            messages.success(request, 'Conta criada. Bons estudos!')
-            return redirect('dashboard')
+            messages.success(request, "Conta criada. Bons estudos!")
+            return redirect("dashboard")
     else:
         form = CadastroForm()
-    return render(request, 'registration/cadastro.html', {'form': form})
+    return render(request, "registration/cadastro.html", {"form": form})
 
 
 @require_POST
@@ -45,22 +45,20 @@ def entrar_como_visitante(request):
         # o checkbox não existe mais lá.
         return render(
             request,
-            'legal/aceite.html',
+            "legal/aceite.html",
             {
-                'form': form_aceite,
-                'documentos': list(documentos_vigentes().values()),
-                'action': reverse('accounts:entrar_visitante'),
-                'campos_extras': {},
+                "form": form_aceite,
+                "documentos": list(documentos_vigentes().values()),
+                "action": reverse("accounts:entrar_visitante"),
+                "campos_extras": {},
             },
         )
 
     user, _senha = criar_visitante()
     login(request, user)
-    registrar_aceite(
-        request, usuario=user, origem=OrigemAceite.VISITANTE, e_visitante=True
-    )
+    registrar_aceite(request, usuario=user, origem=OrigemAceite.VISITANTE, e_visitante=True)
     messages.info(
         request,
-        'Você entrou como visitante. Os dados são temporários e expiram por inatividade.',
+        "Você entrou como visitante. Os dados são temporários e expiram por inatividade.",
     )
-    return redirect('dashboard')
+    return redirect("dashboard")

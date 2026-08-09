@@ -15,4 +15,4 @@ def cleanup_expired_visitors():
     )
     total = expirados.count()
     expirados.delete()
-    return f'{total} visitante(s) expirado(s) removido(s).'
+    return f"{total} visitante(s) expirado(s) removido(s)."

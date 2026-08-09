@@ -37,22 +37,22 @@ except Exception:  # pragma: no cover
 
 
 # Marcador forte: a palavra "Questão"/"Questao" seguida do número.
-RE_QUESTAO_FORTE = re.compile(r'^\s*quest[ãa]o\s+(\d{1,3})\b', re.IGNORECASE)
+RE_QUESTAO_FORTE = re.compile(r"^\s*quest[ãa]o\s+(\d{1,3})\b", re.IGNORECASE)
 # Marcador numérico: número no início da linha seguido de delimitador.
-RE_QUESTAO_NUM = re.compile(r'^\s*(\d{1,3})\s*[\).\-º°]\s+')
+RE_QUESTAO_NUM = re.compile(r"^\s*(\d{1,3})\s*[\).\-º°]\s+")
 # Alternativas: "A ...", "A) ...", "A. ...".
-RE_ALTERNATIVA = re.compile(r'(?m)^\s*[A-Ea-e][\).\-]?\s+\S')
+RE_ALTERNATIVA = re.compile(r"(?m)^\s*[A-Ea-e][\).\-]?\s+\S")
 # Pares "número letra" da grade de gabarito (separador opcional: espaço, -, ., ), :).
-RE_GABARITO_PAR = re.compile(r'\b(\d{1,3})\s*[.\)\-:]?\s*([A-Ea-e])\b')
-RE_GABARITO_HEADER = re.compile(r'gabarito', re.IGNORECASE)
-RE_GABARITO_INLINE = re.compile(r'gabarito\s*[:\-]?\s*([A-Ea-e])\b', re.IGNORECASE)
+RE_GABARITO_PAR = re.compile(r"\b(\d{1,3})\s*[.\)\-:]?\s*([A-Ea-e])\b")
+RE_GABARITO_HEADER = re.compile(r"gabarito", re.IGNORECASE)
+RE_GABARITO_INLINE = re.compile(r"gabarito\s*[:\-]?\s*([A-Ea-e])\b", re.IGNORECASE)
 # Ruído conhecido a remover dos enunciados.
 RE_RUIDO = re.compile(
-    r'^(?:essa quest[ãa]o possui coment[áa]rio.*|acessar lista|p[áa]gina\s*\d+.*)$',
+    r"^(?:essa quest[ãa]o possui coment[áa]rio.*|acessar lista|p[áa]gina\s*\d+.*)$",
     re.IGNORECASE,
 )
-RE_CPF = re.compile(r'\d{3}\.\d{3}\.\d{3}-\d{2}')
-RE_CID = re.compile(r'\(cid:\d+\)')
+RE_CPF = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}")
+RE_CID = re.compile(r"\(cid:\d+\)")
 
 CONFIANCA_MINIMA_IA = 0.55
 
@@ -61,7 +61,7 @@ CONFIANCA_MINIMA_IA = 0.55
 class QuestaoExtraida:
     numero: int
     enunciado: str
-    gabarito: str = ''
+    gabarito: str = ""
     confianca: float = 0.0
     pagina: int = 0
     top: float = 0.0
@@ -81,8 +81,12 @@ class ResultadoExtracao:
 
 # Termos jurídicos frequentes ausentes do dicionário pt (reparo de ligaduras).
 _TERMOS_EXTRAS = [
-    'hipossuficiente', 'hipossuficientes', 'hipossuficiência',
-    'certificação', 'fiscalizatória', 'fiscalizatório',
+    "hipossuficiente",
+    "hipossuficientes",
+    "hipossuficiência",
+    "certificação",
+    "fiscalizatória",
+    "fiscalizatório",
 ]
 
 _SPELL_PT = None
@@ -92,13 +96,14 @@ def _dicionario_pt():
     global _SPELL_PT
     if _SPELL_PT is None:
         from spellchecker import SpellChecker
-        _SPELL_PT = SpellChecker(language='pt')
+
+        _SPELL_PT = SpellChecker(language="pt")
         _SPELL_PT.word_frequency.load_words(_TERMOS_EXTRAS)
     return _SPELL_PT
 
 
-RE_TOKEN_PT = re.compile(r'[A-Za-zÀ-ÖØ-öø-ÿ]{4,}')
-_LIGADURAS = ('fi', 'fl', 'ff')
+RE_TOKEN_PT = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]{4,}")
+_LIGADURAS = ("fi", "fl", "ff")
 
 
 @lru_cache(maxsize=50000)
@@ -125,15 +130,15 @@ def _reparar_ligaturas(texto):
 def _limpar_texto(texto):
     # Glifos de ligadura sem mapeamento Unicode: alguns PDFs viram NUL (0x00),
     # que o PostgreSQL rejeita; outros usam os codepoints de ligadura.
-    texto = texto.replace('\x00', '')
-    texto = texto.replace('ﬁ', 'fi').replace('ﬂ', 'fl')
+    texto = texto.replace("\x00", "")
+    texto = texto.replace("ﬁ", "fi").replace("ﬂ", "fl")
     # Ligaduras mapeadas por código de glifo (variam por fonte; estes são os
     # recorrentes nos PDFs de questões). Mapear ANTES de descartar os demais
     # cids — senão "a(cid:63)rmado" vira "armado", palavra válida que o
     # dicionário não corrige.
-    for cid, lig in (('(cid:58)', 'fi'), ('(cid:63)', 'fi'), ('(cid:64)', 'fl')):
+    for cid, lig in (("(cid:58)", "fi"), ("(cid:63)", "fi"), ("(cid:64)", "fl")):
         texto = texto.replace(cid, lig)
-    texto = RE_CID.sub('', texto)
+    texto = RE_CID.sub("", texto)
     # Palavras com fi/fl/ff engolidos pela fonte ("qualicado" → "qualificado").
     texto = _reparar_ligaturas(texto)
     return texto
@@ -146,7 +151,7 @@ def _linhas_ruido(texto_paginas):
         return set()
     contagem = Counter()
     for tp in texto_paginas:
-        vistas = {ln.strip() for ln in tp.split('\n') if ln.strip()}
+        vistas = {ln.strip() for ln in tp.split("\n") if ln.strip()}
         for ln in vistas:
             contagem[ln] += 1
     limite = max(3, int(n * 0.25))
@@ -170,6 +175,7 @@ def _eh_ruido(linha, ruido):
 # Gabarito
 # ---------------------------------------------------------------------------
 
+
 def _detectar_gabarito(texto_paginas):
     """Detecta o gabarito por grade ('1 D 2 A ...') ou por seção 'GABARITO'."""
     mapa = {}
@@ -179,11 +185,11 @@ def _detectar_gabarito(texto_paginas):
     # guardada e só entra se realmente continuar a grade já reconhecida.
     parciais = []
     for tp in texto_paginas:
-        for linha in tp.split('\n'):
+        for linha in tp.split("\n"):
             pares = RE_GABARITO_PAR.findall(linha)
             if not pares:
                 continue
-            resto = RE_GABARITO_PAR.sub('', linha).strip()
+            resto = RE_GABARITO_PAR.sub("", linha).strip()
             if len(pares) >= 3:
                 if len(resto) <= len(linha) * 0.35:
                     for num, letra in pares:
@@ -208,7 +214,7 @@ def _detectar_gabarito(texto_paginas):
         return mapa
 
     # Fallback: seção textual após a palavra GABARITO.
-    texto_total = '\n'.join(texto_paginas)
+    texto_total = "\n".join(texto_paginas)
     idx = None
     for m in re.finditer(RE_GABARITO_HEADER, texto_total):
         idx = m.start()
@@ -223,33 +229,34 @@ def _detectar_gabarito(texto_paginas):
 # Linhas (com posição) a partir das palavras do pdfplumber
 # ---------------------------------------------------------------------------
 
+
 def _agrupar_linhas(palavras, tol=3.0):
     if not palavras:
         return []
-    palavras = sorted(palavras, key=lambda w: (round(w['top']), w['x0']))
+    palavras = sorted(palavras, key=lambda w: (round(w["top"]), w["x0"]))
     linhas = []
     atual = []
     top_ref = None
     for w in palavras:
-        if top_ref is None or abs(w['top'] - top_ref) <= tol:
+        if top_ref is None or abs(w["top"] - top_ref) <= tol:
             atual.append(w)
             if top_ref is None:
-                top_ref = w['top']
+                top_ref = w["top"]
         else:
             linhas.append(_linha_dict(atual))
             atual = [w]
-            top_ref = w['top']
+            top_ref = w["top"]
     if atual:
         linhas.append(_linha_dict(atual))
     return linhas
 
 
 def _linha_dict(palavras):
-    palavras = sorted(palavras, key=lambda w: w['x0'])
+    palavras = sorted(palavras, key=lambda w: w["x0"])
     return {
-        'texto': _limpar_texto(' '.join(w['text'] for w in palavras)),
-        'top': min(w['top'] for w in palavras),
-        'bottom': max(w['bottom'] for w in palavras),
+        "texto": _limpar_texto(" ".join(w["text"] for w in palavras)),
+        "top": min(w["top"] for w in palavras),
+        "bottom": max(w["bottom"] for w in palavras),
     }
 
 
@@ -257,10 +264,10 @@ def _linha_dict(palavras):
 # Segmentação
 # ---------------------------------------------------------------------------
 
+
 def _escolher_regex(linhas_por_pagina):
     fortes = sum(
-        1 for linhas in linhas_por_pagina for ln in linhas
-        if RE_QUESTAO_FORTE.match(ln['texto'])
+        1 for linhas in linhas_por_pagina for ln in linhas if RE_QUESTAO_FORTE.match(ln["texto"])
     )
     if fortes >= 3:
         return RE_QUESTAO_FORTE, True
@@ -273,13 +280,15 @@ def _segmentar(linhas_por_pagina, gabarito_map, ruido):
     marcadores = []
     for pag_idx, linhas in enumerate(linhas_por_pagina):
         for linha in linhas:
-            m = regex.match(linha['texto'])
+            m = regex.match(linha["texto"])
             if m:
-                marcadores.append({
-                    'pagina': pag_idx,
-                    'top': linha['top'],
-                    'numero': int(m.group(1)),
-                })
+                marcadores.append(
+                    {
+                        "pagina": pag_idx,
+                        "top": linha["top"],
+                        "numero": int(m.group(1)),
+                    }
+                )
 
     marcadores = _filtrar_marcadores(marcadores, forte)
 
@@ -287,21 +296,23 @@ def _segmentar(linhas_por_pagina, gabarito_map, ruido):
     for i, marc in enumerate(marcadores):
         prox = marcadores[i + 1] if i + 1 < len(marcadores) else None
         texto = _texto_entre(linhas_por_pagina, marc, prox, ruido)
-        numero = marc['numero']
-        gab = gabarito_map.get(numero, '')
+        numero = marc["numero"]
+        gab = gabarito_map.get(numero, "")
         if not gab:
             mi = RE_GABARITO_INLINE.search(texto)
             if mi:
                 gab = mi.group(1).upper()
         conf = _confianca_questao(texto, gab, forte)
-        questoes.append(QuestaoExtraida(
-            numero=numero,
-            enunciado=texto.strip(),
-            gabarito=gab,
-            confianca=conf,
-            pagina=marc['pagina'],
-            top=marc['top'],
-        ))
+        questoes.append(
+            QuestaoExtraida(
+                numero=numero,
+                enunciado=texto.strip(),
+                gabarito=gab,
+                confianca=conf,
+                pagina=marc["pagina"],
+                top=marc["top"],
+            )
+        )
     return questoes
 
 
@@ -310,32 +321,32 @@ def _filtrar_marcadores(marcadores, forte):
     filtrados = []
     ultimo = 0
     for m in marcadores:
-        if m['numero'] > ultimo:
+        if m["numero"] > ultimo:
             if forte:
                 # Marcador forte ("Questão N") é confiável: aceita qualquer avanço.
                 filtrados.append(m)
-                ultimo = m['numero']
-            elif m['numero'] - ultimo <= 5 or not filtrados:
+                ultimo = m["numero"]
+            elif m["numero"] - ultimo <= 5 or not filtrados:
                 filtrados.append(m)
-                ultimo = m['numero']
+                ultimo = m["numero"]
     return filtrados
 
 
 def _texto_entre(linhas_por_pagina, marc, prox, ruido):
     partes = []
-    pag_ini = marc['pagina']
-    pag_fim = prox['pagina'] if prox else len(linhas_por_pagina) - 1
+    pag_ini = marc["pagina"]
+    pag_fim = prox["pagina"] if prox else len(linhas_por_pagina) - 1
     for pag in range(pag_ini, pag_fim + 1):
         for linha in linhas_por_pagina[pag]:
             # pula a própria linha do marcador "Questão N <disciplina>"
-            if pag == pag_ini and linha['top'] <= marc['top'] + 0.5:
+            if pag == pag_ini and linha["top"] <= marc["top"] + 0.5:
                 continue
-            if prox and pag == prox['pagina'] and linha['top'] >= prox['top'] - 0.5:
+            if prox and pag == prox["pagina"] and linha["top"] >= prox["top"] - 0.5:
                 continue
-            if _eh_ruido(linha['texto'], ruido):
+            if _eh_ruido(linha["texto"], ruido):
                 continue
-            partes.append(linha['texto'])
-    return '\n'.join(partes)
+            partes.append(linha["texto"])
+    return "\n".join(partes)
 
 
 def _confianca_questao(texto, gabarito, forte):
@@ -353,11 +364,12 @@ def _confianca_questao(texto, gabarito, forte):
 # Imagens
 # ---------------------------------------------------------------------------
 
+
 def _recortar_imagens(pdf_bytes, questoes):
     if fitz is None:
         return
     try:
-        doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     except Exception:
         return
 
@@ -377,7 +389,7 @@ def _recortar_imagens(pdf_bytes, questoes):
             except Exception:
                 continue
             for im in imagens:
-                top = float(im.get('top', 0))
+                top = float(im.get("top", 0))
                 dona = None
                 for q in por_pagina[pag_idx]:
                     if q.top <= top + 2:
@@ -387,14 +399,16 @@ def _recortar_imagens(pdf_bytes, questoes):
                 if dona is None:
                     dona = por_pagina[pag_idx][0]
                 rect = fitz.Rect(
-                    float(im['x0']), float(im['top']),
-                    float(im['x1']), float(im['bottom']),
+                    float(im["x0"]),
+                    float(im["top"]),
+                    float(im["x1"]),
+                    float(im["bottom"]),
                 )
                 if rect.is_empty or rect.width < 8 or rect.height < 8:
                     continue
                 try:
                     pix = fitz_page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect)
-                    dona.imagens.append(pix.tobytes('png'))
+                    dona.imagens.append(pix.tobytes("png"))
                 except Exception:
                     continue
     doc.close()
@@ -404,17 +418,19 @@ def _recortar_imagens(pdf_bytes, questoes):
 # Entrada principal
 # ---------------------------------------------------------------------------
 
+
 def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
     """Extrai questões de um PDF (bytes). Retorna ResultadoExtracao.
 
     ``progresso`` é um callback opcional ``fn(pct, etapa, total_paginas=None)``
     chamado ao longo do pipeline para reportar o andamento (0–100).
     """
+
     def _reportar(pct, etapa, **extra):
         if progresso:
             try:
                 progresso(pct, etapa, **extra)
-            except Exception:  # noqa: BLE001 — progresso nunca pode quebrar a extração
+            except Exception:
                 pass
 
     # Fase 1: leitura do PDF (5% → 60%), proporcional ao nº de páginas.
@@ -422,28 +438,26 @@ def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
     paginas_palavras = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         total_paginas = len(pdf.pages)
-        _reportar(5, 'Lendo o PDF…', total_paginas=total_paginas)
+        _reportar(5, "Lendo o PDF…", total_paginas=total_paginas)
         for i, page in enumerate(pdf.pages, start=1):
-            texto_paginas.append(_limpar_texto(page.extract_text() or ''))
+            texto_paginas.append(_limpar_texto(page.extract_text() or ""))
             paginas_palavras.append(page.extract_words() or [])
             pct = 5 + int(55 * i / total_paginas) if total_paginas else 60
-            _reportar(pct, f'Lendo página {i} de {total_paginas}…')
+            _reportar(pct, f"Lendo página {i} de {total_paginas}…")
 
     # Fase 2: segmentação das questões (60% → 70%).
-    _reportar(65, 'Identificando as questões…')
+    _reportar(65, "Identificando as questões…")
     linhas_por_pagina = [_agrupar_linhas(p) for p in paginas_palavras]
     ruido = _linhas_ruido(texto_paginas)
     gabarito_map = _detectar_gabarito(texto_paginas)
     questoes = _segmentar(linhas_por_pagina, gabarito_map, ruido)
 
-    confianca_media = (
-        sum(q.confianca for q in questoes) / len(questoes) if questoes else 0.0
-    )
+    confianca_media = sum(q.confianca for q in questoes) / len(questoes) if questoes else 0.0
 
     # Fase 3: refino opcional via IA (70% → 90%).
     usou_ia = False
     if usar_ia and (confianca_media < CONFIANCA_MINIMA_IA or not questoes):
-        _reportar(75, 'Refinando as questões com IA…')
+        _reportar(75, "Refinando as questões com IA…")
         refinadas = _refinar_com_ia(texto_paginas, profile)
         if refinadas:
             questoes = _mesclar_refino(questoes, refinadas)
@@ -454,7 +468,7 @@ def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
 
     # Recorte de imagens desativado: em PDFs de questões os "recortes" eram a
     # página inteira/marca-d'água, inflando o custo de IA sem agregar conteúdo.
-    _reportar(100, 'Finalizando…')
+    _reportar(100, "Finalizando…")
 
     return ResultadoExtracao(
         questoes=questoes,
@@ -466,20 +480,22 @@ def extrair(pdf_bytes, usar_ia=True, profile=None, progresso=None):
 def _refinar_com_ia(texto_paginas, profile=None):
     from ai.services import separar_questoes_via_ia  # import tardio (evita ciclo)
 
-    texto = '\n\n'.join(texto_paginas)
+    texto = "\n\n".join(texto_paginas)
     try:
         itens = separar_questoes_via_ia(texto, profile=profile)
     except Exception:
-        logger.exception('Refino por IA falhou; usando apenas a extração por regras')
+        logger.exception("Refino por IA falhou; usando apenas a extração por regras")
         return []
     refinadas = []
     for it in itens:
-        refinadas.append(QuestaoExtraida(
-            numero=int(it.get('numero', 0) or 0),
-            enunciado=(it.get('enunciado') or '').strip(),
-            gabarito=(it.get('gabarito') or '').strip(),
-            confianca=0.9,
-        ))
+        refinadas.append(
+            QuestaoExtraida(
+                numero=int(it.get("numero", 0) or 0),
+                enunciado=(it.get("enunciado") or "").strip(),
+                gabarito=(it.get("gabarito") or "").strip(),
+                confianca=0.9,
+            )
+        )
     return refinadas
 
 

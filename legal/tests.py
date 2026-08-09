@@ -14,8 +14,14 @@ from .utils import calcular_sha256, ip_do_request, renderizar_markdown
 Usuario = get_user_model()
 
 
-def criar_documento(tipo=TipoDocumento.TERMOS, versao="1.0", *, publicar=True, material=True,
-                    corpo="# Título\n\nTexto do documento.\n"):
+def criar_documento(
+    tipo=TipoDocumento.TERMOS,
+    versao="1.0",
+    *,
+    publicar=True,
+    material=True,
+    corpo="# Título\n\nTexto do documento.\n",
+):
     documento = DocumentoLegal.objects.create(
         tipo=tipo, versao=versao, titulo=f"Doc {tipo}", corpo_md=corpo, material=material
     )
@@ -137,9 +143,7 @@ class AceiteVisitanteTests(TestCase):
 
     def test_prova_sobrevive_a_exclusao_do_visitante(self):
         """O ponto mais delicado: visitante é apagado ao expirar, a prova não pode ir junto."""
-        self.client.post(
-            reverse("accounts:entrar_visitante"), {"aceite_legal": "on"}
-        )
+        self.client.post(reverse("accounts:entrar_visitante"), {"aceite_legal": "on"})
         visitante = Usuario.objects.get(username__startswith="visitante_")
         rotulo = visitante.username
 
@@ -299,7 +303,10 @@ class CommandsTests(TestCase):
 
         documento = criar_documento(versao="8.8", corpo="# Original\n\nTexto.\n")
         arquivo = documentos_io.escrever(
-            documento.tipo, documento.versao, {"titulo": "Adulterado"}, "# Outro\n\nTexto trocado.\n"
+            documento.tipo,
+            documento.versao,
+            {"titulo": "Adulterado"},
+            "# Outro\n\nTexto trocado.\n",
         )
         self.addCleanup(arquivo.unlink, missing_ok=True)
 

@@ -9,37 +9,40 @@ class Profile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='profile',
+        related_name="profile",
     )
-    is_visitor = models.BooleanField('é visitante', default=False)
-    expires_at = models.DateTimeField('expira em', null=True, blank=True)
+    is_visitor = models.BooleanField("é visitante", default=False)
+    expires_at = models.DateTimeField("expira em", null=True, blank=True)
 
     # Quota de uso de IA (tokens no mês corrente)
-    tokens_usados_mes = models.BigIntegerField('tokens usados no mês', default=0)
-    quota_tokens_mes = models.BigIntegerField('quota mensal de tokens', default=0)
-    quota_ref = models.DateField('mês de referência da quota', default=timezone.localdate)
+    tokens_usados_mes = models.BigIntegerField("tokens usados no mês", default=0)
+    quota_tokens_mes = models.BigIntegerField("quota mensal de tokens", default=0)
+    quota_ref = models.DateField("mês de referência da quota", default=timezone.localdate)
 
     custo_acumulado = models.DecimalField(
-        'custo acumulado (USD)', max_digits=12, decimal_places=4, default=0
+        "custo acumulado (USD)", max_digits=12, decimal_places=4, default=0
     )
 
     # Último tópico aberto para leitura, para o atalho "continuar lendo".
     # SET_NULL: regerar os tópicos não pode derrubar o perfil.
     ultimo_topico = models.ForeignKey(
-        'questions.Topico', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='+',
-        verbose_name='último tópico lido',
+        "questions.Topico",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="último tópico lido",
     )
 
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'perfil'
-        verbose_name_plural = 'perfis'
+        verbose_name = "perfil"
+        verbose_name_plural = "perfis"
 
     def __str__(self):
-        return f'Perfil de {self.user}'
+        return f"Perfil de {self.user}"
 
     # -- Quota -----------------------------------------------------------
     def _rollover_se_novo_mes(self):
@@ -47,12 +50,12 @@ class Profile(models.Model):
         if (self.quota_ref.year, self.quota_ref.month) != (hoje.year, hoje.month):
             self.tokens_usados_mes = 0
             self.quota_ref = hoje
-            self.save(update_fields=['tokens_usados_mes', 'quota_ref', 'atualizado_em'])
+            self.save(update_fields=["tokens_usados_mes", "quota_ref", "atualizado_em"])
 
     @property
     def ilimitado(self):
         """Admin/staff não têm teto de quota de IA (o uso ainda é contabilizado)."""
-        user = getattr(self, 'user', None)
+        user = getattr(self, "user", None)
         return bool(user and (user.is_staff or user.is_superuser))
 
     @property
@@ -72,9 +75,13 @@ class Profile(models.Model):
         self._rollover_se_novo_mes()
         self.tokens_usados_mes += int(input_tokens) + int(output_tokens)
         self.custo_acumulado = (self.custo_acumulado or 0) + custo_usd
-        self.save(update_fields=[
-            'tokens_usados_mes', 'custo_acumulado', 'atualizado_em',
-        ])
+        self.save(
+            update_fields=[
+                "tokens_usados_mes",
+                "custo_acumulado",
+                "atualizado_em",
+            ]
+        )
 
     # -- Visitante -------------------------------------------------------
     @property
@@ -83,6 +90,6 @@ class Profile(models.Model):
 
     def renovar_expiracao(self):
         if self.is_visitor:
-            horas = getattr(settings, 'VISITOR_EXPIRY_HOURS', 48)
+            horas = getattr(settings, "VISITOR_EXPIRY_HOURS", 48)
             self.expires_at = timezone.now() + timezone.timedelta(hours=horas)
-            self.save(update_fields=['expires_at', 'atualizado_em'])
+            self.save(update_fields=["expires_at", "atualizado_em"])

@@ -2,19 +2,19 @@ from django.urls import path
 
 from . import views
 
-app_name = 'questions'
+app_name = "questions"
 
 urlpatterns = [
-    path('disciplina/<int:pk>/', views.disciplina, name='disciplina'),
-    path('disciplina/<int:pk>/upload/', views.upload, name='upload'),
-    path('importacao/<int:pk>/status/', views.importacao_status, name='importacao_status'),
-    path('disciplina/<int:pk>/ia-status/', views.ia_status, name='ia_status'),
-    path('disciplina/<int:pk>/topicos-status/', views.topicos_status, name='topicos_status'),
-    path('topico/<int:pk>/', views.topico_detalhe, name='topico_detalhe'),
-    path('topico/<int:pk>/leitura/', views.topico_leitura, name='topico_leitura'),
-    path('revisao/', views.revisao, name='revisao'),
-    path('revisao/<int:pk>/responder/', views.revisao_responder, name='revisao_responder'),
-    path('<int:pk>/', views.questao_detalhe, name='questao_detalhe'),
-    path('<int:pk>/editar/', views.questao_editar, name='questao_editar'),
-    path('<int:pk>/excluir/', views.questao_excluir, name='questao_excluir'),
+    path("disciplina/<int:pk>/", views.disciplina, name="disciplina"),
+    path("disciplina/<int:pk>/upload/", views.upload, name="upload"),
+    path("importacao/<int:pk>/status/", views.importacao_status, name="importacao_status"),
+    path("disciplina/<int:pk>/ia-status/", views.ia_status, name="ia_status"),
+    path("disciplina/<int:pk>/topicos-status/", views.topicos_status, name="topicos_status"),
+    path("topico/<int:pk>/", views.topico_detalhe, name="topico_detalhe"),
+    path("topico/<int:pk>/leitura/", views.topico_leitura, name="topico_leitura"),
+    path("revisao/", views.revisao, name="revisao"),
+    path("revisao/<int:pk>/responder/", views.revisao_responder, name="revisao_responder"),
+    path("<int:pk>/", views.questao_detalhe, name="questao_detalhe"),
+    path("<int:pk>/editar/", views.questao_editar, name="questao_editar"),
+    path("<int:pk>/excluir/", views.questao_excluir, name="questao_excluir"),
 ]

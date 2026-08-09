@@ -8,16 +8,16 @@ class Prova(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='provas',
+        related_name="provas",
     )
-    nome = models.CharField('nome', max_length=200)
+    nome = models.CharField("nome", max_length=200)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'prova'
-        verbose_name_plural = 'provas'
-        ordering = ['-criado_em']
+        verbose_name = "prova"
+        verbose_name_plural = "provas"
+        ordering = ["-criado_em"]
 
     def __str__(self):
         return self.nome
@@ -33,19 +33,19 @@ class Disciplina(models.Model):
     prova = models.ForeignKey(
         Prova,
         on_delete=models.CASCADE,
-        related_name='disciplinas',
+        related_name="disciplinas",
     )
-    nome = models.CharField('nome', max_length=200)
-    ordem = models.PositiveIntegerField('ordem', default=0)
+    nome = models.CharField("nome", max_length=200)
+    ordem = models.PositiveIntegerField("ordem", default=0)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'disciplina'
-        verbose_name_plural = 'disciplinas'
-        ordering = ['ordem', 'nome']
+        verbose_name = "disciplina"
+        verbose_name_plural = "disciplinas"
+        ordering = ["ordem", "nome"]
 
     def __str__(self):
-        return f'{self.nome} ({self.prova.nome})'
+        return f"{self.nome} ({self.prova.nome})"
 
     @property
     def total_questoes(self):

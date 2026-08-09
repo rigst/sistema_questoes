@@ -11,13 +11,13 @@ class DisciplinaInline(TabularInline):
 
 @admin.register(Prova)
 class ProvaAdmin(ModelAdmin):
-    list_display = ('nome', 'user', 'total_disciplinas', 'criado_em')
-    search_fields = ('nome', 'user__username')
+    list_display = ("nome", "user", "total_disciplinas", "criado_em")
+    search_fields = ("nome", "user__username")
     inlines = [DisciplinaInline]
 
 
 @admin.register(Disciplina)
 class DisciplinaAdmin(ModelAdmin):
-    list_display = ('nome', 'prova', 'ordem', 'total_questoes')
-    list_filter = ('prova',)
-    search_fields = ('nome',)
+    list_display = ("nome", "prova", "ordem", "total_questoes")
+    list_filter = ("prova",)
+    search_fields = ("nome",)

@@ -5,7 +5,7 @@ Usa PostgreSQL, Redis para cache/sessões, e configurações de segurança.
 
 import os
 
-from .base import *  # noqa: F401, F403
+from .base import *
 
 DEBUG = False
 
@@ -13,42 +13,40 @@ DEBUG = False
 def _required_env(name):
     value = os.getenv(name)
     if not value:
-        raise RuntimeError(f'A variável de ambiente {name} é obrigatória em produção.')
+        raise RuntimeError(f"A variável de ambiente {name} é obrigatória em produção.")
     return value
 
 
-SECRET_KEY = _required_env('SECRET_KEY')
-if SECRET_KEY.startswith('django-insecure-'):
-    raise RuntimeError('SECRET_KEY de produção não pode usar valor django-insecure.')
+SECRET_KEY = _required_env("SECRET_KEY")
+if SECRET_KEY.startswith("django-insecure-"):
+    raise RuntimeError("SECRET_KEY de produção não pode usar valor django-insecure.")
 
-ALLOWED_HOSTS = [
-    h.strip() for h in _required_env('ALLOWED_HOSTS').split(',') if h.strip()
-]
+ALLOWED_HOSTS = [h.strip() for h in _required_env("ALLOWED_HOSTS").split(",") if h.strip()]
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': _required_env('DB_NAME'),
-        'USER': _required_env('DB_USER'),
-        'PASSWORD': _required_env('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'CONN_MAX_AGE': 600,
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": _required_env("DB_NAME"),
+        "USER": _required_env("DB_USER"),
+        "PASSWORD": _required_env("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": 600,
     }
 }
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
     }
 }
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'default'
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
 
 # Segurança
 SECURE_SSL_REDIRECT = True
@@ -58,45 +56,43 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+X_FRAME_OPTIONS = "DENY"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
+STATIC_ROOT = os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
 
 # O nginx serve /static/ com expires 30d. Sem hash no nome do arquivo, toda
 # mudança de CSS/JS ficava invisível por 30 dias para quem já tinha visitado
 # o site — foi o que aconteceu com o painel "Aa". Com o manifest, o nome muda
 # junto com o conteúdo e o cache longo passa a ser seguro.
 STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
-    'staticfiles': {
-        'BACKEND': 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
     },
 }
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://' + h for h in ALLOWED_HOSTS if h
-]
+CSRF_TRUSTED_ORIGINS = ["https://" + h for h in ALLOWED_HOSTS if h]
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(
-                os.getenv('LOG_DIR', str(BASE_DIR.parent / 'shared' / 'logs')),
-                'django.log',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": os.path.join(
+                os.getenv("LOG_DIR", str(BASE_DIR.parent / "shared" / "logs")),
+                "django.log",
             ),
         },
     },
-    'loggers': {
-        'django.request': {
-            'handlers': ['file'],
-            'level': 'ERROR',
-            'propagate': False,
+    "loggers": {
+        "django.request": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": False,
         },
     },
 }
