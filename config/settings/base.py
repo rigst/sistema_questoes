@@ -156,7 +156,9 @@ MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', '50'))
 MAX_UPLOAD_SIZE = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
-FILE_UPLOAD_TEMP_DIR = str(BASE_DIR / 'media' / 'tmp')
+# Configurável porque o Django exige que o diretório exista — `check` falha com
+# files.E001 se não existir — e media/tmp não vem versionado.
+FILE_UPLOAD_TEMP_DIR = os.getenv('FILE_UPLOAD_TEMP_DIR', str(BASE_DIR / 'media' / 'tmp'))
 
 
 # ==============================================================================
