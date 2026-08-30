@@ -4,6 +4,7 @@ Usa PostgreSQL, Redis para cache/sessões, e configurações de segurança.
 """
 
 import os
+from pathlib import Path
 
 from .base import *
 
@@ -59,7 +60,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-STATIC_ROOT = os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles")))
 
 # O nginx serve /static/ com expires 30d. Sem hash no nome do arquivo, toda
 # mudança de CSS/JS ficava invisível por 30 dias para quem já tinha visitado

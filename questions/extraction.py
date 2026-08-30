@@ -149,7 +149,7 @@ def _linhas_ruido(texto_paginas):
     n = len(texto_paginas)
     if n < 5:
         return set()
-    contagem = Counter()
+    contagem: Counter[str] = Counter()
     for tp in texto_paginas:
         vistas = {ln.strip() for ln in tp.split("\n") if ln.strip()}
         for ln in vistas:
@@ -373,7 +373,7 @@ def _recortar_imagens(pdf_bytes, questoes):
     except Exception:
         return
 
-    por_pagina = {}
+    por_pagina: dict[int, list[QuestaoExtraida]] = {}
     for q in questoes:
         por_pagina.setdefault(q.pagina, []).append(q)
     for lista in por_pagina.values():

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -91,5 +93,5 @@ class Profile(models.Model):
     def renovar_expiracao(self):
         if self.is_visitor:
             horas = getattr(settings, "VISITOR_EXPIRY_HOURS", 48)
-            self.expires_at = timezone.now() + timezone.timedelta(hours=horas)
+            self.expires_at = timezone.now() + timedelta(hours=horas)
             self.save(update_fields=["expires_at", "atualizado_em"])
