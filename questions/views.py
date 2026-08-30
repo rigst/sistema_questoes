@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -308,7 +310,7 @@ def topicos_status(request, pk):
         # publica o andamento dos blocos em cache.
         inicio = fase.get("inicio")
         if inicio:
-            inicio = timezone.datetime.fromisoformat(inicio)
+            inicio = datetime.fromisoformat(inicio)
         progresso = _progresso_com_eta(
             inicio,
             fase.get("feitos", 0) or 0,
