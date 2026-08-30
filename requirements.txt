@@ -7,7 +7,7 @@ pdfplumber>=0.11,<1.0
 pymupdf>=1.24,<2.0
 pillow>=10.0
 # IA
-anthropic>=0.40
+anthropic>=1.1.0
 # Relatórios
 weasyprint>=60
 markdown>=3.5
