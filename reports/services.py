@@ -94,8 +94,8 @@ def _montar_css():
             continue
         uri = Path(caminho).resolve().as_uri()
         regras.append(
-            "@font-face { font-family: '%s'; font-style: normal; font-weight: %d; "
-            "font-display: swap; src: url('%s') format('woff2'); }" % (familia, peso, uri)
+            f"@font-face {{ font-family: '{familia}'; font-style: normal; font-weight: {peso}; "
+            f"font-display: swap; src: url('{uri}') format('woff2'); }}"
         )
     return "\n".join(regras) + "\n" + CSS_BASE
 

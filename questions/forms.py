@@ -64,7 +64,7 @@ def _melhor_cadeia(cands):
     de menor extensão em linhas — as alternativas são um bloco contíguo.
     """
     melhores = []
-    for inicio, (idx, letra, _resto) in enumerate(cands):
+    for inicio, (_idx, letra, _resto) in enumerate(cands):
         if letra != "A":
             continue
         cadeia = [inicio]
