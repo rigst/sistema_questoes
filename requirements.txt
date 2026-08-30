@@ -21,4 +21,4 @@ pyspellchecker>=0.8
 nh3>=0.2,<1.0
 
 # Tema do admin.
-django-unfold>=0.101,<1.0
+django-unfold>=0.104.1,<1.0
