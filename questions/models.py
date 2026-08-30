@@ -54,12 +54,12 @@ class Topico(models.Model):
         verbose_name_plural = "tópicos"
         ordering = ["ordem", "id"]
 
+    def __str__(self):
+        return f"{self.nome} ({self.disciplina.nome})"
+
     @property
     def e_sobras(self):
         return self.nome == NOME_TOPICO_SOBRAS
-
-    def __str__(self):
-        return f"{self.nome} ({self.disciplina.nome})"
 
 
 class Questao(models.Model):

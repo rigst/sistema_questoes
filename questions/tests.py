@@ -609,7 +609,7 @@ class RevisaoTests(TestCase):
 
     def test_selecao_revisa_questoes_especificas_mesmo_nao_lidas(self):
         # ?questoes= entra mesmo com o tópico não lido, e ignora as não escolhidas.
-        ids = "%d,%d" % (self.q_lida.pk, self.q_outra.pk)
+        ids = f"{self.q_lida.pk},{self.q_outra.pk}"
         r = self.client.get(reverse("questions:revisao"), {"questoes": ids})
         pks = {d["pk"] for d in r.context["dados"]}
         self.assertEqual(pks, {self.q_lida.pk, self.q_outra.pk})
@@ -624,7 +624,7 @@ class RevisaoTests(TestCase):
             gabarito="A",
         )
         r = self.client.get(
-            reverse("questions:revisao"), {"questoes": "%d,%d" % (self.q_lida.pk, alheia.pk)}
+            reverse("questions:revisao"), {"questoes": f"{self.q_lida.pk},{alheia.pk}"}
         )
         pks = {d["pk"] for d in r.context["dados"]}
         self.assertEqual(pks, {self.q_lida.pk})
