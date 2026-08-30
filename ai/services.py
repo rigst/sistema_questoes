@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from decimal import Decimal
+from typing import Any
 
 from django.conf import settings
 
@@ -191,7 +192,7 @@ def estimar_tokens(questoes, prompt):
     """Estimativa (entrada + saída) do custo em tokens de aplicar `prompt` às questões."""
     out_tokens = OUTPUT_TOKENS_POR_TIPO.get(prompt.tipo, 900)
     prompt_tokens = len(prompt.texto or "") / CHARS_PER_TOKEN
-    total = 0
+    total = 0.0
     for q in questoes:
         q_tokens = len(q.enunciado_md or "") / CHARS_PER_TOKEN
         total += SYSTEM_OVERHEAD_TOKENS + prompt_tokens + q_tokens + out_tokens
@@ -257,6 +258,7 @@ def _params_mensagem(questao, prompt, cache_prompt=False):
     (system + prompt) é idêntico em todas as requisições e pode ser cacheado
     (efetivo quando o prompt é longo o bastante para o mínimo cacheável).
     """
+    system: str | list[dict[str, Any]]
     if cache_prompt:
         system = [
             {"type": "text", "text": SYSTEM_PROMPT},
@@ -498,7 +500,7 @@ conhecimento seguro.
 def _chamar_json(client, system, instrucao, schema, max_tokens, profile=None, etapa=""):
     """Faz uma chamada de structured output e devolve o JSON já decodificado."""
     modelo = getattr(settings, "AI_MODEL", "claude-sonnet-5")
-    output_config = {"format": {"type": "json_schema", "schema": schema}}
+    output_config: dict[str, Any] = {"format": {"type": "json_schema", "schema": schema}}
     params = {
         "model": modelo,
         "max_tokens": max_tokens,
@@ -574,7 +576,7 @@ def atribuir_questoes_aos_topicos(questoes, topicos, profile=None, progresso=Non
         f"{i}. {t['nome']}" + (f" — {t.get('descricao', '')}" if t.get("descricao") else "")
         for i, t in enumerate(topicos)
     )
-    atribuicoes = {}
+    atribuicoes: dict[int, int] = {}
     for n, ini in enumerate(range(0, len(questoes), CLASSIFICACAO_CHUNK)):
         if progresso is not None:
             progresso(n, n_blocos)
@@ -633,7 +635,8 @@ def _aplicar_fusoes(grupos, fusoes):
             i = destino[i]
         return i
 
-    final, mapa = [], {}
+    final: list[dict[str, Any]] = []
+    mapa: dict[int, int] = {}
     for i, g in enumerate(grupos):
         if raiz(i) == i:
             mapa[i] = len(final)
@@ -740,7 +743,7 @@ def classificar_topicos_via_ia(questoes, profile=None, progresso=None):
         progresso=_etapa("Classificando as questões por tema…"),
     )
 
-    grupos = [
+    grupos: list[dict[str, Any]] = [
         {"nome": t.get("nome") or "Tópico", "descricao": t.get("descricao") or "", "questoes": []}
         for t in topicos
     ]
@@ -781,6 +784,7 @@ def _params_sintese(topico, cache_prompt=False):
     cache_control — o prefixo é idêntico em todos os tópicos do lote.
     """
     conteudo = montar_conteudo_topico(topico)
+    system: str | list[dict[str, Any]]
     if cache_prompt:
         system = [
             {"type": "text", "text": SYSTEM_PROMPT},
@@ -993,7 +997,7 @@ def estimar_custo_topicos(questoes):
 def estimar_tokens_sintese(topicos):
     """Estimativa (entrada + saída) de sintetizar o texto de UM lote de
     tópicos já classificados — usada para o teto de gastos por lote."""
-    total = 0
+    total = 0.0
     for topico in topicos:
         chars = len(montar_conteudo_topico(topico))
         total += chars / CHARS_PER_TOKEN + 400 + OUTPUT_TOKENS_SINTESE
