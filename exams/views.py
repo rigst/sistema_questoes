@@ -4,6 +4,7 @@ from django.db.models.functions import Length
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.views.decorators.http import require_safe
 
 from ai.models import TextoTopico
 from questions.models import LeituraTopico, Questao, RespostaRevisao, Topico
@@ -12,6 +13,7 @@ from .models import Disciplina, Prova
 
 
 @login_required
+@require_safe
 def dashboard(request):
     provas = (
         Prova.objects.filter(user=request.user)

@@ -22,7 +22,7 @@
                 <div>
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
-                    {% if field.help_text %}<div class="form-note">{{ field.help_text|safe }}</div>{% endif %}
+                    {% if field.help_text %}<div class="form-note">{{ field.help_text }}</div>{% endif %}
                     {{ field.errors }}
                 </div>
             {% endif %}{% endfor %}

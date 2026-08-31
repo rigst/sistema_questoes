@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.testing import SENHA_TESTE
+
 from .models import Prompt
 
 User = get_user_model()
@@ -9,13 +11,13 @@ User = get_user_model()
 
 class PromptViewsTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="x")
+        self.user = User.objects.create_user("ana", password=SENHA_TESTE)
         self.client.force_login(self.user)
 
     def test_lista_renderiza_somente_prompts_do_usuario(self):
         Prompt.objects.create(user=self.user, nome="Meu", texto="x")
         Prompt.objects.create(
-            user=User.objects.create_user("bia", password="x"), nome="Da Bia", texto="y"
+            user=User.objects.create_user("bia", password=SENHA_TESTE), nome="Da Bia", texto="y"
         )
         resp = self.client.get(reverse("prompts:lista"))
         self.assertContains(resp, "Meu")
@@ -78,7 +80,7 @@ class PromptViewsTests(TestCase):
 
     def test_nao_exclui_prompt_de_outro_usuario(self):
         prompt = Prompt.objects.create(
-            user=User.objects.create_user("bia", password="x"), nome="Da Bia", texto="y"
+            user=User.objects.create_user("bia", password=SENHA_TESTE), nome="Da Bia", texto="y"
         )
         resp = self.client.post(reverse("prompts:excluir", args=[prompt.pk]))
         self.assertEqual(resp.status_code, 404)

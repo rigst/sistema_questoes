@@ -10,8 +10,9 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
+from accounts.redirecionamento import destino_seguro
 from exams.models import Disciplina
 from prompts.models import Prompt
 
@@ -36,6 +37,7 @@ def _questao_do_user(request, pk):
 
 
 @login_required
+@require_safe
 def disciplina(request, pk):
     from django.core.cache import cache
 
@@ -156,6 +158,7 @@ def _topicos_ordenados(disc):
 
 
 @login_required
+@require_safe
 def topico_detalhe(request, pk):
     """Página de leitura de um tópico, com navegação para o anterior/próximo."""
     topico = get_object_or_404(
@@ -220,7 +223,10 @@ def topico_leitura(request, pk):
                 "total": topico.disciplina.topicos.count(),
             }
         )
-    return redirect(request.POST.get("next") or "questions:topico_detalhe", pk=topico.pk)
+    destino = destino_seguro(request, "")
+    if destino:
+        return redirect(destino)
+    return redirect("questions:topico_detalhe", pk=topico.pk)
 
 
 def _progresso_com_eta(inicio, feitos, restantes):
@@ -243,6 +249,7 @@ def _progresso_com_eta(inicio, feitos, restantes):
 
 
 @login_required
+@require_safe
 def ia_status(request, pk):
     from django.db.models import Min
 
@@ -284,6 +291,7 @@ def ia_status(request, pk):
 
 
 @login_required
+@require_safe
 def topicos_status(request, pk):
     from django.core.cache import cache
     from django.db.models import Min
@@ -368,6 +376,7 @@ def upload(request, pk):
 
 
 @login_required
+@require_safe
 def importacao_status(request, pk):
     imp = get_object_or_404(ImportacaoPDF, pk=pk, disciplina__prova__user=request.user)
     return JsonResponse(
@@ -425,6 +434,7 @@ def _gabarito_letra(questao):
 
 
 @login_required
+@require_safe
 def revisao(request):
     """Autoteste, só com questões que têm gabarito (A–E) para conferir.
 
@@ -483,7 +493,10 @@ def revisao(request):
         questoes.sort(key=lambda q: (q.ordem, q.numero, q.id))
         questoes = questoes[:60]
     else:
-        random.shuffle(questoes)
+        # SystemRandom, e não `random`: o módulo padrão é previsível a partir
+        # do estado global, e um scanner não tem como saber que aqui o sorteio
+        # não protege nada. Para embaralhar 30 questões o custo é irrelevante.
+        random.SystemRandom().shuffle(questoes)
         questoes = questoes[:30]
 
     def _analise(q):
@@ -532,6 +545,7 @@ def revisao_responder(request, pk):
 
 
 @login_required
+@require_safe
 def questao_detalhe(request, pk):
     questao = _questao_do_user(request, pk)
     resultados = questao.resultados.select_related("prompt").order_by("-criado_em")

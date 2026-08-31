@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.testing import SENHA_TESTE
+
 from .models import Disciplina, Prova
 
 User = get_user_model()
@@ -9,7 +11,7 @@ User = get_user_model()
 
 class DashboardTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="x")
+        self.user = User.objects.create_user("ana", password=SENHA_TESTE)
         self.client.force_login(self.user)
 
     def test_dashboard_renderiza(self):
@@ -27,7 +29,7 @@ class DashboardTests(TestCase):
 
 class CrudInlineTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="x")
+        self.user = User.objects.create_user("ana", password=SENHA_TESTE)
         self.client.force_login(self.user)
 
     def test_criar_prova_inline(self):
@@ -63,7 +65,7 @@ class CrudInlineTests(TestCase):
 
     def test_nao_altera_prova_de_outro_usuario(self):
         outra = Prova.objects.create(
-            user=User.objects.create_user("bia", password="x"), nome="Da Bia"
+            user=User.objects.create_user("bia", password=SENHA_TESTE), nome="Da Bia"
         )
         resp = self.client.post(
             reverse("exams:prova_renomear_inline", args=[outra.pk]), {"nome": "Hackeada"}

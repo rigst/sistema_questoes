@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.tasks import cleanup_expired_visitors
+from accounts.testing import SENHA_TESTE
 
 from . import documentos_io
 from .forms import AceiteForm
@@ -164,7 +165,7 @@ class AceiteVisitanteTests(TestCase):
 class ReaceiteMiddlewareTests(TestCase):
     def setUp(self):
         self.termos = criar_documento()
-        self.usuario = Usuario.objects.create_user(username="ana", password="senha-forte-123")
+        self.usuario = Usuario.objects.create_user(username="ana", password=SENHA_TESTE)
         self.client.force_login(self.usuario)
 
     def test_conta_sem_aceite_e_barrada(self):
@@ -245,7 +246,7 @@ class AdminImutabilidadeTests(TestCase):
         self.admin = DocumentoLegalAdmin(DocumentoLegal, AdminSite())
         self.request = self.client.request().wsgi_request
         self.request.user = Usuario.objects.create_superuser(
-            username="root", password="senha-forte-123"
+            username="root", password=SENHA_TESTE
         )
 
     def test_rascunho_e_editavel(self):
@@ -328,5 +329,5 @@ class ServicesTests(TestCase):
         self.assertEqual(vigentes["termos"].versao, "2.0")
 
     def test_sem_documento_publicado_ninguem_e_barrado(self):
-        usuario = Usuario.objects.create_user(username="bia", password="senha-forte-123")
+        usuario = Usuario.objects.create_user(username="bia", password=SENHA_TESTE)
         self.assertFalse(precisa_reaceitar(usuario))

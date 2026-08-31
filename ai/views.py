@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
+from accounts.redirecionamento import destino_seguro
 from exams.models import Disciplina
 from prompts.models import Prompt
 from questions.models import Questao
@@ -22,7 +23,7 @@ from .tasks import (
 
 
 def _redir(request, fallback="dashboard"):
-    return redirect(request.POST.get("next") or fallback)
+    return redirect(destino_seguro(request, fallback))
 
 
 def _sem_quota(request, questoes, prompt):

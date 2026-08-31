@@ -70,6 +70,11 @@ UNFOLD = {
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "COLORS": {
+        # Rampa laranja deslocada um degrau a partir do 600. O unfold usa
+        # `primary-600` como fundo de botão com texto branco e como cor de link
+        # no cabeçalho: o 600 original (234 88 12) dá 3,56:1, abaixo dos 4,5:1
+        # do WCAG AA. O 700 do mesmo laranja (194 65 12) dá 5,18:1. A metade
+        # clara fica como estava — ela nunca serve de fundo para texto branco.
         "primary": {
             "50": "255 247 237",
             "100": "255 237 213",
@@ -77,11 +82,11 @@ UNFOLD = {
             "300": "253 186 116",
             "400": "251 146 60",
             "500": "249 115 22",
-            "600": "234 88 12",
-            "700": "194 65 12",
-            "800": "154 52 18",
-            "900": "124 45 18",
-            "950": "67 20 7",
+            "600": "194 65 12",
+            "700": "154 52 18",
+            "800": "124 45 18",
+            "900": "67 20 7",
+            "950": "43 13 4",
         },
     },
 }

@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.testing import SENHA_TESTE
 from ai.models import ResultadoPrompt
 from ai.tasks import chave_topicos_erro
 from exams.models import Disciplina, Prova
@@ -218,7 +219,7 @@ class NormalizarEnunciadoTests(TestCase):
 
 class DisciplinaCustoTopicosTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="x")
+        self.user = User.objects.create_user("ana", password=SENHA_TESTE)
         self.prova = Prova.objects.create(user=self.user, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
         self.prompt = Prompt.objects.create(user=self.user, nome="Explicar", texto="Explique.")
@@ -252,7 +253,7 @@ class TopicosErroVisivelTests(TestCase):
     polling ao vivo está rodando — senão o usuário só vê silêncio."""
 
     def test_erro_persistido_aparece_no_carregamento_normal_da_pagina(self):
-        user = User.objects.create_user("ana2", password="x")
+        user = User.objects.create_user("ana2", password=SENHA_TESTE)
         prova = Prova.objects.create(user=user, nome="Concurso")
         disc = Disciplina.objects.create(prova=prova, nome="Direito Processual Civil")
         Questao.objects.create(disciplina=disc, numero=1, enunciado_md="Enunciado")
@@ -306,7 +307,7 @@ class LeituraTopicoTests(TestCase):
     """Marcação de tópicos lidos e sua contagem."""
 
     def setUp(self):
-        self.user = User.objects.create_user("leitor", password="x")
+        self.user = User.objects.create_user("leitor", password=SENHA_TESTE)
         prova = Prova.objects.create(user=self.user, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
         self.t1 = Topico.objects.create(disciplina=self.disc, nome="Tema A", ordem=0)
@@ -333,7 +334,7 @@ class LeituraTopicoTests(TestCase):
 
     def test_leitura_e_por_usuario(self):
         LeituraTopico.objects.create(user=self.user, topico=self.t1)
-        outro = User.objects.create_user("outro", password="x")
+        outro = User.objects.create_user("outro", password=SENHA_TESTE)
         self.client.force_login(outro)
         # o tópico é de outro usuário: nem acessível
         r = self.client.post(reverse("questions:topico_leitura", args=[self.t1.pk]))
@@ -341,7 +342,7 @@ class LeituraTopicoTests(TestCase):
 
     def test_nao_marca_topico_de_outro_usuario(self):
         outra_prova = Prova.objects.create(
-            user=User.objects.create_user("bia", password="x"), nome="P"
+            user=User.objects.create_user("bia", password=SENHA_TESTE), nome="P"
         )
         outra_disc = Disciplina.objects.create(prova=outra_prova, nome="D")
         alheio = Topico.objects.create(disciplina=outra_disc, nome="Alheio")
@@ -374,7 +375,7 @@ class LeituraTopicoTests(TestCase):
 
 class OrdemTopicosTests(TestCase):
     def test_mais_questoes_primeiro_e_sobras_por_ultimo(self):
-        user = User.objects.create_user("ana3", password="x")
+        user = User.objects.create_user("ana3", password=SENHA_TESTE)
         prova = Prova.objects.create(user=user, nome="P")
         disc = Disciplina.objects.create(prova=prova, nome="D")
         from .models import NOME_TOPICO_SOBRAS
@@ -396,7 +397,7 @@ class ContinuarLendoTests(TestCase):
     """Atalho da dashboard para o último tópico aberto."""
 
     def setUp(self):
-        self.user = User.objects.create_user("leitor2", password="x")
+        self.user = User.objects.create_user("leitor2", password=SENHA_TESTE)
         prova = Prova.objects.create(user=self.user, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
         self.t1 = Topico.objects.create(disciplina=self.disc, nome="Tema A", ordem=0)
@@ -537,7 +538,7 @@ class RevisaoTests(TestCase):
     """Autoteste com as questões dos tópicos já lidos."""
 
     def setUp(self):
-        self.user = User.objects.create_user("rod", password="x")
+        self.user = User.objects.create_user("rod", password=SENHA_TESTE)
         prova = Prova.objects.create(user=self.user, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=prova, nome="Direito")
         self.lido = Topico.objects.create(disciplina=self.disc, nome="Lido", ordem=0)
@@ -597,7 +598,7 @@ class RevisaoTests(TestCase):
         self.assertFalse(RespostaRevisao.objects.get(user=self.user, questao=self.q_lida).correta)
 
     def test_nao_responde_questao_de_outro_usuario(self):
-        outro = User.objects.create_user("bia", password="x")
+        outro = User.objects.create_user("bia", password=SENHA_TESTE)
         outra_prova = Prova.objects.create(user=outro, nome="P")
         outra_disc = Disciplina.objects.create(prova=outra_prova, nome="D")
         alheia = Questao.objects.create(disciplina=outra_disc, numero=1, gabarito="A")
@@ -616,7 +617,7 @@ class RevisaoTests(TestCase):
 
     def test_selecao_ignora_questao_de_outro_usuario(self):
         outra_prova = Prova.objects.create(
-            user=User.objects.create_user("bia", password="x"), nome="P"
+            user=User.objects.create_user("bia", password=SENHA_TESTE), nome="P"
         )
         alheia = Questao.objects.create(
             disciplina=Disciplina.objects.create(prova=outra_prova, nome="D"),

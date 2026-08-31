@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from accounts.testing import SENHA_TESTE
 from ai.models import ResultadoPrompt, TextoTopico
 from exams.models import Disciplina, Prova
 from prompts.models import Prompt
@@ -13,7 +14,7 @@ User = get_user_model()
 
 class RelatorioTests(TestCase):
     def setUp(self):
-        self.u = User.objects.create_user("ana", password="x")
+        self.u = User.objects.create_user("ana", password=SENHA_TESTE)
         self.prova = Prova.objects.create(user=self.u, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
         self.prompt = Prompt.objects.create(user=self.u, nome="Explicar", texto="Explique.")
@@ -59,7 +60,7 @@ class RelatorioTests(TestCase):
 
 class RelatorioTopicosTests(TestCase):
     def setUp(self):
-        self.u = User.objects.create_user("ana", password="x")
+        self.u = User.objects.create_user("ana", password=SENHA_TESTE)
         self.prova = Prova.objects.create(user=self.u, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
         self.q1 = Questao.objects.create(

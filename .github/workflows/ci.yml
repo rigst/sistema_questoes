@@ -12,8 +12,15 @@ permissions:
 
 jobs:
   ci:
-    uses: rigst/ci/.github/workflows/python-django.yml@v1
-    secrets: inherit
+    # Fixado no SHA, e não na tag v1: tag é ponteiro móvel, e quem puder
+    # reescrevê-la passa a rodar código arbitrário com os secrets deste repo.
+    # O comentário ao lado é o que o Dependabot lê para propor a subida.
+    uses: rigst/ci/.github/workflows/python-django.yml@934b4f046dcedc840ec32b9886d5bf5d99e58812 # v1
+    # Explícito em vez de `secrets: inherit`: o workflow chamado recebe só
+    # estes dois, e não tudo que o repositório tiver hoje ou vier a ter.
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     with:
       python-version: "3.12"
       django-settings-module: config.settings.production
@@ -43,7 +50,64 @@ jobs:
         # media/tmp não vem no repositório.
         FILE_UPLOAD_TEMP_DIR=/tmp
 
-      # pytest, bandit e pip-audit saíram do soft-fail: já estão limpos.
-      # Restam 8 achados de ruff que exigem decisão caso a caso (B904, DJ012,
-      # E741 e afins) e o mypy, com o código ainda sem anotação de tipo.
-      soft-fail: "ruff,mypy"
+      # O cadastro público responde 404 enquanto ALLOW_PUBLIC_SIGNUP for False,
+      # e é uma das telas que a auditoria de acessibilidade precisa ver.
+      test-env: |
+        ALLOW_PUBLIC_SIGNUP=True
+
+      # Nada em soft-fail: toda etapa bloqueia, inclusive as cinco novas.
+      # ruff e mypy já foram zerados, um a um, sem nenhum `# type: ignore` —
+      # portão que fecha sobre exceção declarada não protege do caso seguinte.
+      soft-fail: ""
+
+      # --- conformidade ---
+      run-licencas: true
+      run-sbom: true
+
+      # Confere o requirements.lock contra o requirements.txt (que passou a
+      # trazer pin exato, vindo do `pip freeze` do servidor) e instala com
+      # --require-hashes. Resolvido para 3.12, a versão que produção roda.
+      run-lock: true
+
+      # --- ponta a ponta ---
+      run-e2e: true
+
+      # --- acessibilidade ---
+      # Seis telas públicas. /termos/ e /privacidade/ só entram porque o setup
+      # abaixo publica os documentos: sem eles a view levanta Http404 de
+      # propósito, e auditar página de erro não diz nada.
+      run-a11y: true
+      a11y-setup-command: python manage.py importar_documentos_legais --publicar
+      a11y-paths: |
+        /login/
+        /accounts/cadastro/
+        /termos/
+        /privacidade/
+        /legal/aceite/
+        /admin/login/
+      # Medido antes de ligar: sete violações, todas corrigidas (contraste do
+      # accent, do rodapé, do botão do leitor e do laranja do admin; mais links
+      # distinguidos só pela cor). Zero violações hoje em WCAG 2.1 AA, então o
+      # limite fica no padrão `serious`.
+      a11y-fail-on: serious
+
+      # Desligado nas PRs do Dependabot: o GitHub não entrega os secrets do
+      # Actions a esse ator, e sem o SONAR_TOKEN o scanner falha com
+      # "Not authorized" — travando toda atualização de dependência, já que o
+      # job `CI` é obrigatório no branch protection.
+      run-sonar: ${{ github.actor != 'dependabot[bot]' }}
+      sonar-project-key: rigst_sistema_questoes
+      sonar-organization: rigst
+      # `qualitygate.wait`: sem isto o job termina verde assim que envia a
+      # análise, e o gate reprovando não aparece no CI.
+      #
+      # `scripts/**` e `deploy/**` saem da análise: são ferramentas de
+      # desenvolvedor e de operação que a aplicação nunca importa, já omitidas
+      # do .coveragerc e do testpaths.
+      #
+      # As duas listas repetem a do pipeline compartilhado porque propriedade
+      # repetida no scanner é substituída, não somada.
+      sonar-args: >-
+        -Dsonar.qualitygate.wait=true
+        -Dsonar.exclusions=**/migrations/**,**/staticfiles/**,**/node_modules/**,**/venv/**,**/.venv/**,**/*.jpg,**/*.jpeg,**/*.png,**/*.gif,**/*.ico,**/*.webp,**/*.pdf,**/*.woff,**/*.woff2,**/*.ttf,**/*.eot,scripts/**,deploy/**
+        -Dsonar.coverage.exclusions=**/migrations/**,**/tests.py,**/tests_*.py,**/test_*.py,**/tests/**,**/conftest.py,**/settings/**,**/manage.py,**/wsgi.py,**/asgi.py,scripts/**,deploy/**
