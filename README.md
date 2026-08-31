@@ -47,9 +47,11 @@ python manage.py test
 
 ## Deploy contínuo
 
-Push em `main` que passar no CI é implantado sozinho em produção via
+O merge de um PR em `main` que passar no CI é implantado sozinho em produção via
 `.github/workflows/deploy.yml` + `deploy/cd-deploy.sh` — o workflow
 reutilizável `deploy-django.yml` do `rigst/ci` dispara o script por SSH.
+A branch `main` tem proteção ativa (checks obrigatórios, sem push direto nem
+pra admin); mudanças sempre entram por PR, sem exigir aprovação de terceiros.
 Procedimento completo, geração de chave e rollback manual: RUNBOOK.md do
 `rigst/ci`, seção 7.
 
