@@ -5,18 +5,19 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from .services import criar_visitante
+from .testing import SENHA_TESTE
 
 User = get_user_model()
 
 
 class ProfileQuotaTests(TestCase):
     def test_profile_criado_no_signal(self):
-        u = User.objects.create_user("joao", password="x")
+        u = User.objects.create_user("joao", password=SENHA_TESTE)
         self.assertTrue(hasattr(u, "profile"))
         self.assertGreater(u.profile.quota_tokens_mes, 0)
 
     def test_registrar_uso_debita_quota(self):
-        u = User.objects.create_user("maria", password="x")
+        u = User.objects.create_user("maria", password=SENHA_TESTE)
         p = u.profile
         p.quota_tokens_mes = 1000
         p.save()
@@ -35,6 +36,11 @@ class ProfileQuotaTests(TestCase):
 
 
 class AuthViewsTests(TestCase):
+    # Testam o padrão desligado explicitamente: o CI agora liga
+    # ALLOW_PUBLIC_SIGNUP=True no ambiente (a auditoria de acessibilidade
+    # precisa de /accounts/cadastro/ acessível), então sem o override aqui
+    # estes dois passariam a testar o cenário errado.
+    @override_settings(ALLOW_PUBLIC_SIGNUP=False)
     def test_login_mostra_visitante_e_esconde_cadastro_por_padrao(self):
         resp = self.client.get("/login/")
         self.assertContains(resp, "Entrar como visitante")
@@ -45,6 +51,7 @@ class AuthViewsTests(TestCase):
         resp = self.client.get("/login/")
         self.assertContains(resp, "Criar conta")
 
+    @override_settings(ALLOW_PUBLIC_SIGNUP=False)
     def test_cadastro_desativado_retorna_404(self):
         resp = self.client.get("/accounts/cadastro/")
         self.assertEqual(resp.status_code, 404)
@@ -69,8 +76,8 @@ class AuthViewsTests(TestCase):
                 "username": "novo_usuario",
                 "first_name": "Novo",
                 "email": "novo@example.com",
-                "password1": "senha-bem-forte-123",
-                "password2": "senha-bem-forte-123",
+                "password1": SENHA_TESTE,
+                "password2": SENHA_TESTE,
                 "aceite_legal": "on",
             },
             follow=True,
@@ -85,8 +92,8 @@ class AuthViewsTests(TestCase):
             "/accounts/cadastro/",
             {
                 "username": "sem_email",
-                "password1": "senha-bem-forte-123",
-                "password2": "senha-bem-forte-123",
+                "password1": SENHA_TESTE,
+                "password2": SENHA_TESTE,
             },
         )
         self.assertEqual(resp.status_code, 200)
@@ -99,7 +106,7 @@ class AuthViewsTests(TestCase):
             {
                 "username": "outro",
                 "email": "outro@example.com",
-                "password1": "senha-bem-forte-123",
+                "password1": SENHA_TESTE,
                 "password2": "diferente-456",
             },
         )
@@ -109,7 +116,7 @@ class AuthViewsTests(TestCase):
     def test_reset_de_senha_envia_email(self):
         from django.core import mail
 
-        user = User.objects.create_user("ana", password="x", email="ana@example.com")
+        user = User.objects.create_user("ana", password=SENHA_TESTE, email="ana@example.com")
         resp = self.client.post("/senha/", {"email": user.email}, follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
