@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.testing import SENHA_TESTE
 from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 from questions.models import Questao, Topico
@@ -86,7 +87,7 @@ def _mock_stream(get_client_mock, resposta_ou_lista):
 
 class BaseIATestCase(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="x")
+        self.user = User.objects.create_user("ana", password=SENHA_TESTE)
         self.prova = Prova.objects.create(user=self.user, nome="Concurso")
         self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
         self.prompt = Prompt.objects.create(
@@ -164,7 +165,7 @@ class AplicarPromptTests(BaseIATestCase):
         self.assertEqual(resultado.status, ResultadoPrompt.Status.CONCLUIDO)
 
     def test_aplicar_nao_acessa_questao_de_outro_usuario(self):
-        outro = User.objects.create_user("bia", password="x")
+        outro = User.objects.create_user("bia", password=SENHA_TESTE)
         self.client.force_login(outro)
         prompt_outro = Prompt.objects.create(user=outro, nome="P", texto="x")
         resp = self.client.post(

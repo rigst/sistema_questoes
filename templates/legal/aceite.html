@@ -40,7 +40,7 @@
                 </header>
                 <div class="legal-corpo legal-corpo--rolagem" tabindex="0" role="region"
                      aria-label="{{ documento.titulo }} — texto completo">
-                    {{ documento.corpo_html|safe }}
+                    {{ documento.corpo_seguro }}
                 </div>
             </section>
         {% endfor %}

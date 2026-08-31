@@ -20,7 +20,7 @@
   /* tinta */
   --text: #1D2534;
   --text-soft: #45526A;
-  --muted: #69758E;
+  --muted: #5A657C;  /* 5,37:1 sobre o cinza do rodapé; o #69758E dava 4,24 */
   --on-header: #F2F4FA;
   --on-header-soft: #9BA6C0;
 
@@ -1275,6 +1275,10 @@ body.modal-open { overflow: hidden; }
 .auth-alt-note:last-child { margin: 0.75rem 0 0; }
 .auth-alt-note a { color: var(--link); }
 
+/* Sublinhado, e não só cor: link dentro de um bloco de texto distinguido
+   apenas pela cor reprova o WCAG 1.4.1 (`link-in-text-block` no axe). */
+.auth-alt-note a { text-decoration: underline; }
+
 /* ---- conteúdo markdown ------------------------------------------------------------ */
 
 .md-content { line-height: 1.7; font-size: 0.94rem; }
@@ -1331,9 +1335,11 @@ body.modal-open { overflow: hidden; }
 .reader-fab-btn {
   width: 42px; height: 42px; border-radius: 50%;
   border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--muted);
+  background: var(--surface); color: var(--text-soft);
   font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
-  cursor: pointer; opacity: 0.55;
+  /* A opacidade compõe com o fundo: --muted a 0.55 resultava em #a9b0bf,
+     2,05:1. --text-soft a 0.85 dá 5,05:1 e mantém o botão recuado. */
+  cursor: pointer; opacity: 0.85;
   box-shadow: var(--shadow-sheet);
   transition: opacity 0.18s, color 0.18s, border-color 0.18s;
 }
@@ -2150,7 +2156,10 @@ body.modal-open { overflow: hidden; }
   --legal-t700: var(--text-soft);
   --legal-t500: var(--muted);
   --legal-accent: var(--accent);
-  --legal-accent-forte: var(--accent-strong);
+  /* --accent-text, e não --accent-strong: este token vira cor de texto
+     (rótulos e links do documento), e o strong é de borda/superfície —
+     #E09E1A sobre branco dá 2,31:1, contra os 4,5:1 do WCAG AA. */
+  --legal-accent-forte: var(--accent-text);
   --legal-danger: var(--danger);
   --legal-warn: var(--warning);
   --legal-raio-lg: var(--radius-lg);
@@ -2524,6 +2533,15 @@ body.modal-open { overflow: hidden; }
 .legal-historico a,
 .confirmacao-texto a,
 .legal-page .link-button { color: var(--legal-accent-forte); }
+
+/* Sublinhado, e não só cor. Link dentro de um bloco de texto distinguido
+   apenas pela cor reprova o WCAG 1.4.1 (o axe acusa como `link-in-text-block`,
+   impacto serious): quem não separa as duas cores não vê que ali há um link. */
+.legal-corpo a,
+.legal-atalhos a,
+.legal-aviso a,
+.legal-historico a,
+.confirmacao-texto a { text-decoration: underline; }
 
 .legal-corpo a:hover,
 .legal-atalhos a:hover,
