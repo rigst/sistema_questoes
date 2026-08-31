@@ -245,9 +245,7 @@ class AdminImutabilidadeTests(TestCase):
 
         self.admin = DocumentoLegalAdmin(DocumentoLegal, AdminSite())
         self.request = self.client.request().wsgi_request
-        self.request.user = Usuario.objects.create_superuser(
-            username="root", password=SENHA_TESTE
-        )
+        self.request.user = Usuario.objects.create_superuser(username="root", password=SENHA_TESTE)
 
     def test_rascunho_e_editavel(self):
         rascunho = criar_documento(publicar=False)
