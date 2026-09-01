@@ -16,8 +16,10 @@
             {% if form.non_field_errors %}
                 <div class="form-errors">{{ form.non_field_errors }}</div>
             {% endif %}
-            {# O aceite sai do laço: o markup genérico põe o label acima do campo,
-               o que ficaria estranho num checkbox. Ele é renderizado no fim. #}
+            {% comment %}
+                O aceite sai do laço: o markup genérico põe o label acima do campo,
+                o que ficaria estranho num checkbox. Ele é renderizado no fim.
+            {% endcomment %}
             {% for field in form %}{% if field.name != 'aceite_legal' %}
                 <div>
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
