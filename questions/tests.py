@@ -1,6 +1,9 @@
+from unittest import mock
+
 import fitz
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -11,7 +14,8 @@ from exams.models import Disciplina, Prova
 from prompts.models import Prompt
 
 from . import extraction
-from .models import LeituraTopico, Questao, RespostaRevisao, Topico
+from .models import ImportacaoPDF, LeituraTopico, Questao, RespostaRevisao, Topico
+from .tasks import processar_importacao
 
 User = get_user_model()
 
@@ -629,3 +633,153 @@ class RevisaoTests(TestCase):
         )
         pks = {d["pk"] for d in r.context["dados"]}
         self.assertEqual(pks, {self.q_lida.pk})
+
+
+class FormsDeQuestaoTests(TestCase):
+    """ImportacaoForm.clean_arquivo e QuestaoForm.clean_enunciado_md não eram
+    exercidos por teste nenhum, apesar de serem a validação que separa upload
+    bom de ruim e o que grava o enunciado formatado."""
+
+    def _pdf(self, nome="prova.pdf"):
+        documento = fitz.open()
+        documento.new_page()
+        conteudo = documento.tobytes()
+        documento.close()
+        return SimpleUploadedFile(nome, conteudo, content_type="application/pdf")
+
+    def test_importacao_recusa_arquivo_que_nao_e_pdf(self):
+        from .forms import ImportacaoForm
+
+        form = ImportacaoForm(files={"arquivo": self._pdf(nome="prova.docx")})
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors["arquivo"], ["Envie um arquivo PDF."])
+
+    def test_importacao_aceita_pdf(self):
+        from .forms import ImportacaoForm
+
+        form = ImportacaoForm(files={"arquivo": self._pdf()})
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_questao_form_grava_o_enunciado_ja_normalizado(self):
+        from .forms import QuestaoForm
+
+        form = QuestaoForm(
+            data={
+                "numero": 1,
+                "gabarito": "A",
+                "enunciado_md": "Enunciado da questão.\nA) primeira\nB) segunda",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["enunciado_md"],
+            "Enunciado da questão.\n\nA) primeira\n\nB) segunda",
+        )
+
+
+class NormalizarEnunciadoBordasTests(TestCase):
+    def test_texto_vazio_volta_igual(self):
+        from .forms import _normalizar_enunciado
+
+        self.assertEqual(_normalizar_enunciado(""), "")
+
+    def test_cadeia_para_no_E_e_ignora_marcador_posterior(self):
+        """A cadeia tem no máximo A–E. Um marcador depois do E — aqui um "A)"
+        que abre a questão seguinte grudada no mesmo bloco — não pode ser
+        anexado, senão o enunciado engoliria a próxima questão."""
+        from .forms import _normalizar_enunciado
+
+        texto = (
+            "Enunciado da questão.\n"
+            "A) primeira\n"
+            "B) segunda\n"
+            "C) terceira\n"
+            "D) quarta\n"
+            "E) quinta\n"
+            "A) alternativa da questão seguinte"
+        )
+        out = _normalizar_enunciado(texto)
+        paras = out.split("\n\n")
+
+        self.assertEqual(len(paras), 6)  # enunciado + A a E
+        self.assertTrue(paras[5].startswith("E) quinta"))
+        self.assertIn("alternativa da questão seguinte", paras[5])
+
+
+class ProcessarImportacaoTests(TestCase):
+    """questions/tasks.py não tinha nenhuma linha coberta, apesar de ser o
+    caminho que transforma um PDF enviado em questões no banco."""
+
+    def setUp(self):
+        self.u = User.objects.create_user("ana", password=SENHA_TESTE)
+        self.prova = Prova.objects.create(user=self.u, nome="Concurso")
+        self.disc = Disciplina.objects.create(prova=self.prova, nome="Direito")
+
+    def _importacao(self, texto=PDF_TEXTO):
+        return ImportacaoPDF.objects.create(
+            disciplina=self.disc,
+            arquivo=SimpleUploadedFile(
+                "prova.pdf", _pdf_bytes(texto), content_type="application/pdf"
+            ),
+        )
+
+    def test_importacao_inexistente_nao_estoura(self):
+        self.assertEqual(processar_importacao(999999), "importação inexistente")
+
+    def test_extrai_as_questoes_e_conclui(self):
+        imp = self._importacao()
+
+        retorno = processar_importacao(imp.pk)
+
+        imp.refresh_from_db()
+        self.assertEqual(imp.status, ImportacaoPDF.Status.CONCLUIDO)
+        self.assertEqual(imp.num_questoes, 2)
+        self.assertEqual(imp.progresso, 100)
+        self.assertEqual(imp.etapa, "Concluído")
+        self.assertIn("2 questões", retorno)
+
+        questoes = Questao.objects.filter(importacao=imp).order_by("numero")
+        self.assertEqual([q.numero for q in questoes], [1, 2])
+        self.assertEqual([q.gabarito for q in questoes], ["A", "D"])
+        # O enunciado é gravado já normalizado, um parágrafo por alternativa.
+        self.assertIn("A) a", questoes[0].enunciado_md)
+        self.assertTrue(all(q.status == Questao.Status.DISPONIVEL for q in questoes))
+
+    def test_numeracao_continua_de_onde_a_disciplina_parou(self):
+        Questao.objects.create(
+            disciplina=self.disc, numero=1, enunciado_md="Já existia", gabarito="A"
+        )
+
+        processar_importacao(self._importacao().pk)
+
+        self.assertEqual(Questao.objects.filter(disciplina=self.disc).count(), 3)
+
+    def test_pdf_sem_questoes_conclui_com_zero(self):
+        imp = self._importacao("Texto qualquer sem numeracao.")
+
+        processar_importacao(imp.pk)
+
+        imp.refresh_from_db()
+        self.assertEqual(imp.status, ImportacaoPDF.Status.CONCLUIDO)
+        self.assertEqual(imp.num_questoes, 0)
+
+    def test_falha_na_extracao_marca_erro_e_propaga(self):
+        """A exceção precisa subir para o Celery registrar a falha, mas a
+        importação tem de ficar marcada como ERRO antes — senão ela fica
+        eternamente em PROCESSANDO na tela."""
+        imp = self._importacao()
+
+        def explodir(*args, **kwargs):
+            raise RuntimeError("pdf corrompido")
+
+        with mock.patch.object(extraction, "extrair", explodir):
+            with self.assertRaises(RuntimeError):
+                processar_importacao(imp.pk)
+
+        imp.refresh_from_db()
+        self.assertEqual(imp.status, ImportacaoPDF.Status.ERRO)
+        self.assertEqual(imp.etapa, "Erro")
+        self.assertIn("pdf corrompido", imp.erro)
