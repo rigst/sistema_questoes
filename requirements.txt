@@ -18,6 +18,7 @@ pillow==12.3.0
 # IA
 anthropic==0.121.0
 # Relatórios
+sentry-sdk==2.68.1
 weasyprint==69.0
 markdown==3.10.3
 # Produção
