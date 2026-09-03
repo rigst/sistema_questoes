@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET
 
 from exams.models import Disciplina, Prova
 from prompts.models import Prompt
@@ -10,6 +11,7 @@ from .models import Relatorio
 from .services import gerar_relatorio, gerar_relatorio_topicos
 
 
+@require_GET
 @login_required
 def lista(request):
     paginator = Paginator(Relatorio.objects.filter(user=request.user), 20)
