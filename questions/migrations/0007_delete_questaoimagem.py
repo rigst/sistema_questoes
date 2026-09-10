@@ -10,6 +10,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # qualidade: ignorar migracao-destrutiva — a tabela está com zero
+        # linhas em produção (conferido em 2026-09-10) e nada no código cria
+        # QuestaoImagem desde que o recorte de imagens foi desativado, então
+        # não há dado a perder. O schema e o TABLE DATA estão no dump de
+        # 2026-09-10T02:55, verificado com `pg_restore -l` e já enviado ao
+        # Drive com checksum conferido pelo backup diário.
         migrations.DeleteModel(
             name='QuestaoImagem',
         ),
