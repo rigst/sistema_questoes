@@ -72,29 +72,30 @@ jobs:
       # Nada em soft-fail: toda etapa bloqueia, inclusive as cinco novas.
       # ruff e mypy já foram zerados, um a um, sem nenhum `# type: ignore` —
       # portão que fecha sobre exceção declarada não protege do caso seguinte.
-      # As etapas de qualidade entram toleradas enquanto o passivo é medido.
-      # Lista vazia significa "nada tolerado": ligá-las sem declarar aqui
-      # reprovaria no primeiro dia.
-      soft-fail: "diff,frontend,layout"
+      # As três etapas de qualidade entraram aqui em 10/09/2026 e saíram no
+      # mesmo dia, com zero achados bloqueantes.
+      soft-fail: ""
 
-      # --- qualidade (primeira rodada: medir, não bloquear) ---
+      # --- qualidade ---
       #
-      # Procedimento da seção 8 do RUNBOOK: rodar, ler o resumo no painel do
-      # job, conferir se algum achado é falso positivo neste projeto, e só
-      # então trocar os `nenhum` por `erro` e tirar do soft-fail.
+      # Apertado em 10/09/2026. A primeira medição acusava 24 quebras de
+      # layout, e nenhuma era real: o servidor devolvia HTTP 400 em todas as
+      # rotas e a etapa media a página de erro do Django. Com o ALLOWED_HOSTS
+      # corrigido, sobram 32 achados, todos aviso — 15 de conteúdo cortado e
+      # 17 de alvo de toque abaixo de 24px.
       run-diff-quality: true
-      diff-quality-fail-on: nenhum
+      diff-quality-fail-on: erro
 
       # frontend-paths precisa ser explícito: o glob de CSS a partir da raiz
       # varre o venv/ inteiro e o job trava sem mensagem de erro.
       run-frontend: true
       frontend-paths: "static"
       template-paths: "templates"
-      frontend-fail-on: nenhum
+      frontend-fail-on: erro
 
       # As mesmas rotas públicas que o a11y já audita.
       run-layout: true
-      layout-fail-on: nenhum
+      layout-fail-on: erro
       layout-setup-command: python manage.py importar_documentos_legais --publicar
       layout-paths: |
         /login/
