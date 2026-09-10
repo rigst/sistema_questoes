@@ -1,12 +1,7 @@
 from django.contrib import admin
-from unfold.admin import ModelAdmin, TabularInline
+from unfold.admin import ModelAdmin
 
-from .models import ImportacaoPDF, Questao, QuestaoImagem, RespostaRevisao
-
-
-class QuestaoImagemInline(TabularInline):
-    model = QuestaoImagem
-    extra = 0
+from .models import ImportacaoPDF, Questao, RespostaRevisao
 
 
 @admin.register(ImportacaoPDF)
@@ -28,7 +23,6 @@ class QuestaoAdmin(ModelAdmin):
     list_display = ("numero", "disciplina", "status", "gabarito", "confianca_extracao")
     list_filter = ("status", "disciplina")
     search_fields = ("enunciado_md",)
-    inlines = [QuestaoImagemInline]
 
 
 @admin.register(RespostaRevisao)
