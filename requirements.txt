@@ -19,7 +19,7 @@ pdfplumber==0.11.10
 pymupdf==1.28.2
 pillow==12.3.0
 # IA
-anthropic==0.121.0
+anthropic==1.4.0
 # Relatórios
 sentry-sdk==2.68.1
 weasyprint==70.0
