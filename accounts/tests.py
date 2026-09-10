@@ -1,7 +1,8 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from .services import criar_visitante
@@ -122,3 +123,13 @@ class AuthViewsTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Redefinição de senha", mail.outbox[0].subject)
         self.assertIn("/senha/redefinir/", mail.outbox[0].body)
+
+
+class MidiaDeTesteTests(SimpleTestCase):
+    def test_a_suite_nao_grava_na_midia_de_producao(self):
+        # A suíte roda com `config.settings.development`, que herda o
+        # MEDIA_ROOT do base — e BASE_DIR é a árvore de produção. Sem a
+        # guarda em base.py, cada rodada deixava relatórios e PDFs de
+        # importação na mídia do servidor.
+        self.assertTrue(settings.IS_TEST)
+        self.assertIn("sistema-questoes-test-media-", str(settings.MEDIA_ROOT))
