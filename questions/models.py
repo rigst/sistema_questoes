@@ -104,29 +104,9 @@ class Questao(models.Model):
     def __str__(self):
         return f"Questão {self.numero} ({self.disciplina.nome})"
 
-    @property
-    def tem_imagens(self):
-        return self.imagens.exists()
-
     def prompts_aplicados(self):
         """IDs de prompts que já possuem resultado salvo nesta questão."""
         return set(self.resultados.values_list("prompt_id", flat=True))
-
-
-class QuestaoImagem(models.Model):
-    """Recorte de imagem/figura associado a uma questão."""
-
-    questao = models.ForeignKey(Questao, on_delete=models.CASCADE, related_name="imagens")
-    imagem = models.ImageField("imagem", upload_to="questoes/%Y/%m/")
-    ordem = models.PositiveIntegerField("ordem", default=0)
-
-    class Meta:
-        verbose_name = "imagem da questão"
-        verbose_name_plural = "imagens das questões"
-        ordering = ["ordem", "id"]
-
-    def __str__(self):
-        return f"Imagem {self.ordem} da questão {self.questao_id}"
 
 
 class LeituraTopico(models.Model):

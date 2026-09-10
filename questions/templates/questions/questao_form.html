@@ -23,14 +23,6 @@
                     {{ form.enunciado_md }}{{ form.enunciado_md.errors }}
                 </div>
             </div>
-            {% if questao.imagens.all %}
-                <p class="form-note">Imagens associadas:</p>
-                <div class="cards-grid">
-                    {% for img in questao.imagens.all %}
-                        <img src="{{ img.imagem.url }}" alt="Imagem {{ img.ordem }}" style="max-width:220px;border:1px solid var(--border,#e5e7eb);border-radius:8px;">
-                    {% endfor %}
-                </div>
-            {% endif %}
             <div class="inline-actions inline-actions-end">
                 <a href="{% url 'questions:questao_detalhe' questao.pk %}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Salvar</button>
