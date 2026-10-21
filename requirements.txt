@@ -17,7 +17,7 @@ python-dotenv==1.2.2
 # Extração de PDF
 pdfplumber==0.11.10
 pymupdf==1.28.2
-pillow==12.3.0
+pillow==13.0.0
 # IA
 anthropic==0.121.0
 # Relatórios
