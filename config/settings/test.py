@@ -13,7 +13,11 @@ o pytest.ini padrão (config.settings.development, SQLite).
 
 import os
 
-from .development import *
+from . import development
+
+# Copia as configurações (o Django só lê nomes em maiúsculas) em vez de
+# `from .development import *`: importação curinga é issue no Sonar (S2208).
+globals().update({nome: valor for nome, valor in vars(development).items() if nome.isupper()})
 
 DATABASES = {
     "default": {
