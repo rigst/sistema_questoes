@@ -33,10 +33,13 @@ jobs:
       django-settings-module: config.settings.production
       source-paths: "accounts ai config exams legal prompts questions reports"
 
-      # Os testes rodam nos settings de desenvolvimento (SQLite), então o job
-      # não precisa de Postgres.
-      test-settings-module: config.settings.development
-      postgres: false
+      # Os testes rodam em PostgreSQL, o mesmo banco de produção: os settings
+      # de teste são os de desenvolvimento com DATABASES trocado pelas DB_* do
+      # django-env abaixo, que apontam para o serviço do job. Em SQLite a suíte
+      # aceitava o que o Postgres recusa (tamanho de varchar, collation,
+      # ordenação, transações).
+      test-settings-module: config.settings.test
+      postgres: true
 
       # Valores fictícios, só para o check --deploy conseguir importar os
       # settings de produção. Nada aqui é segredo real.

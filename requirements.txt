@@ -23,6 +23,10 @@ anthropic==0.121.0
 # Relatórios
 sentry-sdk==2.68.1
 weasyprint==70.0
+# transitiva de weasyprint (via fonttools[woff]): CVE GHSA-9v8h-qqgm-4m35
+# (PYSEC-2026-4322) na 1.2.0, corrigida na 1.2.1. Sai daqui quando o lock
+# resolver >= 1.2.1 sozinho.
+brotli==1.2.1
 markdown==3.10.3
 # Produção
 gunicorn==26.0.0
