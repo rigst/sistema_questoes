@@ -16,7 +16,7 @@ redis==8.1.0
 python-dotenv==1.2.4
 # Extração de PDF
 pdfplumber==0.11.10
-pymupdf==2.1
+pymupdf==1.28.2  # 2.x traz onnxruntime, numpy e networkx (60 -> 250 MB) sem ganho: o app só usa fitz.open/Rect/Matrix
 pillow==13.0.0
 # IA
 anthropic==2.4.0
