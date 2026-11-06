@@ -1,6 +1,7 @@
 """Permissions-Policy e CSP em toda resposta (config/security_headers.py)."""
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 from django.conf import settings
@@ -15,6 +16,32 @@ PERMISSIONS_POLICY_FROTA = (
 CSP = "Content-Security-Policy"
 URL_LOGIN = "/login/"
 URL_ADMIN_LOGIN = "/admin/login/"
+
+
+class _ColetorDeScripts(HTMLParser):
+    """Atributos de cada `<script>` inline (sem `src`) e de handlers `on*=`.
+
+    Parser de HTML em vez de expressão regular: ele normaliza maiúsculas e
+    aspas, que um regex de tag deixa escapar.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.inline = []
+        self.handlers = []
+
+    def handle_starttag(self, tag, attrs):
+        atributos = dict(attrs)
+        if tag == "script" and "src" not in atributos:
+            self.inline.append(atributos)
+        self.handlers.extend(nome for nome in atributos if nome.startswith("on"))
+
+
+def _coletar(html):
+    coletor = _ColetorDeScripts()
+    coletor.feed(html)
+    coletor.close()
+    return coletor
 
 
 class PermissionsPolicyTests(TestCase):
@@ -79,11 +106,10 @@ class ContentSecurityPolicyTests(TestCase):
         resposta = self.client.get("/")
         self.assertEqual(resposta.status_code, 200)
         nonce = self._nonce(resposta[CSP])
-        html = resposta.content.decode()
-        inline = re.findall(r"<script(?![^>]*\bsrc=)([^>]*)>", html)
+        inline = _coletar(resposta.content.decode()).inline
         self.assertTrue(inline, "o dashboard deveria ter script inline")
         for atributos in inline:
-            self.assertIn(f'nonce="{nonce}"', atributos)
+            self.assertEqual(atributos.get("nonce"), nonce)
 
     @override_settings(ENABLE_CSP=False)
     def test_desligavel_por_settings(self):
@@ -101,17 +127,17 @@ class TemplatesSemScriptInlineSemNonceTests(TestCase):
             yield from pasta.rglob("*.html")
 
     def test_todo_script_inline_tem_nonce(self):
-        sem_nonce = []
-        for caminho in self._templates():
-            for atributos in re.findall(r"<script(?![^>]*\bsrc=)([^>]*)>", caminho.read_text()):
-                if "csp_nonce" not in atributos and "application/json" not in atributos:
-                    sem_nonce.append(str(caminho))
+        sem_nonce = [
+            str(caminho)
+            for caminho in self._templates()
+            for atributos in _coletar(caminho.read_text()).inline
+            if "csp_nonce" not in (atributos.get("nonce") or "")
+            and atributos.get("type") != "application/json"
+        ]
         self.assertEqual(sem_nonce, [])
 
     def test_nenhum_handler_inline(self):
         com_handler = [
-            str(caminho)
-            for caminho in self._templates()
-            if re.search(r"<[^>]+\son[a-z]+\s*=", caminho.read_text())
+            str(caminho) for caminho in self._templates() if _coletar(caminho.read_text()).handlers
         ]
         self.assertEqual(com_handler, [])
