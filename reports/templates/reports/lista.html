@@ -96,7 +96,7 @@
     {% endif %}
 </section>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
     var provaSelect = document.getElementById('prova_id');
     var discSelect  = document.getElementById('disciplina_id');

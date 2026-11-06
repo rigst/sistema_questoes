@@ -327,7 +327,7 @@
 </section>
 
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
     var CSRF = document.querySelector('[name=csrfmiddlewaretoken]');
     function csrfToken() { return CSRF ? CSRF.value : ''; }

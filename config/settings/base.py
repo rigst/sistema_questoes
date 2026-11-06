@@ -13,6 +13,16 @@ from dotenv import load_dotenv
 # Carrega variáveis de ambiente do .env
 load_dotenv()
 
+# Depois do load_dotenv, porque os valores leem o .env. Permissions-Policy e
+# CSP, com as justificativas, ficam em config/settings/cabecalhos.py.
+from . import cabecalhos  # noqa: E402
+
+PERMISSIONS_POLICY = cabecalhos.PERMISSIONS_POLICY
+ENABLE_CSP = cabecalhos.ENABLE_CSP
+CONTENT_SECURITY_POLICY = cabecalhos.CONTENT_SECURITY_POLICY
+CONTENT_SECURITY_POLICY_ADMIN = cabecalhos.CONTENT_SECURITY_POLICY_ADMIN
+ADMIN_PATH_PREFIX = cabecalhos.ADMIN_PATH_PREFIX
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -52,6 +62,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Logo depois do SecurityMiddleware: Permissions-Policy e CSP valem para
+    # toda resposta, inclusive as de erro e as de redirecionamento.
+    "config.security_headers.PermissionsPolicyMiddleware",
+    "config.security_headers.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -102,6 +116,7 @@ LEGAL_VISITOR_ACTION = "accounts:entrar_visitante"
 LEGAL_VISITOR_EXTRA: dict[str, str] = {}
 
 ROOT_URLCONF = "config.urls"
+
 
 TEMPLATES = [
     {

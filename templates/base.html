@@ -18,7 +18,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     (function () {
       try {
         var pref = localStorage.getItem("orca-list-view");
@@ -147,7 +147,7 @@
         </div>
     </footer>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     (() => {
       const DRAFT_STORAGE_PREFIX = "codex-draft:";
       const DRAFT_CONTEXT_KEY = "codex-draft-context-v1";
