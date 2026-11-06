@@ -90,7 +90,7 @@
 
 <script src="{% static 'js/marked.min.js' %}"></script>
 <script src="{% static 'js/alternativas.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
   var raw = document.getElementById('enunciado-raw');
   if (!raw) return;

@@ -101,7 +101,7 @@
             <form method="post" action="{% url 'questions:upload' disciplina.pk %}" enctype="multipart/form-data" id="pdf-upload-form" style="margin:0;">
                 {% csrf_token %}
                 <input type="file" id="pdf-file-input" name="arquivo" accept=".pdf"
-                       style="display:none;" onchange="iniciarUploadPdf(this);">
+                       hidden>
                 <label for="pdf-file-input" id="pdf-upload-label" class="btn btn-secondary btn-compact" style="cursor:pointer;display:inline-flex;align-items:center;" title="Importar PDF de questões">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     Importar PDF
@@ -320,7 +320,7 @@
 </section>
 
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function toggleAplicarPrompt() {
   var flagInput = document.getElementById('todas-paginas-input');
   var todasPaginas = flagInput && flagInput.value === '1';
@@ -475,6 +475,11 @@ function formatarTempos(decorrido, eta) {
     };
     xhr.send(fd);
   };
+  // Ligado aqui, e não num `onchange=` no input: a CSP não admite handler inline.
+  var pdfInput = document.getElementById('pdf-file-input');
+  if (pdfInput) {
+    pdfInput.addEventListener('change', function () { window.iniciarUploadPdf(pdfInput); });
+  }
 
   // Se a página carregou com uma importação ainda em andamento, acompanha-a.
   if (panel && panel.dataset.statusUrl) {
@@ -580,7 +585,7 @@ function formatarTempos(decorrido, eta) {
 </script>
 
 <script src="{% static 'js/marked.min.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
   // ---- Render dos textos de tópico (Markdown) ----
   if (typeof marked !== 'undefined') {
