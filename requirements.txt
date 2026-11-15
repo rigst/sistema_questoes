@@ -10,26 +10,26 @@
 # requirements.lock repete a invocação exata usada)
 # O Dependabot bump a linha daqui, mas não conhece o .lock; o job `lock` é
 # quem acusa a divergência entre os dois.
-Django==6.1.2
-celery==5.6.3
+Django==6.1.3
+celery==5.7.0
 redis==8.1.0
 python-dotenv==1.2.4
 # Extração de PDF
 pdfplumber==0.11.10
-pymupdf==1.28.2  # 2.x traz onnxruntime, numpy e networkx (60 -> 250 MB) sem ganho: o app só usa fitz.open/Rect/Matrix
+pymupdf==2.1  # 2.x traz onnxruntime, numpy e networkx (60 -> 250 MB) sem ganho: o app só usa fitz.open/Rect/Matrix
 pillow==13.0.0
 # IA
-anthropic==2.4.0
+anthropic==2.8.0
 # Relatórios
-sentry-sdk==2.73.0
+sentry-sdk==2.74.0
 weasyprint==70.0
 # transitiva de weasyprint (via fonttools[woff]): CVE GHSA-9v8h-qqgm-4m35
 # (PYSEC-2026-4322) na 1.2.0, corrigida na 1.2.1. Sai daqui quando o lock
 # resolver >= 1.2.1 sozinho.
 brotli==1.2.1
-markdown==3.11.2
+markdown==3.11.3
 # Produção
-gunicorn==26.2.0
+gunicorn==27.0.0
 psycopg2-binary==2.9.13
 django-redis==7.0.0
 pyspellchecker==0.9.1
